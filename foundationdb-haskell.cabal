@@ -81,11 +81,13 @@ library
 
   c-sources:           cbits/fdbc_wrapper.c
 
+  ghc-options:         -Wall -g
+
 test-suite tests
-  build-depends:       base >=4.10 && <4.11
+  build-depends:       base >=4.10 && <5
                        , foundationdb-haskell
   default-language:    Haskell2010
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall -Werror -threaded -g
   hs-source-dirs:      tests
   main-is:             Properties.hs
   type:                exitcode-stdio-1.0

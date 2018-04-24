@@ -21,6 +21,9 @@ module FoundationDB (
   , futureGetError
   , futureGetVersion
   , futureGetKey
+  , futureGetCluster
+  , futureGetDatabase
+  , futureGetValue
   , futureGetStringArray
   , FDBKeyValue (..)
   , futureGetKeyValueArray
@@ -71,9 +74,9 @@ module FoundationDB (
   , FDBErrorPredicate (..)
 ) where
 
-import Control.Concurrent (forkFinally)
+import Control.Concurrent (forkFinally, forkIO)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
-import Control.Exception (bracket)
+import Control.Exception (bracket, finally)
 import Control.Monad
 
 import qualified Data.ByteString.Char8 as B
@@ -101,11 +104,9 @@ apiVersion = {#const FDB_API_VERSION#}
 {#fun unsafe select_api_version as selectAPIVersion
   {`Int'} -> `FDBError' FDBError#}
 
--- TODO: these should return error type, not unit
-
 {#fun unsafe setup_network as ^ {} -> `FDBError' FDBError#}
 
-{#fun unsafe run_network as ^ {} -> `FDBError' FDBError#}
+{#fun run_network as ^ {} -> `FDBError' FDBError#}
 
 {#fun unsafe stop_network as ^ {} -> `FDBError' FDBError#}
 
@@ -116,14 +117,17 @@ apiVersion = {#const FDB_API_VERSION#}
 -- `fdb_stop_network`, waits for `fdb_run_network` to return, then returns.
 -- Once this action has finished, it is safe for the program to exit.
 -- Can only be called once per program!
+-- TODO: error handling
 withFoundationDB :: IO a -> IO a
 withFoundationDB m = do
   done <- newEmptyMVar
   selectAPIVersion apiVersion
-  bracket (start done) (stop done) (\_ -> m)
+  setupNetwork
+  start done
+  finally m (stop done)
   where
-    start done = forkFinally runNetwork (\_ -> putMVar done ())
-    stop done _ = stopNetwork >> takeMVar done
+    start done = void $ forkFinally runNetwork (\_ -> putMVar done ())
+    stop done = stopNetwork >> takeMVar done
 
 {#pointer *FDBFuture as Future newtype #}
 
@@ -139,7 +143,7 @@ deriving instance Storable Cluster
 
 {#fun unsafe future_destroy as ^ {`Future'} -> `()'#}
 
-{#fun unsafe future_block_until_ready as ^ {`Future'} -> `FDBError' FDBError#}
+{#fun future_block_until_ready as ^ {`Future'} -> `FDBError' FDBError#}
 
 {#fun unsafe future_is_ready as ^ {`Future'} -> `Bool'#}
 
@@ -152,6 +156,9 @@ deriving instance Storable Cluster
 
 peekIntegral :: (Integral a, Storable a, Num b) => Ptr a -> IO b
 peekIntegral x = fmap fromIntegral $ peek x
+
+peekBool :: Ptr CInt -> IO Bool
+peekBool x = fmap (/= 0) $ peek x
 
 {#fun unsafe future_get_version as ^
   {`Future', alloca- `Int' peekIntegral*} -> `FDBError' FDBError#}
@@ -167,7 +174,31 @@ futureGetKey f = do
   return (err, bs)
 
 {#fun unsafe future_get_cluster as ^
-  {`Future', alloca- `Cluster' peek*} -> `()'#}
+  {`Future', alloca- `Cluster' peek*} -> `FDBError' FDBError#}
+
+
+{#pointer *FDBDatabase as Database newtype #}
+
+deriving instance Show Database
+deriving instance Storable Database
+
+{#fun unsafe future_get_database as ^
+  {`Future', alloca- `Database' peek*} -> `FDBError' FDBError#}
+
+{#fun unsafe future_get_value as futureGetValue_
+  {`Future'
+  , alloca- `Bool' peekBool*
+  , alloca- `Ptr CUChar' peek*
+  , alloca- `Int' peekIntegral*}
+  -> `FDBError' FDBError#}
+
+futureGetValue :: Future -> IO (FDBError, Maybe B.ByteString)
+futureGetValue f = do
+  (err, present, outstr, outlen) <- futureGetValue_ f
+  if present
+     then do bstr <- B.packCStringLen (castPtr outstr, outlen)
+             return (err, Just bstr)
+     else return (err, Nothing)
 
 {#fun unsafe future_get_string_array as futureGetStringArray_
   {`Future', alloca- `Ptr (Ptr CChar)' peek*, alloca- `Int' peekIntegral*}
@@ -227,6 +258,8 @@ futureGetKeyValueArray f = do
   kvs <- peekArray n arr >>= mapM packKeyValue
   return (err, kvs, more)
 
+-- | If empty string is given for FilePath, tries to use the default cluster
+-- file.
 {#fun unsafe create_cluster as ^ {withCString* `FilePath'} -> `Future'#}
 
 {#fun unsafe cluster_destroy as ^ {`Cluster'} -> `()'#}
@@ -237,16 +270,11 @@ futureGetKeyValueArray f = do
 {#fun unsafe cluster_create_database as clusterCreateDatabase_
   {`Cluster', id `Ptr CUChar', `Int'} -> `Future'#}
 
-clusterCreateDatabase :: Cluster -> String -> IO Future
-clusterCreateDatabase cluster dbName =
+clusterCreateDatabase :: Cluster -> IO Future
+clusterCreateDatabase cluster =
   -- TODO: is it safe to free input string when function returns?
-  withCStringLen dbName $ \(arr,len) ->
+  withCStringLen "DB" $ \(arr,len) ->
     clusterCreateDatabase_ cluster (castPtr arr) len
-
-{#pointer *FDBDatabase as Database newtype #}
-
-deriving instance Show Database
-deriving instance Storable Database
 
 {#enum FDBDatabaseOption {underscoreToCase}#}
 
