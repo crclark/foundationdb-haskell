@@ -10,7 +10,6 @@ import Control.Applicative ((<|>))
 import Control.Error
 import Text.XML.Light.Proc (onlyElems)
 import Text.XML.Light.Types
-import Text.XML.Light.Input (parseXMLDoc)
 
 
 data FdbOptionType = FdbOptionType {
@@ -74,10 +73,10 @@ toFdbOption Element{..} = do
   return FdbOption{..}
 
 toFdbOptionType :: Element -> Either ParseError FdbOptionType
-toFdbOptionType elem = do
+toFdbOptionType elm = do
   assertErr ("top-level element not an option type")
-            (qName (elName elem) == "Scope")
+            (qName (elName elm) == "Scope")
   optionType <- attrVal <$>
-                headErr "unnamed top element" (elAttribs elem)
-  options <- mapM toFdbOption (onlyElems $ elContent elem)
+                headErr "unnamed top element" (elAttribs elm)
+  options <- mapM toFdbOption (onlyElems $ elContent elm)
   return FdbOptionType{..}

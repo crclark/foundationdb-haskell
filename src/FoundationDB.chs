@@ -113,16 +113,16 @@ apiVersion = {#const FDB_API_VERSION#}
   -> `FDBError' FDBError#}
 
 networkSetOption :: NetworkOption -> IO FDBError
-networkSetOption (NetworkOptionStringOption enum str) =
+networkSetOption (NetworkOptionString enum str) =
   withCStringLen str $ \(arr, len) ->
     networkSetOption_ enum (castPtr arr) len
-networkSetOption (NetworkOptionIntOption enum i) = alloca $ \iptr -> do
+networkSetOption (NetworkOptionInt enum i) = alloca $ \iptr -> do
   poke iptr i
   networkSetOption_ enum (castPtr iptr) (sizeOf i)
-networkSetOption (NetworkOptionBytesOption enum bs) =
+networkSetOption (NetworkOptionBytes enum bs) =
   B.useAsCStringLen bs $ \(arr, len) ->
     networkSetOption_ enum (castPtr arr) len
-networkSetOption (NetworkOptionFlagOption enum) =
+networkSetOption (NetworkOptionFlag enum) =
   networkSetOption_ enum nullPtr 0
 
 -- | Handles correctly starting up the network connection to the DB.
@@ -298,16 +298,16 @@ clusterCreateDatabase cluster =
   -> `FDBError' FDBError#}
 
 databaseSetOption :: Database -> DatabaseOption -> IO FDBError
-databaseSetOption db (DatabaseOptionStringOption enum str) =
+databaseSetOption db (DatabaseOptionString enum str) =
   withCStringLen str $ \(arr,len) ->
     databaseSetOption_ db enum (castPtr arr) len
-databaseSetOption db (DatabaseOptionIntOption enum i) = alloca $ \iptr -> do
+databaseSetOption db (DatabaseOptionInt enum i) = alloca $ \iptr -> do
   poke iptr i
   databaseSetOption_ db enum (castPtr iptr) 8
-databaseSetOption db (DatabaseOptionBytesOption enum bs) =
+databaseSetOption db (DatabaseOptionBytes enum bs) =
   B.useAsCStringLen bs $ \(arr, len) ->
     databaseSetOption_ db enum (castPtr arr) len
-databaseSetOption db (DatabaseOptionFlagOption enum) =
+databaseSetOption db (DatabaseOptionFlag enum) =
   databaseSetOption_ db enum nullPtr 0
 
 {#pointer *FDBTransaction as Transaction newtype #}
@@ -325,16 +325,16 @@ deriving instance Storable Transaction
   -> `FDBError' FDBError #}
 
 transactionSetOption :: Transaction -> TransactionOption -> IO FDBError
-transactionSetOption t (TransactionOptionStringOption enum str) =
+transactionSetOption t (TransactionOptionString enum str) =
   withCStringLen str $ \(arr, len) ->
     transactionSetOption_ t enum (castPtr arr) len
-transactionSetOption t (TransactionOptionIntOption enum i) = alloca $ \iptr ->
+transactionSetOption t (TransactionOptionInt enum i) = alloca $ \iptr ->
   do poke iptr i
      transactionSetOption_ t enum (castPtr iptr) (sizeOf i)
-transactionSetOption t (TransactionOptionBytesOption enum bs) =
+transactionSetOption t (TransactionOptionBytes enum bs) =
   B.useAsCStringLen bs $ \(arr, len) ->
     transactionSetOption_ t enum (castPtr arr) len
-transactionSetOption t (TransactionOptionFlagOption enum) =
+transactionSetOption t (TransactionOptionFlag enum) =
   transactionSetOption_ t enum nullPtr 0
 
 {#fun unsafe transaction_get_read_version as ^

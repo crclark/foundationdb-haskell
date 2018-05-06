@@ -14,17 +14,11 @@ capitalize [] = []
 capitalize (x:xs) = toUpper x : xs
 
 splitBy :: (a -> Bool) -> [a] -> [[a]]
-splitBy p [] = []
+splitBy _ [] = []
 splitBy p xs =
   let s = takeWhile (not . p) xs
       l = length s
       in s : splitBy p (drop (l+1) xs)
-
-camelCase :: String -> String
-camelCase [] = []
-camelCase str =
-  let (x:xs) = splitBy (== '_') str
-      in x ++ (concatMap capitalize xs)
 
 lowerCamelCase :: String -> String
 lowerCamelCase [] = []
@@ -36,23 +30,23 @@ ty :: String -> Type ()
 ty str = TyCon () (UnQual () (Ident () str))
 
 con :: String -> [Type ()] -> QualConDecl ()
-con name params =
-  QualConDecl () Nothing Nothing (ConDecl () (Ident () name) params)
+con conName params =
+  QualConDecl () Nothing Nothing (ConDecl () (Ident () conName) params)
 
 optName :: FdbOptionType -> String -> String
 optName FdbOptionType{..} suffix = capitalize optionType ++ suffix
 
 stringOptName :: FdbOptionType -> String
-stringOptName o = optName o "StringOption"
+stringOptName o = optName o "String"
 
 intOptName :: FdbOptionType -> String
-intOptName o = optName o "IntOption"
+intOptName o = optName o "Int"
 
 bytesOptName :: FdbOptionType -> String
-bytesOptName o = optName o "BytesOption"
+bytesOptName o = optName o "Bytes"
 
 flagOptName :: FdbOptionType -> String
-flagOptName o = optName o "FlagOption"
+flagOptName o = optName o "Flag"
 
 optionDataDecl :: FdbOptionType -> Decl ()
 optionDataDecl o@FdbOptionType{..} =
@@ -86,26 +80,28 @@ optionFunctionDecl optType FdbOption{..} =
                  (app (var (name (flagOptName optType)))
                       (paren $ intE $ fromIntegral optionCode))
 
-    Just (FdbParam d FdbString) ->
+    Just (FdbParam _ FdbString) ->
       simpleBind (lowerCamelCase optionName)
                  [PVar () (name "str")]
                  (foldl1 app [ var (name (stringOptName optType))
                              , paren $ intE $ fromIntegral optionCode
                              , var (name "str")])
 
-    Just (FdbParam d FdbInt) ->
+    Just (FdbParam _ FdbInt) ->
       simpleBind (lowerCamelCase optionName)
                  [PVar () (name "i")]
                  (foldl1 app [ var (name (intOptName optType))
                              , paren $ intE $ fromIntegral optionCode
                              , var (name "i")])
 
-    Just (FdbParam d FdbBytes) ->
+    Just (FdbParam _ FdbBytes) ->
       simpleBind (lowerCamelCase optionName)
                  [PVar () (name "bs")]
                  (foldl1 app [ var (name (bytesOptName optType))
                              , paren $ intE $ fromIntegral optionCode
                              , var (name "bs")])
+
+    Just (FdbParam _ FdbFlag) -> error "impossible case"
 {-
 modName :: ModuleName ()
 modName = ModuleName () "FoundationDB.Options"
