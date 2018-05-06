@@ -10,6 +10,7 @@ module FoundationDB (
   , setupNetwork
   , runNetwork
   , stopNetwork
+  , networkSetOption
   , withFoundationDB
   -- * Future
   , Future
@@ -35,21 +36,18 @@ module FoundationDB (
   -- * Database
   , Database
   , databaseDestroy
-  , FDBDatabaseOption (..)
-  , databaseSetIntOption
-  , databaseSetStringOption
-  , DatabaseOptions (..)
-  , databaseSetOptions
+  , databaseSetOption
   , databaseCreateTransaction
   -- * Transaction
   , Transaction
   , KeySelector (..)
   , transactionDestroy
-  --TODO: , transactionSetOption
+  , transactionSetOption
   , transactionSetReadVersion
   , transactionGetReadVersion
   , transactionGet
   , transactionGetKey
+  , orEqualOffset
   , transactionGetAddressesForKey
   , transactionGetRange
   , FDBStreamingMode (..)
@@ -74,15 +72,15 @@ module FoundationDB (
   , FDBErrorPredicate (..)
 ) where
 
-import Control.Concurrent (forkFinally, forkIO)
+import FoundationDB.Options
+
+import Control.Concurrent (forkFinally)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
-import Control.Exception (bracket, finally)
+import Control.Exception (finally)
 import Control.Monad
 
 import qualified Data.ByteString.Char8 as B
-import Data.Char (ord)
 import Data.Int (Int64)
-import Data.Maybe (catMaybes)
 
 import Foreign.C.String
 import Foreign.C.Types
@@ -109,6 +107,23 @@ apiVersion = {#const FDB_API_VERSION#}
 {#fun run_network as ^ {} -> `FDBError' FDBError#}
 
 {#fun unsafe stop_network as ^ {} -> `FDBError' FDBError#}
+
+{#fun unsafe network_set_option as networkSetOption_
+  {`Int', id `Ptr CUChar', `Int'}
+  -> `FDBError' FDBError#}
+
+networkSetOption :: NetworkOption -> IO FDBError
+networkSetOption (NetworkOptionStringOption enum str) =
+  withCStringLen str $ \(arr, len) ->
+    networkSetOption_ enum (castPtr arr) len
+networkSetOption (NetworkOptionIntOption enum i) = alloca $ \iptr -> do
+  poke iptr i
+  networkSetOption_ enum (castPtr iptr) (sizeOf i)
+networkSetOption (NetworkOptionBytesOption enum bs) =
+  B.useAsCStringLen bs $ \(arr, len) ->
+    networkSetOption_ enum (castPtr arr) len
+networkSetOption (NetworkOptionFlagOption enum) =
+  networkSetOption_ enum nullPtr 0
 
 -- | Handles correctly starting up the network connection to the DB.
 -- Calls `fdb_select_api_version` with the latest API version,
@@ -276,42 +291,24 @@ clusterCreateDatabase cluster =
   withCStringLen "DB" $ \(arr,len) ->
     clusterCreateDatabase_ cluster (castPtr arr) len
 
-{#enum FDBDatabaseOption {underscoreToCase}#}
-
-deriving instance Eq FDBDatabaseOption
-deriving instance Show FDBDatabaseOption
-
 {#fun unsafe database_destroy as ^ {`Database'} -> `()'#}
 
 {#fun unsafe database_set_option as databaseSetOption_
-  {`Database', `FDBDatabaseOption', id `Ptr CUChar', `Int'}
+  {`Database', `Int', id `Ptr CUChar', `Int'}
   -> `FDBError' FDBError#}
 
-data DatabaseOptions = DatabaseOptions
-  { locationCacheSize :: Maybe Int
-  , maxWatches        :: Maybe Int
-  , machineId         :: Maybe String
-  , datacenterId      :: Maybe String
-  } deriving (Show, Eq)
-
-databaseSetIntOption :: Database -> FDBDatabaseOption -> Int64 -> IO FDBError
-databaseSetIntOption db opt val = alloca $ \iptr -> do
-  poke iptr val
-  databaseSetOption_ db opt (castPtr iptr) 8
-
-databaseSetStringOption :: Database -> FDBDatabaseOption -> String -> IO FDBError
-databaseSetStringOption db opt str = withCStringLen str $ \(arr,len) ->
-  databaseSetOption_ db opt (castPtr arr) len
-
-databaseSetOptions :: Database -> DatabaseOptions -> IO [FDBError]
-databaseSetOptions db DatabaseOptions{..} = do
-  let setInt opt i = databaseSetIntOption db opt (fromIntegral i)
-  let setStr = databaseSetStringOption db
-  catMaybes <$>
-    sequence [ forM locationCacheSize (setInt DbOptionLocationCacheSize)
-             , forM maxWatches (setInt DbOptionMaxWatches)
-             , forM machineId (setStr DbOptionMachineId)
-             , forM datacenterId (setStr DbOptionDatacenterId)]
+databaseSetOption :: Database -> DatabaseOption -> IO FDBError
+databaseSetOption db (DatabaseOptionStringOption enum str) =
+  withCStringLen str $ \(arr,len) ->
+    databaseSetOption_ db enum (castPtr arr) len
+databaseSetOption db (DatabaseOptionIntOption enum i) = alloca $ \iptr -> do
+  poke iptr i
+  databaseSetOption_ db enum (castPtr iptr) 8
+databaseSetOption db (DatabaseOptionBytesOption enum bs) =
+  B.useAsCStringLen bs $ \(arr, len) ->
+    databaseSetOption_ db enum (castPtr arr) len
+databaseSetOption db (DatabaseOptionFlagOption enum) =
+  databaseSetOption_ db enum nullPtr 0
 
 {#pointer *FDBTransaction as Transaction newtype #}
 
@@ -323,36 +320,22 @@ deriving instance Storable Transaction
 
 {#fun unsafe transaction_destroy as ^ {`Transaction'} -> `()'#}
 
-{#enum FDBTransactionOption {underscoreToCase}#}
-
-deriving instance Eq FDBTransactionOption
-deriving instance Show FDBTransactionOption
-
 {#fun unsafe transaction_set_option as transactionSetOption_
-  {`Transaction', `FDBTransactionOption', id `Ptr CUChar', `Int'}
+  {`Transaction', `Int', id `Ptr CUChar', `Int'}
   -> `FDBError' FDBError #}
 
-transactionSetNullaryOption :: Transaction -> FDBTransactionOption -> IO FDBError
-transactionSetNullaryOption t opt =
-  transactionSetOption_ t opt nullPtr 0
-
-transactionSetIntOption :: Transaction
-                        -> FDBTransactionOption
-                        -> Int64
-                        -> IO FDBError
-transactionSetIntOption t opt val = alloca $ \iptr -> do
-  poke iptr val
-  transactionSetOption_ t opt (castPtr iptr) 8
-
-transactionSetStringOption :: Transaction
-                           -> FDBTransactionOption
-                           -> String
-                           -> IO FDBError
-transactionSetStringOption t opt str = withCStringLen str $ \(arr,len) ->
-  transactionSetOption_ t opt (castPtr arr) len
-
--- TODO: data TransactionOptions. Many options are flags, though, so
--- can't use exactly the scheme used for DB options.
+transactionSetOption :: Transaction -> TransactionOption -> IO FDBError
+transactionSetOption t (TransactionOptionStringOption enum str) =
+  withCStringLen str $ \(arr, len) ->
+    transactionSetOption_ t enum (castPtr arr) len
+transactionSetOption t (TransactionOptionIntOption enum i) = alloca $ \iptr ->
+  do poke iptr i
+     transactionSetOption_ t enum (castPtr iptr) (sizeOf i)
+transactionSetOption t (TransactionOptionBytesOption enum bs) =
+  B.useAsCStringLen bs $ \(arr, len) ->
+    transactionSetOption_ t enum (castPtr arr) len
+transactionSetOption t (TransactionOptionFlagOption enum) =
+  transactionSetOption_ t enum nullPtr 0
 
 {#fun unsafe transaction_get_read_version as ^
   {`Transaction'} -> `Future'#}
@@ -457,7 +440,7 @@ transactionGetRange t bk bOrEqual bOffset
                       ek eOrEqual eOffset
                       pairLimit byteLimit
                       streamMode iteratorI
-                      isSnapshotRead reverse =
+                      isSnapshotRead isReverse =
   B.useAsCStringLen bk $ \(bstr, blen) ->
   B.useAsCStringLen ek $ \(estr, elen) ->
   transactionGetRange_ t
@@ -465,7 +448,7 @@ transactionGetRange t bk bOrEqual bOffset
                        (castPtr estr) elen eOrEqual eOffset
                        pairLimit byteLimit
                        streamMode iteratorI
-                       isSnapshotRead reverse
+                       isSnapshotRead isReverse
 
 {#fun unsafe transaction_set as transactionSet_
   {`Transaction'
