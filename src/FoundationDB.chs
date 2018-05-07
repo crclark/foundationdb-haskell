@@ -96,6 +96,10 @@ newtype FDBError = FDBError {getFDBError :: CInt}
 
 deriving instance Show FDBError
 
+-- | Return 'True' iff 'FDBError' value is an error (non-zero).
+isError :: FDBError -> Bool
+isError = (/=0) . getFDBError
+
 apiVersion :: Int
 apiVersion = {#const FDB_API_VERSION#}
 
@@ -144,30 +148,38 @@ withFoundationDB m = do
     start done = void $ forkFinally runNetwork (\_ -> putMVar done ())
     stop done = stopNetwork >> takeMVar done
 
-{#pointer *FDBFuture as Future newtype #}
+newtype Future a = Future (C2HSImp.Ptr (Future a))
 
-deriving instance Show Future
-deriving instance Storable Future
+deriving instance Show (Future a)
+deriving instance Storable (Future a)
+
+inFuture :: Future a -> Ptr ()
+inFuture (Future x) = castPtr x
+
+outFuture ::Ptr () -> Future a
+outFuture p = Future (castPtr p)
 
 {#pointer *FDBCluster as Cluster newtype #}
 
 deriving instance Show Cluster
 deriving instance Storable Cluster
 
-{#fun unsafe future_cancel as ^ {`Future'} -> `()'#}
+{#fun unsafe future_cancel as ^ {inFuture `Future a'} -> `()'#}
 
-{#fun unsafe future_destroy as ^ {`Future'} -> `()'#}
+{#fun unsafe future_destroy as ^ {inFuture `Future a'} -> `()'#}
 
-{#fun future_block_until_ready as ^ {`Future'} -> `FDBError' FDBError#}
+{#fun future_block_until_ready as ^
+  {inFuture `Future a'} -> `FDBError' FDBError#}
 
-{#fun unsafe future_is_ready as ^ {`Future'} -> `Bool'#}
+{#fun unsafe future_is_ready as ^ {inFuture `Future a'} -> `Bool'#}
 
 -- TODO future_set_callback? Haskell has lightweight threads, so might be easier
 -- to just fork and block.
 
-{#fun unsafe future_release_memory as ^ {`Future'} -> `()'#}
+{#fun unsafe future_release_memory as ^ {inFuture `Future a'} -> `()'#}
 
-{#fun unsafe future_get_error as ^ {`Future'} -> `FDBError' FDBError#}
+{#fun unsafe future_get_error as ^
+  {inFuture `Future a'} -> `FDBError' FDBError#}
 
 peekIntegral :: (Integral a, Storable a, Num b) => Ptr a -> IO b
 peekIntegral x = fmap fromIntegral $ peek x
@@ -176,20 +188,30 @@ peekBool :: Ptr CInt -> IO Bool
 peekBool x = fmap (/= 0) $ peek x
 
 {#fun unsafe future_get_version as ^
-  {`Future', alloca- `Int' peekIntegral*} -> `FDBError' FDBError#}
-
-{#fun unsafe future_get_key as futureGetKey_
-  {`Future', alloca- `Ptr CUChar' peek*, alloca- `Int' peekIntegral*}
+  {inFuture `Future Int64', alloca- `Int64' peekIntegral*}
   -> `FDBError' FDBError#}
 
-futureGetKey :: Future -> IO (FDBError, B.ByteString)
+{#fun unsafe future_get_key as futureGetKey_
+  {inFuture `Future a', alloca- `Ptr CUChar' peek*, alloca- `Int' peekIntegral*}
+  -> `FDBError' FDBError#}
+
+-- TODO: fix error handling. We shouldn't try to pack a bytestring unless
+-- err is 0. Otherwise, cs and l are undefined.
+-- Should we add ExceptT to this layer? Or at least IO (Either err a)?
+-- Retrying is provided by a helper function:
+-- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
+-- Need to also make a new error sum type that represents the error codes
+-- https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes
+-- and NOT create an error unless FDBError is actually non-zero. If I get an
+-- error type, there should actually be an error.
+futureGetKey :: Future B.ByteString -> IO (FDBError, B.ByteString)
 futureGetKey f = do
   (err, cs, l) <- futureGetKey_ f
   bs <- B.packCStringLen (castPtr cs, l)
   return (err, bs)
 
 {#fun unsafe future_get_cluster as ^
-  {`Future', alloca- `Cluster' peek*} -> `FDBError' FDBError#}
+  {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `FDBError' FDBError#}
 
 
 {#pointer *FDBDatabase as Database newtype #}
@@ -198,16 +220,18 @@ deriving instance Show Database
 deriving instance Storable Database
 
 {#fun unsafe future_get_database as ^
-  {`Future', alloca- `Database' peek*} -> `FDBError' FDBError#}
+  {inFuture `Future Database', alloca- `Database' peek*}
+  -> `FDBError' FDBError#}
 
 {#fun unsafe future_get_value as futureGetValue_
-  {`Future'
+  {inFuture `Future a'
   , alloca- `Bool' peekBool*
   , alloca- `Ptr CUChar' peek*
   , alloca- `Int' peekIntegral*}
   -> `FDBError' FDBError#}
 
-futureGetValue :: Future -> IO (FDBError, Maybe B.ByteString)
+futureGetValue :: Future (Maybe B.ByteString)
+               -> IO (FDBError, Maybe B.ByteString)
 futureGetValue f = do
   (err, present, outstr, outlen) <- futureGetValue_ f
   if present
@@ -216,10 +240,12 @@ futureGetValue f = do
      else return (err, Nothing)
 
 {#fun unsafe future_get_string_array as futureGetStringArray_
-  {`Future', alloca- `Ptr (Ptr CChar)' peek*, alloca- `Int' peekIntegral*}
+  {inFuture `Future a'
+  , alloca- `Ptr (Ptr CChar)' peek*
+  , alloca- `Int' peekIntegral*}
   -> `FDBError' FDBError#}
 
-futureGetStringArray :: Future -> IO (FDBError, [B.ByteString])
+futureGetStringArray :: Future [B.ByteString] -> IO (FDBError, [B.ByteString])
 futureGetStringArray f = do
   (err, strs, numStrs) <- futureGetStringArray_ f
   strList <- peekArray numStrs strs
@@ -261,13 +287,14 @@ peekFDBBool :: Ptr CInt -> IO Bool
 peekFDBBool p = peek (castPtr p)
 
 {#fun unsafe future_get_keyvalue_array as futureGetKeyValueArray_
-  { `Future'
+  {inFuture `Future a'
   , alloca- `Ptr FDBKeyValue' peekCastFDBKeyValue*
   , alloca- `Int' peekIntegral*
   , alloca- `Bool' peekFDBBool*}
   -> `FDBError' FDBError#}
 
-futureGetKeyValueArray :: Future -> IO (FDBError, [(B.ByteString, B.ByteString)], Bool)
+futureGetKeyValueArray :: Future [(B.ByteString, B.ByteString)]
+                       -> IO (FDBError, [(B.ByteString, B.ByteString)], Bool)
 futureGetKeyValueArray f = do
   (err, arr, n, more) <- futureGetKeyValueArray_ f
   kvs <- peekArray n arr >>= mapM packKeyValue
@@ -275,17 +302,17 @@ futureGetKeyValueArray f = do
 
 -- | If empty string is given for FilePath, tries to use the default cluster
 -- file.
-{#fun unsafe create_cluster as ^ {withCString* `FilePath'} -> `Future'#}
+{#fun unsafe create_cluster as ^
+  {withCString* `FilePath'} -> `Future Cluster' outFuture #}
 
 {#fun unsafe cluster_destroy as ^ {`Cluster'} -> `()'#}
 
--- TODO: cluster_set_option: the input enum has no values yet, so no need to
--- implement yet.
+-- TODO: cluster_set_option.
 
 {#fun unsafe cluster_create_database as clusterCreateDatabase_
-  {`Cluster', id `Ptr CUChar', `Int'} -> `Future'#}
+  {`Cluster', id `Ptr CUChar', `Int'} -> `Future a' outFuture #}
 
-clusterCreateDatabase :: Cluster -> IO Future
+clusterCreateDatabase :: Cluster -> IO (Future Database)
 clusterCreateDatabase cluster =
   -- TODO: is it safe to free input string when function returns?
   withCStringLen "DB" $ \(arr,len) ->
@@ -338,21 +365,24 @@ transactionSetOption t (TransactionOptionFlag enum) =
   transactionSetOption_ t enum nullPtr 0
 
 {#fun unsafe transaction_get_read_version as ^
-  {`Transaction'} -> `Future'#}
+  {`Transaction'} -> `Future Int64' outFuture #}
 
 {#fun unsafe transaction_set_read_version as ^
   {`Transaction', `Int64'} -> `()'#}
 
 {#fun unsafe transaction_get as transactionGet_
-  {`Transaction', id `Ptr CUChar', `Int', `Bool'} -> `Future'#}
+  {`Transaction', id `Ptr CUChar', `Int', `Bool'} -> `Future a' outFuture #}
 
-transactionGet :: Transaction -> B.ByteString -> Bool -> IO Future
+transactionGet :: Transaction
+               -> B.ByteString
+               -> Bool
+               -> IO (Future (Maybe B.ByteString))
 transactionGet t k isSnapshotRead = B.useAsCStringLen k $ \(kstr,klen) ->
   transactionGet_ t (castPtr kstr) klen isSnapshotRead
 
 {#fun unsafe transaction_get_key as transactionGetKey_
   {`Transaction', id `Ptr CUChar', `Int', `Bool', `Int', `Bool'}
-  -> `Future'#}
+  -> `Future a' outFuture #}
 
 data KeySelector =
   LastLessThan B.ByteString
@@ -375,7 +405,7 @@ transactionGetKey :: Transaction
                   -> Bool
                   -> Int
                   -> Bool
-                  -> IO Future
+                  -> IO (Future B.ByteString)
 transactionGetKey t k orEqual offset isSnapshotRead =
   B.useAsCStringLen k $ \(kstr, klen) ->
     transactionGetKey_ t (castPtr kstr) klen orEqual offset isSnapshotRead
@@ -383,11 +413,11 @@ transactionGetKey t k orEqual offset isSnapshotRead =
 {#fun unsafe transaction_get_addresses_for_key
   as transactionGetAddressForKey_
   {`Transaction', id `Ptr CUChar', `Int'}
-  -> `Future'#}
+  -> `Future a' outFuture #}
 
 transactionGetAddressesForKey :: Transaction
                               -> B.ByteString
-                              -> IO Future
+                              -> IO (Future [B.ByteString])
 transactionGetAddressesForKey t k = B.useAsCStringLen k $ \(kstr, klen) ->
   transactionGetAddressForKey_ t (castPtr kstr) klen
 
@@ -407,7 +437,7 @@ deriving instance Show FDBStreamingMode
   , `Int'
   , `Bool'
   , `Bool'}
-  -> `Future'#}
+  -> `Future a' outFuture #}
 
 transactionGetRange :: Transaction
                     -> B.ByteString
@@ -435,7 +465,7 @@ transactionGetRange :: Transaction
                     -- ^ isSnapshotRead
                     -> Bool
                     -- ^ whether to return pairs in reverse order
-                    -> IO Future
+                    -> IO (Future [(B.ByteString, B.ByteString)])
 transactionGetRange t bk bOrEqual bOffset
                       ek eOrEqual eOffset
                       pairLimit byteLimit
@@ -505,25 +535,25 @@ transactionAtomicOp t k arg mutation =
   B.useAsCStringLen arg $ \(argstr, arglen) ->
   transactionAtomicOp_ t (castPtr kstr) klen (castPtr argstr) arglen mutation
 
-{#fun unsafe transaction_commit as ^ {`Transaction'} -> `Future'#}
+{#fun unsafe transaction_commit as ^ {`Transaction'} -> `Future a' outFuture #}
 
 {#fun unsafe transaction_get_committed_version as ^
   {`Transaction', alloca- `Int'} -> `FDBError' FDBError#}
 
 {#fun unsafe transaction_get_versionstamp as ^
-  {`Transaction'} -> `Future'#}
+  {`Transaction'} -> `Future a' outFuture #}
 
 {#fun unsafe transaction_watch as transactionWatch_
   {`Transaction', id `Ptr CUChar', `Int'}
-  -> `Future'#}
+  -> `Future a' outFuture #}
 
-transactionWatch :: Transaction -> B.ByteString -> IO Future
+transactionWatch :: Transaction -> B.ByteString -> IO (Future ())
 transactionWatch t k = B.useAsCStringLen k $ \(kstr, klen) ->
   transactionWatch_ t (castPtr kstr) klen
 
 {#fun unsafe transaction_on_error as ^
   {`Transaction', getFDBError `FDBError'}
-  -> `Future'#}
+  -> `Future ()' outFuture #}
 
 {#fun unsafe transaction_reset as ^
   {`Transaction'} -> `()'#}
