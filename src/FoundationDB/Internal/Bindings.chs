@@ -195,20 +195,19 @@ peekBool x = fmap (/= 0) $ peek x
   {inFuture `Future a', alloca- `Ptr CUChar' peek*, alloca- `Int' peekIntegral*}
   -> `CFDBError' CFDBError#}
 
--- TODO: fix error handling. We shouldn't try to pack a bytestring unless
--- err is 0. Otherwise, cs and l are undefined.
--- Should we add ExceptT to this layer? Or at least IO (Either err a)?
 -- Retrying is provided by a helper function:
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 -- Need to also make a new error sum type that represents the error codes
 -- https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes
 -- and NOT create an error unless CFDBError is actually non-zero. If I get an
 -- error type, there should actually be an error.
-futureGetKey :: Future B.ByteString -> IO (CFDBError, B.ByteString)
+futureGetKey :: Future B.ByteString -> IO (Either CFDBError B.ByteString)
 futureGetKey f = do
   (err, cs, l) <- futureGetKey_ f
-  bs <- B.packCStringLen (castPtr cs, l)
-  return (err, bs)
+  if isError err
+    then return $ Left err
+    else do bs <- B.packCStringLen (castPtr cs, l)
+            return $ Right bs
 
 {#fun unsafe future_get_cluster as ^
   {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
@@ -231,13 +230,14 @@ deriving instance Storable Database
   -> `CFDBError' CFDBError#}
 
 futureGetValue :: Future (Maybe B.ByteString)
-               -> IO (CFDBError, Maybe B.ByteString)
+               -> IO (Either CFDBError (Maybe B.ByteString))
 futureGetValue f = do
   (err, present, outstr, outlen) <- futureGetValue_ f
-  if present
-     then do bstr <- B.packCStringLen (castPtr outstr, outlen)
-             return (err, Just bstr)
-     else return (err, Nothing)
+  case (isError err, present) of
+    (True, _) -> return $ Left err
+    (False, False) -> return $ Right Nothing
+    (False, True) -> do bstr <- B.packCStringLen (castPtr outstr, outlen)
+                        return $ Right $ Just bstr
 
 {#fun unsafe future_get_string_array as futureGetStringArray_
   {inFuture `Future a'
@@ -245,12 +245,15 @@ futureGetValue f = do
   , alloca- `Int' peekIntegral*}
   -> `CFDBError' CFDBError#}
 
-futureGetStringArray :: Future [B.ByteString] -> IO (CFDBError, [B.ByteString])
+futureGetStringArray :: Future [B.ByteString]
+                     -> IO (Either CFDBError [B.ByteString])
 futureGetStringArray f = do
   (err, strs, numStrs) <- futureGetStringArray_ f
-  strList <- peekArray numStrs strs
-  bstrs <- mapM B.packCString strList
-  return (err, bstrs)
+  if isError err
+    then return $ Left err
+    else do strList <- peekArray numStrs strs
+            bstrs <- mapM B.packCString strList
+            return $ Right bstrs
 
 data FDBKeyValue = FDBKeyValue
   { key :: Ptr ()
@@ -294,11 +297,14 @@ peekFDBBool p = peek (castPtr p)
   -> `CFDBError' CFDBError#}
 
 futureGetKeyValueArray :: Future [(B.ByteString, B.ByteString)]
-                       -> IO (CFDBError, [(B.ByteString, B.ByteString)], Bool)
+                       -> IO (Either CFDBError
+                                     ([(B.ByteString, B.ByteString)], Bool))
 futureGetKeyValueArray f = do
   (err, arr, n, more) <- futureGetKeyValueArray_ f
-  kvs <- peekArray n arr >>= mapM packKeyValue
-  return (err, kvs, more)
+  if isError err
+    then return $ Left err
+    else do kvs <- peekArray n arr >>= mapM packKeyValue
+            return $ Right $ (kvs, more)
 
 -- | If empty string is given for FilePath, tries to use the default cluster
 -- file.

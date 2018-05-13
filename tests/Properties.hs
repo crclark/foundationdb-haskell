@@ -34,9 +34,8 @@ main = withFoundationDB $ do
   futureGet <- transactionGet trans2 "foo" False
   err7 <- futureBlockUntilReady futureGet
   printerr err7
-  (err8, mval) <- futureGetValue futureGet
-  printerr err8
-  print mval
+  getRes <- futureGetValue futureGet
+  either printerr print getRes
   transactionDestroy trans2
 
   databaseDestroy db
