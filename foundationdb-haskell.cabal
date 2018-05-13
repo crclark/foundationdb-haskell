@@ -13,7 +13,7 @@ name:                foundationdb-haskell
 version:             0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:            foundationdb C client bindings
+synopsis:            FoundationDB C client bindings
 
 -- A longer description of the package.
 -- description:
@@ -52,8 +52,8 @@ flag with-generate-options
 
 library
   -- Modules exported by the library.
-  exposed-modules:   FoundationDB
-                     , FoundationDB.Options
+  exposed-modules:   FoundationDB.Internal.Bindings
+                     , FoundationDB.Internal.Options
 
   -- Modules included in this library but not exported.
   -- other-modules:

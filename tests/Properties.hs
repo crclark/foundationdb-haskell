@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import FoundationDB
+import FoundationDB.Internal.Bindings
 
 main :: IO ()
 main = withFoundationDB $ do

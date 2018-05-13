@@ -3,7 +3,7 @@
 -- https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options
 -- by the generate-options executable in this project.
 
-module FoundationDB.Options where
+module FoundationDB.Internal.Options where
 
 import Data.ByteString.Char8 (ByteString)
 

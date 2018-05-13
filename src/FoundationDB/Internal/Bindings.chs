@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-module FoundationDB (
+module FoundationDB.Internal.Bindings (
   -- * API versioning
   apiVersion
   , selectAPIVersion
@@ -66,13 +66,13 @@ module FoundationDB (
   , transactionAddConflictRange
   , FDBConflictRangeType (..)
   -- * Error
-  , FDBError
+  , CFDBError
   , getError
   , errorPredicate
   , FDBErrorPredicate (..)
 ) where
 
-import FoundationDB.Options
+import FoundationDB.Internal.Options
 
 import Control.Concurrent (forkFinally)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
@@ -92,31 +92,31 @@ import Foreign.Storable
 
 {#context prefix = "fdb"#}
 
-newtype FDBError = FDBError {getFDBError :: CInt}
+newtype CFDBError = CFDBError {getCFDBError :: CInt}
 
-deriving instance Show FDBError
+deriving instance Show CFDBError
 
--- | Return 'True' iff 'FDBError' value is an error (non-zero).
-isError :: FDBError -> Bool
-isError = (/=0) . getFDBError
+-- | Return 'True' iff 'CFDBError' value is an error (non-zero).
+isError :: CFDBError -> Bool
+isError = (/=0) . getCFDBError
 
 apiVersion :: Int
 apiVersion = {#const FDB_API_VERSION#}
 
 {#fun unsafe select_api_version as selectAPIVersion
-  {`Int'} -> `FDBError' FDBError#}
+  {`Int'} -> `CFDBError' CFDBError#}
 
-{#fun unsafe setup_network as ^ {} -> `FDBError' FDBError#}
+{#fun unsafe setup_network as ^ {} -> `CFDBError' CFDBError#}
 
-{#fun run_network as ^ {} -> `FDBError' FDBError#}
+{#fun run_network as ^ {} -> `CFDBError' CFDBError#}
 
-{#fun unsafe stop_network as ^ {} -> `FDBError' FDBError#}
+{#fun unsafe stop_network as ^ {} -> `CFDBError' CFDBError#}
 
 {#fun unsafe network_set_option as networkSetOption_
   {`Int', id `Ptr CUChar', `Int'}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
-networkSetOption :: NetworkOption -> IO FDBError
+networkSetOption :: NetworkOption -> IO CFDBError
 networkSetOption (NetworkOptionString enum str) =
   withCStringLen str $ \(arr, len) ->
     networkSetOption_ enum (castPtr arr) len
@@ -169,7 +169,7 @@ deriving instance Storable Cluster
 {#fun unsafe future_destroy as ^ {inFuture `Future a'} -> `()'#}
 
 {#fun future_block_until_ready as ^
-  {inFuture `Future a'} -> `FDBError' FDBError#}
+  {inFuture `Future a'} -> `CFDBError' CFDBError#}
 
 {#fun unsafe future_is_ready as ^ {inFuture `Future a'} -> `Bool'#}
 
@@ -179,7 +179,7 @@ deriving instance Storable Cluster
 {#fun unsafe future_release_memory as ^ {inFuture `Future a'} -> `()'#}
 
 {#fun unsafe future_get_error as ^
-  {inFuture `Future a'} -> `FDBError' FDBError#}
+  {inFuture `Future a'} -> `CFDBError' CFDBError#}
 
 peekIntegral :: (Integral a, Storable a, Num b) => Ptr a -> IO b
 peekIntegral x = fmap fromIntegral $ peek x
@@ -189,11 +189,11 @@ peekBool x = fmap (/= 0) $ peek x
 
 {#fun unsafe future_get_version as ^
   {inFuture `Future Int64', alloca- `Int64' peekIntegral*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 {#fun unsafe future_get_key as futureGetKey_
   {inFuture `Future a', alloca- `Ptr CUChar' peek*, alloca- `Int' peekIntegral*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 -- TODO: fix error handling. We shouldn't try to pack a bytestring unless
 -- err is 0. Otherwise, cs and l are undefined.
@@ -202,16 +202,16 @@ peekBool x = fmap (/= 0) $ peek x
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 -- Need to also make a new error sum type that represents the error codes
 -- https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes
--- and NOT create an error unless FDBError is actually non-zero. If I get an
+-- and NOT create an error unless CFDBError is actually non-zero. If I get an
 -- error type, there should actually be an error.
-futureGetKey :: Future B.ByteString -> IO (FDBError, B.ByteString)
+futureGetKey :: Future B.ByteString -> IO (CFDBError, B.ByteString)
 futureGetKey f = do
   (err, cs, l) <- futureGetKey_ f
   bs <- B.packCStringLen (castPtr cs, l)
   return (err, bs)
 
 {#fun unsafe future_get_cluster as ^
-  {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `FDBError' FDBError#}
+  {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
 
 
 {#pointer *FDBDatabase as Database newtype #}
@@ -221,17 +221,17 @@ deriving instance Storable Database
 
 {#fun unsafe future_get_database as ^
   {inFuture `Future Database', alloca- `Database' peek*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 {#fun unsafe future_get_value as futureGetValue_
   {inFuture `Future a'
   , alloca- `Bool' peekBool*
   , alloca- `Ptr CUChar' peek*
   , alloca- `Int' peekIntegral*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 futureGetValue :: Future (Maybe B.ByteString)
-               -> IO (FDBError, Maybe B.ByteString)
+               -> IO (CFDBError, Maybe B.ByteString)
 futureGetValue f = do
   (err, present, outstr, outlen) <- futureGetValue_ f
   if present
@@ -243,9 +243,9 @@ futureGetValue f = do
   {inFuture `Future a'
   , alloca- `Ptr (Ptr CChar)' peek*
   , alloca- `Int' peekIntegral*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
-futureGetStringArray :: Future [B.ByteString] -> IO (FDBError, [B.ByteString])
+futureGetStringArray :: Future [B.ByteString] -> IO (CFDBError, [B.ByteString])
 futureGetStringArray f = do
   (err, strs, numStrs) <- futureGetStringArray_ f
   strList <- peekArray numStrs strs
@@ -291,10 +291,10 @@ peekFDBBool p = peek (castPtr p)
   , alloca- `Ptr FDBKeyValue' peekCastFDBKeyValue*
   , alloca- `Int' peekIntegral*
   , alloca- `Bool' peekFDBBool*}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 futureGetKeyValueArray :: Future [(B.ByteString, B.ByteString)]
-                       -> IO (FDBError, [(B.ByteString, B.ByteString)], Bool)
+                       -> IO (CFDBError, [(B.ByteString, B.ByteString)], Bool)
 futureGetKeyValueArray f = do
   (err, arr, n, more) <- futureGetKeyValueArray_ f
   kvs <- peekArray n arr >>= mapM packKeyValue
@@ -322,9 +322,9 @@ clusterCreateDatabase cluster =
 
 {#fun unsafe database_set_option as databaseSetOption_
   {`Database', `Int', id `Ptr CUChar', `Int'}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
-databaseSetOption :: Database -> DatabaseOption -> IO FDBError
+databaseSetOption :: Database -> DatabaseOption -> IO CFDBError
 databaseSetOption db (DatabaseOptionString enum str) =
   withCStringLen str $ \(arr,len) ->
     databaseSetOption_ db enum (castPtr arr) len
@@ -343,15 +343,15 @@ deriving instance Show Transaction
 deriving instance Storable Transaction
 
 {#fun unsafe database_create_transaction as ^
-  {`Database', alloca- `Transaction' peek*} -> `FDBError' FDBError#}
+  {`Database', alloca- `Transaction' peek*} -> `CFDBError' CFDBError#}
 
 {#fun unsafe transaction_destroy as ^ {`Transaction'} -> `()'#}
 
 {#fun unsafe transaction_set_option as transactionSetOption_
   {`Transaction', `Int', id `Ptr CUChar', `Int'}
-  -> `FDBError' FDBError #}
+  -> `CFDBError' CFDBError #}
 
-transactionSetOption :: Transaction -> TransactionOption -> IO FDBError
+transactionSetOption :: Transaction -> TransactionOption -> IO CFDBError
 transactionSetOption t (TransactionOptionString enum str) =
   withCStringLen str $ \(arr, len) ->
     transactionSetOption_ t enum (castPtr arr) len
@@ -538,7 +538,7 @@ transactionAtomicOp t k arg mutation =
 {#fun unsafe transaction_commit as ^ {`Transaction'} -> `Future a' outFuture #}
 
 {#fun unsafe transaction_get_committed_version as ^
-  {`Transaction', alloca- `Int'} -> `FDBError' FDBError#}
+  {`Transaction', alloca- `Int'} -> `CFDBError' CFDBError#}
 
 {#fun unsafe transaction_get_versionstamp as ^
   {`Transaction'} -> `Future a' outFuture #}
@@ -552,7 +552,7 @@ transactionWatch t k = B.useAsCStringLen k $ \(kstr, klen) ->
   transactionWatch_ t (castPtr kstr) klen
 
 {#fun unsafe transaction_on_error as ^
-  {`Transaction', getFDBError `FDBError'}
+  {`Transaction', getCFDBError `CFDBError'}
   -> `Future ()' outFuture #}
 
 {#fun unsafe transaction_reset as ^
@@ -572,13 +572,13 @@ deriving instance Show FDBConflictRangeType
   , id `Ptr CUChar', `Int'
   , id `Ptr CUChar', `Int'
   , `FDBConflictRangeType'}
-  -> `FDBError' FDBError#}
+  -> `CFDBError' CFDBError#}
 
 transactionAddConflictRange :: Transaction
                             -> B.ByteString
                             -> B.ByteString
                             -> FDBConflictRangeType
-                            -> IO FDBError
+                            -> IO CFDBError
 transactionAddConflictRange t begin end conflictRangeType =
   B.useAsCStringLen begin $ \(beginstr, beginlen) ->
   B.useAsCStringLen end $ \(endstr, endlen) ->
@@ -587,7 +587,7 @@ transactionAddConflictRange t begin end conflictRangeType =
                                (castPtr endstr) endlen
                                conflictRangeType
 
-{#fun unsafe get_error as ^ {getFDBError `FDBError'} -> `String'#}
+{#fun unsafe get_error as ^ {getCFDBError `CFDBError'} -> `String'#}
 
 {#enum FDBErrorPredicate {underscoreToCase}#}
 
@@ -596,5 +596,5 @@ deriving instance Ord FDBErrorPredicate
 deriving instance Show FDBErrorPredicate
 
 {#fun unsafe error_predicate as ^
-  {`FDBErrorPredicate', getFDBError `FDBError'}
+  {`FDBErrorPredicate', getCFDBError `CFDBError'}
   -> `Bool'#}
