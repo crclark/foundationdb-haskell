@@ -41,13 +41,13 @@ module FoundationDB.Internal.Bindings (
   -- * Transaction
   , Transaction
   , KeySelector (..)
+  , keySelectorTuple
   , transactionDestroy
   , transactionSetOption
   , transactionSetReadVersion
   , transactionGetReadVersion
   , transactionGet
   , transactionGetKey
-  , orEqualOffset
   , transactionGetAddressesForKey
   , transactionGetRange
   , FDBStreamingMode (..)
@@ -67,6 +67,7 @@ module FoundationDB.Internal.Bindings (
   , FDBConflictRangeType (..)
   -- * Error
   , CFDBError
+  , isError
   , getError
   , errorPredicate
   , FDBErrorPredicate (..)
@@ -74,7 +75,7 @@ module FoundationDB.Internal.Bindings (
 
 import FoundationDB.Internal.Options
 
-import Control.Concurrent (forkFinally)
+import Control.Concurrent (forkFinally, forkIO, threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
 import Control.Exception (finally)
 import Control.Monad
@@ -93,8 +94,7 @@ import Foreign.Storable
 {#context prefix = "fdb"#}
 
 newtype CFDBError = CFDBError {getCFDBError :: CInt}
-
-deriving instance Show CFDBError
+  deriving (Show, Eq, Ord, Num)
 
 -- | Return 'True' iff 'CFDBError' value is an error (non-zero).
 isError :: CFDBError -> Bool
@@ -197,10 +197,6 @@ peekBool x = fmap (/= 0) $ peek x
 
 -- Retrying is provided by a helper function:
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
--- Need to also make a new error sum type that represents the error codes
--- https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes
--- and NOT create an error unless CFDBError is actually non-zero. If I get an
--- error type, there should actually be an error.
 futureGetKey :: Future B.ByteString -> IO (Either CFDBError B.ByteString)
 futureGetKey f = do
   (err, cs, l) <- futureGetKey_ f
@@ -395,16 +391,19 @@ data KeySelector =
   | LastLessOrEq B.ByteString
   | FirstGreaterThan B.ByteString
   | FirstGreaterOrEq B.ByteString
+  | WithOffset Int KeySelector
   deriving (Show, Eq, Ord)
 
 -- | Convert a 'KeySelector' to its or_equal, offset settings. Equivalent to
 -- the macros @FDB_KEYSEL_LAST_LESS_THAN@ etc.
 -- TODO: user-specifiable offset.
-orEqualOffset :: KeySelector -> (Bool, Int)
-orEqualOffset (LastLessThan _) = (False, 0)
-orEqualOffset (LastLessOrEq _) = (True, 0)
-orEqualOffset (FirstGreaterThan _) = (True, 1)
-orEqualOffset (FirstGreaterOrEq _) = (False, 1)
+keySelectorTuple :: KeySelector -> (B.ByteString, Bool, Int)
+keySelectorTuple (LastLessThan bs) = (bs, False, 0)
+keySelectorTuple (LastLessOrEq bs) = (bs, True, 0)
+keySelectorTuple (FirstGreaterThan bs) = (bs, True, 1)
+keySelectorTuple (FirstGreaterOrEq bs) = (bs, False, 1)
+keySelectorTuple (WithOffset n ks) =
+  (\(x,y,z) -> (x, y, z+n)) (keySelectorTuple ks)
 
 transactionGetKey :: Transaction
                   -> B.ByteString
@@ -541,7 +540,8 @@ transactionAtomicOp t k arg mutation =
   B.useAsCStringLen arg $ \(argstr, arglen) ->
   transactionAtomicOp_ t (castPtr kstr) klen (castPtr argstr) arglen mutation
 
-{#fun unsafe transaction_commit as ^ {`Transaction'} -> `Future a' outFuture #}
+{#fun unsafe transaction_commit as ^
+  {`Transaction'} -> `Future ()' outFuture #}
 
 {#fun unsafe transaction_get_committed_version as ^
   {`Transaction', alloca- `Int'} -> `CFDBError' CFDBError#}

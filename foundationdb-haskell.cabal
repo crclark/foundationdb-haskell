@@ -52,7 +52,8 @@ flag with-generate-options
 
 library
   -- Modules exported by the library.
-  exposed-modules:   FoundationDB.Internal.Bindings
+  exposed-modules:   FoundationDB.Experimental
+                     , FoundationDB.Internal.Bindings
                      , FoundationDB.Internal.Options
 
   -- Modules included in this library but not exported.
@@ -67,6 +68,8 @@ library
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.10 && <5
                        , bytestring >= 0.10.8.2 && <0.11
+                       , mtl
+                       , resourcet
 
   build-tools:         c2hs
 
