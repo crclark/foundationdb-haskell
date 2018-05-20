@@ -1,4 +1,4 @@
-Unfinished Haskell bindings for the FoundationDB C client. Currently consists of one untested module which is 1:1 equivalent to the [functions exported by the C API](https://apple.github.io/foundationdb/api-c.html). The plan is to build an idiomatic Haskell library on top of it, which will probably live in another repository.
+Unfinished Haskell bindings for the FoundationDB C client. Currently contains FFI bindings to all of the C API, plus a WIP `Transaction` monad for running transactions. So far, it's mostly untested.
 
 ### Generating options from `fdb.options`
 
