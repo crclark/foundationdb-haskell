@@ -259,19 +259,19 @@ data FDBKeyValue = FDBKeyValue
   deriving (Show, Eq)
 
 instance Storable FDBKeyValue where
-  sizeOf _ = {#sizeof FDBKeyValue#}
-  alignment _ = {#alignof FDBKeyValue#}
+  sizeOf _ = 24
+  alignment _ = 4
   peek p = do
-    key <- {#get FDBKeyValue->key#} p
-    key_length <- fromIntegral <$> {#get FDBKeyValue->key_length#} p
-    value <- {#get FDBKeyValue->value#} p
-    value_length <- fromIntegral <$> {#get FDBKeyValue->value_length#} p
+    key <- peekByteOff p 0 :: IO (Ptr ())
+    key_length <- fromIntegral <$> (peekByteOff p 8 :: IO CInt)
+    value <- peekByteOff p 12 :: IO (C2HSImp.Ptr ())
+    value_length <- fromIntegral <$> (peekByteOff p 20 :: IO C2HSImp.CInt)
     return FDBKeyValue{..}
   poke p FDBKeyValue{..} = do
-    {#set FDBKeyValue.key#} p key
-    {#set FDBKeyValue.key_length#} p (fromIntegral key_length)
-    {#set FDBKeyValue.value#} p value
-    {#set FDBKeyValue.value_length#} p (fromIntegral value_length)
+    pokeByteOff p 0 (key :: (C2HSImp.Ptr ()))
+    pokeByteOff p 8 (fromIntegral key_length :: C2HSImp.CInt)
+    pokeByteOff p 12 (value :: C2HSImp.Ptr ())
+    pokeByteOff p 20 (fromIntegral value_length :: C2HSImp.CInt)
 
 packKeyValue :: FDBKeyValue -> IO (B.ByteString, B.ByteString)
 packKeyValue FDBKeyValue{..} = do
@@ -279,18 +279,29 @@ packKeyValue FDBKeyValue{..} = do
   v <- B.packCStringLen (castPtr value, value_length)
   return (k,v)
 
-peekCastFDBKeyValue :: Ptr (Ptr ()) -> IO (Ptr FDBKeyValue)
-peekCastFDBKeyValue p = castPtr <$> peek p
+peekCastFDBKeyValue :: Ptr (Ptr FDBKeyValue) -> IO (Ptr FDBKeyValue)
+peekCastFDBKeyValue p = do
+  p' <- peek p
+  return p'
 
 peekFDBBool :: Ptr CInt -> IO Bool
 peekFDBBool p = peek (castPtr p)
 
-{#fun unsafe future_get_keyvalue_array as futureGetKeyValueArray_
-  {inFuture `Future a'
-  , alloca- `Ptr FDBKeyValue' peekCastFDBKeyValue*
-  , alloca- `Int' peekIntegral*
-  , alloca- `Bool' peekFDBBool*}
-  -> `CFDBError' CFDBError#}
+foreign import ccall unsafe "FoundationDB/Internal/Bindings.chs.h fdb_future_get_keyvalue_array"
+  futureGetKeyValueArray_'_ :: ((C2HSImp.Ptr ()) -> ((C2HSImp.Ptr (C2HSImp.Ptr FDBKeyValue)) -> ((C2HSImp.Ptr C2HSImp.CInt) -> ((C2HSImp.Ptr C2HSImp.CInt) -> (IO C2HSImp.CInt)))))
+
+futureGetKeyValueArray_ :: (Future a) -> IO ((CFDBError), (Ptr FDBKeyValue), (Int), (Bool))
+futureGetKeyValueArray_ a1 =
+  let {a1' = inFuture a1} in
+  alloca $ \a2' ->
+  alloca $ \a3' ->
+  alloca $ \a4' ->
+  futureGetKeyValueArray_'_ a1' a2' a3' a4' >>= \res ->
+  let {res' = CFDBError res} in
+  peekCastFDBKeyValue  a2'>>= \a2'' ->
+  peekIntegral  a3'>>= \a3'' ->
+  peekFDBBool  a4'>>= \a4'' ->
+  return (res', a2'', a3'', a4'')
 
 futureGetKeyValueArray :: Future [(B.ByteString, B.ByteString)]
                        -> IO (Either CFDBError

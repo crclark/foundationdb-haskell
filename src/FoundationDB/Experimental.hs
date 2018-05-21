@@ -12,6 +12,7 @@ module FoundationDB.Experimental (
   -- * Initialization
   FDB.withFoundationDB
   , withDatabase
+  , FDB.Database
   -- * Transactions
   , Transaction
   , runTransaction
@@ -287,9 +288,21 @@ atomicOp op k x = do
 -- TODO: retries. note: need to handle unknown results correctly when retrying.
 -- see https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_commit
 
--- | Attempt to commit a transaction against the given database.
-runTransaction :: FDB.Database -> Transaction a -> IO (Either Error a)
-runTransaction db (Transaction t) = do
+-- | Attempt to commit a transaction against the given database. If an
+-- unretryable error occurs, throws an 'Error'. Attempts to retry the
+-- transaction for retryable errors.
+runTransaction :: FDB.Database -> Transaction a -> IO a
+runTransaction db t = do
+  res <- runTransaction' db t
+  case res of
+    Left err -> throwIO err
+    Right x -> return x
+
+-- Attempt to commit a transaction against the given database. If an unretryable
+-- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
+-- errors.
+runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
+runTransaction' db (Transaction t) = do
   runResourceT $ runExceptT $ do
     trans <- createTransactionState db
     flip runReaderT trans $ do
@@ -325,7 +338,7 @@ withDatabase fp f = do
   withCluster fp $ \case
     Left err -> f $ Left err
     Right cluster -> bracket (initDB cluster)
-                             (either (const (return ())) FDB.databaseDestroy)
+                             (either (const (return ())) destroy)
                              f
 
 -- | Errors that can come from the underlying C library.
@@ -400,6 +413,8 @@ data Error =
   | InternalError
   | OtherError {getOtherError :: FDB.CFDBError}
   deriving (Show, Eq, Ord)
+
+instance Exception Error
 
 toError :: FDB.CFDBError -> Error
 toError 0 = error "toError called on successful error code"
