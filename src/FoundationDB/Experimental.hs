@@ -288,6 +288,8 @@ atomicOp op k x = do
 -- TODO: retries. note: need to handle unknown results correctly when retrying.
 -- see https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_commit
 
+-- TODO: way for user to abort transactions.
+
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
 -- transaction for retryable errors.
