@@ -16,6 +16,7 @@ module FoundationDB.Experimental (
   -- * Transactions
   , Transaction
   , runTransaction
+  , setOption
   , get
   , set
   , clear
@@ -38,6 +39,7 @@ module FoundationDB.Experimental (
   , AtomicOp(..)
   -- * Errors
   , Error(..)
+  , retryable
 ) where
 
 import Control.Exception
@@ -50,6 +52,7 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe)
 
 import qualified FoundationDB.Internal.Bindings as FDB
+import qualified FoundationDB.Internal.Options as FDB
 
 -- TODO: it's still unclear what facilities should be in Bindings and what
 -- should be up here. 'fdbEither' and other helpers might work better if they
@@ -124,9 +127,13 @@ fromCExtractor :: FDB.Future b
                -> Transaction (Future a)
 fromCExtractor cFuture rk m =
   return $ Future cFuture $ do
-    res <- m
-    release rk
-    return res
+    futErr <- liftIO $ FDB.futureGetError cFuture
+    if FDB.isError futErr
+      then release rk >> throwError (toError futErr)
+      else do
+        res <- m
+        release rk
+        return res
 
 allocFuture :: IO (FDB.Future b)
             -> (FDB.Future b -> Transaction a)
@@ -146,7 +153,8 @@ commitFuture = do
   (TransactionState t) <- ask
   allocFuture (FDB.transactionCommit t) (const $ return ())
 
--- TODO: interface for snapshot reads.
+-- TODO: interface for snapshot reads. All these hardcoded 'False' values
+-- correspond to `snapshot = False`.
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
 get :: ByteString -> Transaction (Future (Maybe ByteString))
 get key = do
@@ -300,18 +308,41 @@ runTransaction db t = do
     Left err -> throwIO err
     Right x -> return x
 
+-- TODO: the docs say "on receiving an error from fdb_transaction_*", but we're
+-- calling this upon receiving an error from any fdb function. Will that cause
+-- problems?
+-- | Handles the retry logic described in the FDB docs.
+-- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
+withRetry :: Transaction a -> Transaction a
+withRetry t = catchError t $ \err -> do
+  if retryable err
+    then do
+      (TransactionState trans) <- ask
+      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+                       (\f -> return ())
+      await f
+      -- await throws any error on the future, so if we reach here, we can retry
+      withRetry t
+    else throwError err
+
 -- Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
 -- errors.
 runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
-runTransaction' db (Transaction t) = do
+runTransaction' db t = do
   runResourceT $ runExceptT $ do
     trans <- createTransactionState db
-    flip runReaderT trans $ do
+    flip runReaderT trans $ unTransaction $ withRetry $ do
       res <- t
-      commit <- unTransaction $ commitFuture
-      unTransaction $ await commit
+      commit <- commitFuture
+      await commit
       return res
+
+-- | Set one of the transaction options from the underlying C API.
+setOption :: FDB.TransactionOption -> Transaction ()
+setOption opt = do
+  (TransactionState t) <- ask
+  fdbExcept' $ FDB.transactionSetOption t opt
 
 -- TODO: withFoundationDB $ withDatabase is ugly.
 
@@ -552,3 +583,11 @@ toCFDBError ExactModeWithoutLimits = 2210
 toCFDBError UnknownError = 4000
 toCFDBError InternalError = 4100
 toCFDBError (OtherError err) = err
+
+retryable :: Error -> Bool
+retryable e =
+  FDB.errorPredicate FDB.ErrorPredicateRetryable (toCFDBError e)
+
+retryableNotCommitted :: Error -> Bool
+retryableNotCommitted e =
+  FDB.errorPredicate FDB.ErrorPredicateRetryableNotCommitted (toCFDBError e)

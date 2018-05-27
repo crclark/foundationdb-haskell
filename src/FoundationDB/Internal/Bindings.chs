@@ -612,6 +612,6 @@ deriving instance Eq FDBErrorPredicate
 deriving instance Ord FDBErrorPredicate
 deriving instance Show FDBErrorPredicate
 
-{#fun unsafe error_predicate as ^
+{#fun pure unsafe error_predicate as ^
   {`FDBErrorPredicate', getCFDBError `CFDBError'}
   -> `Bool'#}
