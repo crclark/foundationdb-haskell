@@ -52,9 +52,9 @@ flag with-generate-options
 
 library
   -- Modules exported by the library.
-  exposed-modules:   FoundationDB.Experimental
+  exposed-modules:   FoundationDB
                      , FoundationDB.Internal.Bindings
-                     , FoundationDB.Internal.Options
+                     , FoundationDB.Options
 
   -- Modules included in this library but not exported.
   -- other-modules:

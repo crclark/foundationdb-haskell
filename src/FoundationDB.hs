@@ -8,7 +8,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module FoundationDB.Experimental (
+module FoundationDB (
   -- * Initialization
   FDB.withFoundationDB
   , withDatabase
@@ -59,7 +59,7 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe)
 
 import qualified FoundationDB.Internal.Bindings as FDB
-import qualified FoundationDB.Internal.Options as FDB
+import qualified FoundationDB.Options as FDB
 
 -- TODO: it's still unclear what facilities should be in Bindings and what
 -- should be up here. 'fdbEither' and other helpers might work better if they

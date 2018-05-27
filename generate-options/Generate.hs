@@ -146,6 +146,6 @@ generateOptionsModule tys =
   ++ "-- NOTE: This file is generated from fdb.options\n"
   ++ "-- https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options\n"
   ++ "-- by the generate-options executable in this project.\n\n"
-  ++ "module FoundationDB.Internal.Options where\n\n"
+  ++ "module FoundationDB.Options where\n\n"
   ++ "import Data.ByteString.Char8 (ByteString)\n\n"
   ++ unlines (map generateOptionType tys)

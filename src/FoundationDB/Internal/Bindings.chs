@@ -73,7 +73,7 @@ module FoundationDB.Internal.Bindings (
   , FDBErrorPredicate (..)
 ) where
 
-import FoundationDB.Internal.Options
+import FoundationDB.Options
 
 import Control.Concurrent (forkFinally, forkIO, threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)

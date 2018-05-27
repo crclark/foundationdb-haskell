@@ -3,7 +3,7 @@
 -- https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options
 -- by the generate-options executable in this project.
 
-module FoundationDB.Internal.Options where
+module FoundationDB.Options where
 
 import Data.ByteString.Char8 (ByteString)
 
@@ -51,10 +51,10 @@ tlsKeyPath str = NetworkOptionString (46) str
 -- | Set the peer certificate field verification criteria
 tlsVerifyPeers bs = NetworkOptionBytes (47) bs
 
--- | 
+-- |
 buggifyEnable = NetworkOptionFlag (48)
 
--- | 
+-- |
 buggifyDisable = NetworkOptionFlag (49)
 
 -- | Set the probability of a BUGGIFY section being active for the current execution.  Only applies to code paths first traversed AFTER this option is changed.
@@ -123,7 +123,7 @@ causalWriteRisky = TransactionOptionFlag (10)
 -- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a fault or partition
 causalReadRisky = TransactionOptionFlag (20)
 
--- | 
+-- |
 causalReadDisable = TransactionOptionFlag (21)
 
 -- | The next write performed on this transaction will not generate a write conflict range. As a result, other transactions which read the key(s) being modified by the next write will not conflict with this transaction. Care needs to be taken when using this option on a transaction that is shared between multiple threads. When setting this option, write conflict ranges will be disabled on the next write operation, regardless of what thread it is on.
@@ -132,7 +132,7 @@ nextWriteNoWriteConflictRange = TransactionOptionFlag (30)
 -- | Committing this transaction will bypass the normal load balancing across proxies and go directly to the specifically nominated 'first proxy'.
 commitOnFirstProxy = TransactionOptionFlag (40)
 
--- | 
+-- |
 checkWritesEnable = TransactionOptionFlag (50)
 
 -- | Reads performed by a transaction will not see any prior mutations that occured in that transaction, instead seeing the value which was in the database at the transaction's read version. This option may provide a small performance benefit for the client, but also disables a number of client-side optimizations which are beneficial for transactions which tend to read and write the same keys within a single transaction.
@@ -141,10 +141,10 @@ readYourWritesDisable = TransactionOptionFlag (51)
 -- | Deprecated
 readAheadDisable = TransactionOptionFlag (52)
 
--- | 
+-- |
 durabilityDatacenter = TransactionOptionFlag (110)
 
--- | 
+-- |
 durabilityRisky = TransactionOptionFlag (120)
 
 -- | Specifies that this transaction should be treated as highest priority and that lower priority transactions should block behind this one. Use is discouraged outside of low-level tools
@@ -162,10 +162,10 @@ accessSystemKeys = TransactionOptionFlag (301)
 -- | Allows this transaction to read system keys (those that start with the byte 0xFF)
 readSystemKeys = TransactionOptionFlag (302)
 
--- | 
+-- |
 debugDump = TransactionOptionFlag (400)
 
--- | 
+-- |
 debugRetryLogging str = TransactionOptionString (401) str
 
 -- | Enables tracing for this transaction and logs results to the client trace logs. Client trace logging must be enabled to get log output.

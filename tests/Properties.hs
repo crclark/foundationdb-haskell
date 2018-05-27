@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import FoundationDB.Experimental
+import FoundationDB
 
 import Control.Monad
 import Data.ByteString.Char8 (ByteString)
