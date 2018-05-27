@@ -62,3 +62,11 @@ main = withFoundationDB $ do
                                           get k >>= await
               putStrLn "finished transaction"
               v `shouldBe` Just "x"
+
+          describe "transaction cancellation" $ do
+            it "should not commit cancelled transactions" $ do
+              let k = prefix <> "neverCommitted"
+              runTransaction db (set k "test" >> cancel)
+                `shouldThrow` (== TransactionCanceled)
+              v <- runTransaction db $ get k >>= await
+              v `shouldBe` Nothing

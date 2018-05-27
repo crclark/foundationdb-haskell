@@ -20,6 +20,7 @@ module FoundationDB.Experimental (
   , TransactionConfig(..)
   , runTransactionWithConfig
   , runTransactionWithConfig'
+  , cancel
   , withSnapshot
   , setOption
   , get
@@ -111,7 +112,7 @@ createTransactionEnv db conf = do
   liftEither $ fmap (flip TransactionEnv conf) eTrans
 
 -- TODO: this will be exported to users with a MonadIO instance. At first
--- glance, that seems bad, since runTransaction will eventually be doing auto
+-- glance, that seems bad, since runTransaction does auto
 -- retries. I see a few options in various DB libraries on Hackage:
 -- 1. don't allow IO in transactions at all.
 -- 2. don't even create a separate transaction monad; use IO for everything.
@@ -377,6 +378,14 @@ runTransactionWithConfig' conf db t = do
       commit <- commitFuture
       await commit
       return res
+
+-- | Cancel a transaction. The transaction will not be committed, and
+-- will throw 'TransactionCanceled'.
+cancel :: Transaction ()
+cancel = do
+  t <- cTransaction <$> ask
+  liftIO $ FDB.transactionCancel t
+  throwError TransactionCanceled
 
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
