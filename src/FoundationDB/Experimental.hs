@@ -340,7 +340,7 @@ withDatabase fp f = do
   withCluster fp $ \case
     Left err -> f $ Left err
     Right cluster -> bracket (initDB cluster)
-                             (either (const (return ())) destroy)
+                             (either (const (return ())) FDB.databaseDestroy)
                              f
 
 -- | Errors that can come from the underlying C library.
