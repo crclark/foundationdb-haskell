@@ -16,12 +16,18 @@ module FoundationDB.Experimental (
   -- * Transactions
   , Transaction
   , runTransaction
+  , runTransaction'
+  , TransactionConfig(..)
+  , runTransactionWithConfig
+  , runTransactionWithConfig'
+  , withSnapshot
   , setOption
   , get
   , set
   , clear
   , clearRange
   , getKey
+  , getKeyAddresses
   , atomicOp
   , getRange
   , Range(..)
@@ -91,14 +97,18 @@ liftEither = either throwError return
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
 liftFDBError = either (throwError . toError) return
 
-data TransactionState = TransactionState {cTransaction :: FDB.Transaction}
+data TransactionEnv = TransactionEnv {
+  cTransaction :: FDB.Transaction
+  , conf :: TransactionConfig
+  } deriving (Show)
 
-createTransactionState :: FDB.Database
-                       -> ExceptT Error (ResourceT IO) TransactionState
-createTransactionState db = do
+createTransactionEnv :: FDB.Database
+                       -> TransactionConfig
+                       -> ExceptT Error (ResourceT IO) TransactionEnv
+createTransactionEnv db conf = do
   (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
                             (either (const $ return ()) FDB.transactionDestroy)
-  liftEither $ fmap TransactionState eTrans
+  liftEither $ fmap (flip TransactionEnv conf) eTrans
 
 -- TODO: this will be exported to users with a MonadIO instance. At first
 -- glance, that seems bad, since runTransaction will eventually be doing auto
@@ -109,11 +119,11 @@ createTransactionState db = do
 --    so that users can decide whether they want to deal with the risk.
 -- I'm leaning towards 3. We can export both Transaction and TransactionT.
 newtype Transaction a = Transaction
-  {unTransaction :: ReaderT TransactionState (ExceptT Error (ResourceT IO)) a}
+  {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
   deriving (Applicative, Functor, Monad, MonadIO)
 
 deriving instance MonadError Error Transaction
-deriving instance MonadReader TransactionState Transaction
+deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
 data Future a = forall b. Future
@@ -150,34 +160,33 @@ await (Future f e) = do
 
 commitFuture :: Transaction (Future ())
 commitFuture = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   allocFuture (FDB.transactionCommit t) (const $ return ())
 
--- TODO: interface for snapshot reads. All these hardcoded 'False' values
--- correspond to `snapshot = False`.
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
 get :: ByteString -> Transaction (Future (Maybe ByteString))
 get key = do
   t <- ask
-  allocFuture (FDB.transactionGet (cTransaction t) key False)
+  let isSnapshot = snapshotReads (conf t)
+  allocFuture (FDB.transactionGet (cTransaction t) key isSnapshot)
               (\f -> liftIO (FDB.futureGetValue f) >>= liftFDBError)
 
 -- | Set a bytestring key to a bytestring value.
 set :: ByteString -> ByteString -> Transaction ()
 set key val = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   liftIO $ FDB.transactionSet t key val
 
 -- | Delete a key from the DB.
 clear :: ByteString -> Transaction ()
 clear k = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   liftIO $ FDB.transactionClear t k
 
 -- | @clearRange k l@ deletes all keys in the half-open range [k,l).
 clearRange :: ByteString -> ByteString -> Transaction ()
 clearRange k l = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   liftIO $ FDB.transactionClearRange t k l
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
@@ -186,14 +195,15 @@ offset ks n = FDB.WithOffset n ks
 
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
-  (TransactionState t) <- ask
-  let (k, orEqual, offset) = FDB.keySelectorTuple ks
-  allocFuture (FDB.transactionGetKey t k orEqual offset False)
+  t <- cTransaction <$> ask
+  isSnapshot <- snapshotReads . conf <$> ask
+  let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
+  allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
               (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
 
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 getKeyAddresses k = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   allocFuture (FDB.transactionGetAddressesForKey t k)
               (\f -> liftIO (FDB.futureGetStringArray f) >>= liftFDBError)
 
@@ -218,7 +228,8 @@ data RangeResult =
 getRange :: Range
          -> Transaction (Future RangeResult)
 getRange Range{..} = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
+  isSnapshot <- snapshotReads . conf <$> ask
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
   let (endK, endOrEqual, endOffset) = FDB.keySelectorTuple rangeEnd
   let mk = FDB.transactionGetRange t beginK beginOrEqual beginOffset
@@ -226,7 +237,7 @@ getRange Range{..} = do
                                      (fromMaybe 0 rangeLimit) 0
                                      FDB.StreamingModeIterator
                                      1
-                                     False
+                                     isSnapshot
                                      rangeReverse
   let handler bsel esel i lim fut = do
         --TODO: need to return Vector or Array for efficiency
@@ -249,7 +260,7 @@ getRange Range{..} = do
                                                 (fromMaybe 0 lim') 0
                                                 FDB.StreamingModeIterator
                                                 (i+1)
-                                                False
+                                                isSnapshot
                                                 rangeReverse
             res <- allocFuture mk' (handler bsel' esel' (i+1) lim')
             return $ RangeMore kvs res
@@ -290,20 +301,44 @@ toFDBMutationType ByteMax = FDB.MutationTypeByteMax
 
 atomicOp :: AtomicOp -> ByteString -> ByteString -> Transaction ()
 atomicOp op k x = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
 
--- TODO: retries. note: need to handle unknown results correctly when retrying.
--- see https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_commit
+-- | Contains useful options that are not directly exposed by the C API (for
+--   options that are, see 'setOption').
+data TransactionConfig = TransactionConfig {
+  idempotent :: Bool
+  -- ^ When set to 'True' (default is 'False'), running the transaction will
+  -- retry even on errors where the transaction may have completed successfully.
+  -- When 'False', the transaction will retry only when it is guaranteed that
+  -- the transaction was not committed.
+  , snapshotReads :: Bool
+  -- ^ When set to 'True' (default is 'False'), reads will see the effects of
+  -- concurrent transactions, removing the default serializable isolation
+  -- guarantee. To enable this feature selectively within a transaction,
+  -- see 'withSnapshot'.
+} deriving (Show, Read, Eq, Ord)
+
+defaultConfig :: TransactionConfig
+defaultConfig = TransactionConfig False False
 
 -- TODO: way for user to abort transactions.
+
+runTransaction :: FDB.Database -> Transaction a -> IO a
+runTransaction = runTransactionWithConfig defaultConfig
+
+runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
+runTransaction' = runTransactionWithConfig' defaultConfig
 
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
 -- transaction for retryable errors.
-runTransaction :: FDB.Database -> Transaction a -> IO a
-runTransaction db t = do
-  res <- runTransaction' db t
+runTransactionWithConfig :: TransactionConfig
+                         -> FDB.Database
+                         -> Transaction a
+                         -> IO a
+runTransactionWithConfig conf db t = do
+  res <- runTransactionWithConfig' conf db t
   case res of
     Left err -> throwIO err
     Right x -> return x
@@ -315,11 +350,13 @@ runTransaction db t = do
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
-  if retryable err
+  idem <- idempotent . conf <$> ask
+  let shouldRetry = if idem then retryable else retryableNotCommitted
+  if shouldRetry err
     then do
-      (TransactionState trans) <- ask
+      trans <- cTransaction <$> ask
       f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
-                       (\f -> return ())
+                       (const $ return ())
       await f
       -- await throws any error on the future, so if we reach here, we can retry
       withRetry t
@@ -328,20 +365,27 @@ withRetry t = catchError t $ \err -> do
 -- Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
 -- errors.
-runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
-runTransaction' db t = do
+runTransactionWithConfig' :: TransactionConfig
+                          -> FDB.Database
+                          -> Transaction a
+                          -> IO (Either Error a)
+runTransactionWithConfig' conf db t = do
   runResourceT $ runExceptT $ do
-    trans <- createTransactionState db
+    trans <- createTransactionEnv db conf
     flip runReaderT trans $ unTransaction $ withRetry $ do
       res <- t
       commit <- commitFuture
       await commit
       return res
 
+withSnapshot :: Transaction a -> Transaction a
+withSnapshot = local $ \s ->
+  TransactionEnv (cTransaction s) ((conf s) {snapshotReads = True})
+
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()
 setOption opt = do
-  (TransactionState t) <- ask
+  t <- cTransaction <$> ask
   fdbExcept' $ FDB.transactionSetOption t opt
 
 -- TODO: withFoundationDB $ withDatabase is ugly.
