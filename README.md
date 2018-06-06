@@ -1,4 +1,4 @@
-Unfinished Haskell bindings for the FoundationDB C client. Currently contains FFI bindings to all of the C API, plus a WIP `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/master/tests/Properties.hs#L54)). So far, it's mostly untested.
+Unfinished Haskell bindings for the FoundationDB C client. Currently contains FFI bindings to all of the C API, plus a WIP `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/1f8d0ba2c4985d2fe3d8e6fcbc852c01050af9bb/tests/Properties.hs#L48)). So far, it's mostly untested.
 
 ### Generating options from `fdb.options`
 
@@ -16,6 +16,15 @@ You can then invoke it on `fdb.options`.
 ```
 stack exec generate-options -- --file ~/Downloads/fdb.options > src/FoundationDB/Options.hs
 ```
+
+### Running tests
+
+The tests read, write, and delete keys from a database. The database to use in the tests is specified by the `FDB_HASKELL_TEST_CLUSTER_FILE` environment variable. For example, using `stack`, one might invoke the tests like this
+
+```
+FDB_HASKELL_TEST_CLUSTER_FILE=/etc/foundationdb/fdb.cluster stack test
+```
+
 
 ### To do
 
