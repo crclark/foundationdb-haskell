@@ -10,7 +10,8 @@
 
 module FoundationDB (
   -- * Initialization
-  FDB.withFoundationDB
+  FDB.currentAPIVersion
+  , withFoundationDB
   , withDatabase
   , FDB.Database
   -- * Transactions
@@ -49,6 +50,8 @@ module FoundationDB (
   , retryable
 ) where
 
+import Control.Concurrent (forkFinally)
+import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
 import Control.Exception
 import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except
@@ -98,6 +101,13 @@ liftEither = either throwError return
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
 liftFDBError = either (throwError . toError) return
 
+fdbThrowing :: IO FDB.CFDBError -> IO ()
+fdbThrowing a = do
+  e <- a
+  if FDB.isError e
+    then throwIO (toError e)
+    else return ()
+
 data TransactionEnv = TransactionEnv {
   cTransaction :: FDB.Transaction
   , conf :: TransactionConfig
@@ -128,8 +138,8 @@ deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
 data Future a = forall b. Future
-  { cFuture :: FDB.Future b
-  , extractValue :: Transaction a
+  { _cFuture :: FDB.Future b
+  , _extractValue :: Transaction a
   }
 
 fromCExtractor :: FDB.Future b
@@ -323,8 +333,6 @@ data TransactionConfig = TransactionConfig {
 defaultConfig :: TransactionConfig
 defaultConfig = TransactionConfig False False
 
--- TODO: way for user to abort transactions.
-
 runTransaction :: FDB.Database -> Transaction a -> IO a
 runTransaction = runTransactionWithConfig defaultConfig
 
@@ -426,6 +434,28 @@ withDatabase fp f = do
     Right cluster -> bracket (initDB cluster)
                              (either (const (return ())) FDB.databaseDestroy)
                              f
+
+-- | Handles correctly starting up the network connection to the DB.
+-- Calls `fdb_select_api_version` with the latest API version,
+-- runs `fdb_run_network` on a separate thread,
+-- then runs the user-provided action. Finally, on shutdown, calls
+-- `fdb_stop_network`, waits for `fdb_run_network` to return, then returns.
+-- Once this action has finished, it is safe for the program to exit.
+-- Can only be called once per program!
+-- TODO: error handling
+withFoundationDB :: Int
+                 -- ^ Desired API version.
+                 -> IO a
+                 -> IO a
+withFoundationDB version m = do
+  done <- newEmptyMVar
+  fdbThrowing $ FDB.selectAPIVersion version
+  fdbThrowing $ FDB.setupNetwork
+  start done
+  finally m (stop done)
+  where
+    start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
+    stop done = FDB.stopNetwork >> takeMVar done
 
 -- | Errors that can come from the underlying C library.
 -- Most error names are self-explanatory.

@@ -32,7 +32,7 @@ cleanup db = runTransaction db $ do
           go res
 
 main :: IO ()
-main = withFoundationDB $ do
+main = withFoundationDB currentAPIVersion $ do
   mdbPath <- lookupEnv "FDB_HASKELL_TEST_CLUSTER_FILE"
   case mdbPath of
     Nothing -> error "tests require FDB_HASKELL_TEST_CLUSTER_FILE to be set."

@@ -4,14 +4,13 @@
 
 module FoundationDB.Internal.Bindings (
   -- * API versioning
-  apiVersion
+  currentAPIVersion
   , selectAPIVersion
   -- * Network
   , setupNetwork
   , runNetwork
   , stopNetwork
   , networkSetOption
-  , withFoundationDB
   -- * Future
   , Future
   , futureCancel
@@ -75,8 +74,6 @@ module FoundationDB.Internal.Bindings (
 
 import FoundationDB.Options
 
-import Control.Concurrent (forkFinally, forkIO, threadDelay)
-import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
 import Control.Exception (finally)
 import Control.Monad
 
@@ -100,8 +97,8 @@ newtype CFDBError = CFDBError {getCFDBError :: CInt}
 isError :: CFDBError -> Bool
 isError = (/=0) . getCFDBError
 
-apiVersion :: Int
-apiVersion = {#const FDB_API_VERSION#}
+currentAPIVersion :: Int
+currentAPIVersion = {#const FDB_API_VERSION#}
 
 {#fun unsafe select_api_version as selectAPIVersion
   {`Int'} -> `CFDBError' CFDBError#}
@@ -128,25 +125,6 @@ networkSetOption (NetworkOptionBytes enum bs) =
     networkSetOption_ enum (castPtr arr) len
 networkSetOption (NetworkOptionFlag enum) =
   networkSetOption_ enum nullPtr 0
-
--- | Handles correctly starting up the network connection to the DB.
--- Calls `fdb_select_api_version` with the latest API version,
--- runs `fdb_run_network` on a separate thread,
--- then runs the user-provided action. Finally, on shutdown, calls
--- `fdb_stop_network`, waits for `fdb_run_network` to return, then returns.
--- Once this action has finished, it is safe for the program to exit.
--- Can only be called once per program!
--- TODO: error handling
-withFoundationDB :: IO a -> IO a
-withFoundationDB m = do
-  done <- newEmptyMVar
-  selectAPIVersion apiVersion
-  setupNetwork
-  start done
-  finally m (stop done)
-  where
-    start done = void $ forkFinally runNetwork (\_ -> putMVar done ())
-    stop done = stopNetwork >> takeMVar done
 
 newtype Future a = Future (C2HSImp.Ptr (Future a))
 
@@ -327,7 +305,6 @@ futureGetKeyValueArray f = do
 
 clusterCreateDatabase :: Cluster -> IO (Future Database)
 clusterCreateDatabase cluster =
-  -- TODO: is it safe to free input string when function returns?
   withCStringLen "DB" $ \(arr,len) ->
     clusterCreateDatabase_ cluster (castPtr arr) len
 
@@ -407,7 +384,6 @@ data KeySelector =
 
 -- | Convert a 'KeySelector' to its or_equal, offset settings. Equivalent to
 -- the macros @FDB_KEYSEL_LAST_LESS_THAN@ etc.
--- TODO: user-specifiable offset.
 keySelectorTuple :: KeySelector -> (B.ByteString, Bool, Int)
 keySelectorTuple (LastLessThan bs) = (bs, False, 0)
 keySelectorTuple (LastLessOrEq bs) = (bs, True, 0)
