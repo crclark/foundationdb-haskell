@@ -1,12 +1,16 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+module Main where
+
 import FoundationDB
 
 import Control.Monad
 import Data.ByteString.Char8 (ByteString)
 import System.Environment (lookupEnv)
 import Test.Hspec
+
+import Properties.FoundationDB.Layer.Tuple (encodeSpecs)
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
@@ -39,6 +43,7 @@ main = withFoundationDB currentAPIVersion $ do
     Just _ -> withDatabase mdbPath $ \case
       Left e -> error $ "error starting DB: " ++ show e
       Right db -> do
+        hspec encodeSpecs
         hspec $ after_ (cleanup db) $ do
           describe "set and get" $ do
 

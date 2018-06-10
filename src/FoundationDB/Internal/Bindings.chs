@@ -74,9 +74,6 @@ module FoundationDB.Internal.Bindings (
 
 import FoundationDB.Options
 
-import Control.Exception (finally)
-import Control.Monad
-
 import qualified Data.ByteString.Char8 as B
 import Data.Int (Int64)
 

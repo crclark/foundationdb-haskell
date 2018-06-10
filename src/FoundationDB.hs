@@ -94,10 +94,6 @@ fdbExcept' x = do
   e <- liftIO $ fdbEither' x
   liftEither e
 
--- TODO: docs say this is in 2.2.2 of mtl but it's not in the 2.2.2 on stackage.
-liftEither :: MonadError e m => Either e a -> m a
-liftEither = either throwError return
-
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
 liftFDBError = either (throwError . toError) return
 
