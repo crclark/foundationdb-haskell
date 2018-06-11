@@ -57,7 +57,9 @@ library
                      , FoundationDB.Layer.Directory
                      , FoundationDB.Layer.Subspace
                      , FoundationDB.Layer.Tuple
+                     , FoundationDB.Layer.Tuple.Internal
                      , FoundationDB.Options
+                     , FoundationDB.VersionStamp
 
   -- Modules included in this library but not exported.
   -- other-modules:
