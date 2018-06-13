@@ -1,20 +1,19 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StrictData #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module FoundationDB.Layer.Tuple.Internal where
 
 import FoundationDB.VersionStamp
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans (lift)
@@ -24,14 +23,17 @@ import Data.Bits
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
+import Data.Monoid ((<>))
+import Data.Serialize.Get
 import qualified Data.Serialize.IEEE754 as Put
+import Data.Serialize.IEEE754 (getFloat32be, getFloat64be)
 import qualified Data.Serialize.Put as Put
 import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8)
+import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Word (Word8, Word16, Word32, Word64)
 import GHC.Exts
+import GHC.Generics (Generic)
 import GHC.Integer.Logarithms
-import qualified GHC.TypeLits as TL
 import Numeric.Search.Range (searchFromTo)
 
 -- | Crude UUID type to avoid dependency on UUID library. Interconvertible with
@@ -39,22 +41,24 @@ import Numeric.Search.Range (searchFromTo)
 data UUID = UUID Word32 Word32 Word32 Word32
   deriving (Show, Eq, Ord)
 
+-- | Elements of tuples
 data Elem =
-  TNone
-  | TBytes ByteString
-  | TText T.Text
-  | TTuple [Elem]
-  | TInt Int
-  | TFloat Float
-  | TDouble Double
-  | TBool Bool
-  | TUUID Word32 Word32 Word32 Word32
-  | TCVersionStamp (VersionStamp 'Complete)
-  | TIVersionStamp (VersionStamp 'Incomplete)
+  NoneElem
+  | BytesElem ByteString
+  | TextElem T.Text
+  | TupleElem [Elem]
+  | IntElem Int
+  | FloatElem Float
+  | DoubleElem Double
+  | BoolElem Bool
+  | UUIDElem UUID
+  | CompleteVSElem (VersionStamp 'Complete)
+  | IncompleteVSElem (VersionStamp 'Incomplete)
 
 deriving instance Show Elem
 deriving instance Ord Elem
 deriving instance Eq Elem
+deriving instance Generic Elem
 
 sizeLimits :: Array Int Int
 sizeLimits = A.listArray (0,7) [shiftL 1 (i*8) - 1 | i <- [0..7]]
@@ -75,9 +79,9 @@ nullCode = 0x00
 bytesCode = 0x01
 stringCode = 0x02
 nestedCode = 0x05
+negStartCode = 0x0b
 zeroCode = 0x14
 posEndCode = 0x1d
-negStartCode = 0x0b
 floatCode = 0x20
 doubleCode = 0x21
 falseCode = 0x26
@@ -155,20 +159,20 @@ encodePosInt v =
             putWord8 posEndCode
             putWord8 l
             forM_ [l-1,l-2..0] $ \i ->
-              putWord8 ((fromIntegral v `shiftR` (fromIntegral $ 8*i)) .&. 0xff)
+              putWord8 ((fromIntegral v `shiftR` fromIntegral (8*i)) .&. 0xff)
     else do let n = bisectSize v
             putWord8 (zeroCode + fromIntegral n)
             putByteString $ truncatedInt n v
 
 encodeNegInt :: Int -> PutTuple ()
 encodeNegInt v =
-  if (negate v) >= sizeLimits A.! 7
+  if negate v >= sizeLimits A.! 7
     then do let l = fromIntegral (bitLen v + 7 `div` 8)
-            let v' = fromIntegral $ v + (1 `shiftL` (fromIntegral $ 8*l)) - 1
+            let v' = fromIntegral $ v + (1 `shiftL` fromIntegral (8*l)) - 1
             putWord8 negStartCode
             putWord8 (l `xor` 0xff)
             forM_ [l-1,l-2..0] $ \i ->
-              putWord8 ((v' `shiftR` (fromIntegral $ 8*i)) .&. 0xff)
+              putWord8 ((v' `shiftR` fromIntegral (8*i)) .&. 0xff)
     else do let n = bisectSize (negate v)
             let maxv = sizeLimits A.! n
             putWord8 (zeroCode - fromIntegral n)
@@ -176,121 +180,258 @@ encodeNegInt v =
 
 -- | given an IEEE 754 float/double, adjust it for encoding.
 floatAdjust :: Bool -> ByteString -> ByteString
-floatAdjust isEncode bs =
-  if isEncode && (BS.head bs .&. 0x80) /= 0
-    then BS.map (xor 0xff) bs
-    else if not isEncode && (BS.head bs .&. 0x80) /= 0x80
-      then BS.map (xor 0xff) bs
-      else BS.cons (BS.head bs `xor` 0x80) (BS.tail bs)
+floatAdjust isEncode bs
+  | isEncode && (BS.head bs .&. 0x80) /= 0 = BS.map (xor 0xff) bs
+  | not isEncode && (BS.head bs .&. 0x80) /= 0x80 = BS.map (xor 0xff) bs
+  | otherwise = BS.cons (BS.head bs `xor` 0x80) (BS.tail bs)
 
 encodeElem :: Bool
            -- ^ Whether we are inside a nested tuple
            -> Elem
            -- ^ elem to encode
            -> PutTuple ()
-encodeElem True TNone =
+encodeElem True NoneElem =
   putWord8 nullCode >> putWord8 0xff
-encodeElem False TNone =
+encodeElem False NoneElem =
   putWord8 nullCode
-encodeElem _ (TBytes bs) =
+encodeElem _ (BytesElem bs) =
   putWord8 bytesCode >> encodeBytes bs
-encodeElem _ (TText t) =
+encodeElem _ (TextElem t) =
   putWord8 stringCode >> encodeBytes (encodeUtf8 t)
-encodeElem _ (TInt 0) = putWord8 zeroCode
-encodeElem _ (TInt n) = if n > 0 then encodePosInt n else encodeNegInt n
-encodeElem _ (TFloat x) = do
+encodeElem _ (IntElem 0) = putWord8 zeroCode
+encodeElem _ (IntElem n) = if n > 0 then encodePosInt n else encodeNegInt n
+encodeElem _ (FloatElem x) = do
   putWord8 floatCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat32be x
-encodeElem _ (TDouble x) = do
+encodeElem _ (DoubleElem x) = do
   putWord8 doubleCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat64be x
-encodeElem _ (TBool True) = putWord8 trueCode
-encodeElem _ (TBool False) = putWord8 falseCode
-encodeElem _ (TUUID w x y z) = do
+encodeElem _ (BoolElem True) = putWord8 trueCode
+encodeElem _ (BoolElem False) = putWord8 falseCode
+encodeElem _ (UUIDElem (UUID w x y z)) = do
   putWord8 uuidCode
   putWord32be w
   putWord32be x
   putWord32be y
   putWord32be z
-encodeElem _ (TTuple xs) = do
+encodeElem _ (TupleElem xs) = do
   putWord8 nestedCode
   mapM_ (encodeElem True) xs
   putWord8 0x00
-encodeElem _ (TCVersionStamp (CompleteVersionStamp tv tb uv)) = do
+encodeElem _ (CompleteVSElem (CompleteVersionStamp tv tb uv)) = do
   putWord8 versionstampCode
   putWord64be tv
   putWord16be tb
   putWord16be uv
-encodeElem _ (TIVersionStamp (IncompleteVersionStamp uv)) = do
+encodeElem _ (IncompleteVSElem (IncompleteVersionStamp uv)) = do
   putWord8 versionstampCode
   s <- get
   put s{incompleteVersionStampPos = Just $ currLength s}
-  putWord64be 0xffffffffffffffff
-  putWord16be 0xffff
+  putWord64be maxBound
+  putWord16be maxBound
   putWord16be uv
 
+-- | Encodes a tuple from a list of tuple elements. Returns the encoded
+-- tuple and the index of the incomplete version stamp, if an incomplete
+-- version stamp was included in the input.
+--
+-- Note that this encodes to the format expected by FoundationDB as input, which
+-- is slightly different from the format returned by FoundationDB as output. The
+-- difference is that if the encoded bytes include an incomplete version stamp,
+-- two bytes are appended to the end to indicate the index of the incomplete
+-- version stamp so that FoundationDB can fill in the transaction version and
+-- batch order.
 encodeTupleElems :: [Elem] -> (ByteString, Maybe Int)
 encodeTupleElems = runPutTuple . mapM_ (encodeElem False)
 
 encodeTupleElems' :: [Elem] -> ByteString
 encodeTupleElems' = fst . runPutTuple . mapM_ (encodeElem False)
 
-data ContainsIncompleteness = NoIncomplete | WithIncomplete
+decodeTupleElems :: ByteString -> Either String [Elem]
+decodeTupleElems = runGet $ many (decodeElem False)
 
-class Tuplable a where
-  encodeTupleElem :: Bool -> a -> PutTuple ()
+decodeElem :: Bool -> Get Elem
+decodeElem nested =
+  decodeNoneElem nested
+  <|> decodeBytesElem
+  <|> decodeTextElem
+  <|> decodeIntElem
+  <|> decodeFloatElem
+  <|> decodeDoubleElem
+  <|> decodeBoolElem
+  <|> decodeUUIDElem
+  <|> decodeTupleElem
+  <|> decodeVersionStamp
 
-instance Tuplable () where
-  encodeTupleElem b _ = encodeElem b TNone
+expectCode :: Word8 -> Get ()
+expectCode c = do
+  c' <- getWord8
+  guard (c == c')
 
-instance Tuplable ByteString where
-  encodeTupleElem b bs = encodeElem b (TBytes bs)
+decodeNoneElem :: Bool -> Get Elem
+decodeNoneElem nested = do
+  expectCode nullCode
+  when nested (expectCode 0xff)
+  return NoneElem
 
-instance Tuplable T.Text where
-  encodeTupleElem b t = encodeElem b (TText t)
+bytesTerminator :: Get ()
+bytesTerminator = do
+  n <- remaining
+  guard (n == 0)
+  <|> do c <- getWord8
+         n <- remaining
+         guard (c == 0x00 && n == 0)
+  <|> do c <- getWord8
+         d <- lookAhead getWord8
+         guard (c == 0x00 && d /= 0xff)
 
-instance Tuplable Int where
-  encodeTupleElem b x = encodeElem b (TInt x)
+-- | Returns number of bytes remaining until terminator. Does not consume
+-- terminator.
+remainingUntil :: Get () -> Get Int
+remainingUntil term = lookAhead (go 0)
+  where go !i =
+          (lookAhead term >> return i)
+          <|>
+          (getWord8 >> go (i+1))
 
-instance Tuplable Float where
-  encodeTupleElem b x = encodeElem b (TFloat x)
+-- | Takes all bytes up to terminator. Consumes and discards terminator.
+getBytesUntil :: Get () -> Get ByteString
+getBytesUntil term = do
+  n <- remainingUntil term
+  bs <- getBytes n
+  term
+  return bs
 
-instance Tuplable Double where
-  encodeTupleElem b x = encodeElem b (TDouble x)
+decodeBytes :: ByteString -> ByteString
+decodeBytes bs =
+  BS.pack $ go $ BS.unpack bs
+  where go [] = []
+        go [x] = [x]
+        go (0x00:0xff:xs) = 0x00 : go xs
+        go (x:xs) = x : go xs
 
-instance Tuplable Bool where
-  encodeTupleElem b x = encodeElem b (TBool x)
+decodeBytesElem :: Get Elem
+decodeBytesElem = do
+  expectCode bytesCode
+  bs <- getBytesUntil bytesTerminator
+  return $ BytesElem $ decodeBytes bs
 
-instance Tuplable UUID where
-  encodeTupleElem b (UUID w1 w2 w3 w4) = encodeElem b (TUUID w1 w2 w3 w4)
+decodeTextElem :: Get Elem
+decodeTextElem = do
+  expectCode stringCode
+  bs <- getBytesUntil bytesTerminator
+  return $ TextElem $ decodeUtf8 $ decodeBytes bs
 
-instance Tuplable (VersionStamp a) where
-  encodeTupleElem b x@(CompleteVersionStamp _ _ _) =
-    encodeElem b (TCVersionStamp x)
-  encodeTupleElem b x@(IncompleteVersionStamp _) =
-    encodeElem b (TIVersionStamp x)
+decodeSmallPosInt :: Get Elem
+decodeSmallPosInt = do
+  code <- getWord8
+  guard (code >= zeroCode && code < posEndCode)
+  let n = fromIntegral $ code - 20
+  bs <- (BS.pack (replicate (8 - n) 0x00) <>) <$> getBytes n
+  let subres = runGet getWord64be bs
+  case subres of
+    Left e -> fail e
+    Right x -> return $ IntElem $ fromIntegral x
 
-type family UpdateContainsIncomplete (ci :: ContainsIncompleteness) b where
-  UpdateContainsIncomplete 'NoIncomplete (VersionStamp 'Incomplete) =
-    'WithIncomplete
-  UpdateContainsIncomplete 'NoIncomplete _ =
-    'NoIncomplete
-  UpdateContainsIncomplete 'WithIncomplete (VersionStamp 'Incomplete) =
-    TL.TypeError
-    ('TL.Text "Tuples may contain at most one incomplete VersionStamp.")
-  UpdateContainsIncomplete 'WithIncomplete _ =
-    'WithIncomplete
+decodeSmallNegInt :: Get Elem
+decodeSmallNegInt = do
+  code <- getWord8
+  guard (code > negStartCode && code < zeroCode)
+  let n = fromIntegral $ 20 - code
+  bs <- (BS.pack (replicate (8 - n) 0x00) <>) <$> getBytes n
+  let subres = runGet getWord64be bs
+  case subres of
+    Left e -> fail e
+    Right x -> return $ IntElem $ fromIntegral x - sizeLimits A.! n
 
-infixr 5 :/:
+decodeLargeNegInt :: Get Elem
+decodeLargeNegInt = do
+  expectCode negStartCode
+  (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
+  go 0 n 0
 
-data Tuple (a :: ContainsIncompleteness) where
-  Nil :: Tuple 'NoIncomplete
-  (:/:) :: (Tuplable a)
-           => a -> Tuple ci -> Tuple (UpdateContainsIncomplete ci a)
+  where go i n x | i == n = return $ IntElem x
+                 | otherwise = do d <- fromIntegral <$> getWord8
+                                  go (i+1) n (d + (x `shiftL` 8))
 
-encodeTuple :: Tuple a -> ByteString
-encodeTuple Nil = mempty
-encodeTuple t = fst $ runPutTuple $ go t
-  where go :: Tuple a -> PutTuple ()
-        go Nil = return ()
-        go (e :/: es) = encodeTupleElem False e >> go es
+decodeLargePosInt :: Get Elem
+decodeLargePosInt = do
+  expectCode posEndCode
+  (n :: Int) <- fromIntegral <$> getWord8
+  go 0 n 0
+
+  where go i n x | i == n = return $ IntElem x
+                 | otherwise = do d <- fromIntegral <$> getWord8
+                                  go (i+1) n (d + (x `shiftL` 8))
+
+decodeIntElem :: Get Elem
+decodeIntElem =
+  decodeSmallPosInt
+  <|> decodeLargePosInt
+  <|> decodeSmallNegInt
+  <|> decodeLargeNegInt
+
+decodeFloatElem :: Get Elem
+decodeFloatElem = do
+  expectCode floatCode
+  fBytes <- floatAdjust False <$> getByteString 4
+  let subres = runGet getFloat32be fBytes
+  case subres of
+    Left e -> fail e
+    Right x -> return $ FloatElem x
+
+decodeDoubleElem :: Get Elem
+decodeDoubleElem = do
+  expectCode doubleCode
+  fBytes <- floatAdjust False <$> getByteString 8
+  let subres = runGet getFloat64be fBytes
+  case subres of
+    Left e -> fail e
+    Right x -> return $ DoubleElem x
+
+decodeBoolElem :: Get Elem
+decodeBoolElem = do
+  c <- getWord8
+  guard (c == falseCode || c == trueCode)
+  return (BoolElem (c == trueCode))
+
+decodeUUIDElem :: Get Elem
+decodeUUIDElem = do
+  expectCode uuidCode
+  UUIDElem <$> (UUID <$> getWord32be
+                     <*> getWord32be
+                     <*> getWord32be
+                     <*> getWord32be)
+
+decodeTupleElem :: Get Elem
+decodeTupleElem = do
+  expectCode nestedCode
+  ts <- loop
+  _ <- getWord8 -- 0x00 terminator
+  return (TupleElem ts)
+
+  where
+    loop = do
+      isEnd <- checkEnd
+      if isEnd
+        then return []
+        else do next <- decodeElem True
+                rest <- loop
+                return (next : rest)
+
+    checkEnd :: Get Bool
+    checkEnd = do
+      c <- lookAhead getWord8
+      if c == 0x00
+        then lookAhead ((/= 0xff) <$> getWord8) <|> return True
+        else return False
+
+decodeVersionStamp :: Get Elem
+decodeVersionStamp = do
+  expectCode versionstampCode
+  tv <- getWord64be
+  bo <- getWord16be
+  uv <- getWord16be
+  if tv == maxBound && bo == maxBound
+    then return $ IncompleteVSElem $ IncompleteVersionStamp uv
+    else return $ CompleteVSElem $ CompleteVersionStamp tv bo uv

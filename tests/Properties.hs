@@ -7,10 +7,11 @@ import FoundationDB
 
 import Control.Monad
 import Data.ByteString.Char8 (ByteString)
+import Data.Monoid ((<>))
 import System.Environment (lookupEnv)
 import Test.Hspec
 
-import Properties.FoundationDB.Layer.Tuple (encodeSpecs)
+import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps)
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
@@ -43,7 +44,8 @@ main = withFoundationDB currentAPIVersion $ do
     Just _ -> withDatabase mdbPath $ \case
       Left e -> error $ "error starting DB: " ++ show e
       Right db -> do
-        hspec encodeSpecs
+        hspec encodeDecodeSpecs
+        hspec encodeDecodeProps
         hspec $ after_ (cleanup db) $ do
           describe "set and get" $ do
 
@@ -68,7 +70,7 @@ main = withFoundationDB currentAPIVersion $ do
               putStrLn "finished transaction"
               v `shouldBe` Just "x"
 
-          describe "transaction cancellation" $ do
+          describe "transaction cancellation" $
             it "should not commit cancelled transactions" $ do
               let k = prefix <> "neverCommitted"
               runTransaction db (set k "test" >> cancel)

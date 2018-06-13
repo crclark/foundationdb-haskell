@@ -1,9 +1,9 @@
 module FoundationDB.Layer.Tuple (
   UUID (..)
-  , Tuplable
-  , Tuple (..)
-  , encodeTuple
-  , ContainsIncompleteness
+  , Elem (..)
+  , encodeTupleElems
+  , encodeTupleElems'
+  , decodeTupleElems
 ) where
 
 import FoundationDB.Layer.Tuple.Internal
