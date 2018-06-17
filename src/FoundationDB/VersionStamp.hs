@@ -19,15 +19,16 @@ data VersionStampCompleteness = Complete | Incomplete
 -- * A 2-byte transaction batch order
 -- * A 2-byte user version
 data VersionStamp (a :: VersionStampCompleteness) where
-  CompleteVersionStamp :: Word64 -> Word16 -> Word16 -> VersionStamp 'Complete
-  -- ^ A complete version stamp, consisting of a transaction version and
+  -- | A complete version stamp, consisting of a transaction version and
   -- transaction batch order set by the database, and a user version set by
   -- the user.
-  IncompleteVersionStamp :: Word16 -> VersionStamp 'Incomplete
-  -- ^ A version stamp that has not yet been associated with a completed
+  CompleteVersionStamp :: Word64 -> Word16 -> Word16 -> VersionStamp 'Complete
+  -- | A version stamp that has not yet been associated with a completed
   -- transaction. Such a version stamp does not yet have an associated
   -- transaction version and transaction batch order, but does have a user
   -- version.
+  IncompleteVersionStamp :: Word16 -> VersionStamp 'Incomplete
+
 
 deriving instance Show (VersionStamp a)
 
