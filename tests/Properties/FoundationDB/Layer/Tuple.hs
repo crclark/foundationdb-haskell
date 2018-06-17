@@ -116,7 +116,7 @@ exampleIncompleteVersionStamp = BS.pack
 encodeDecode :: [Elem] -> ByteString -> String -> SpecWith ()
 encodeDecode elems encoded desc = do
   it ("encodes " ++ desc) $
-    encodeTupleElems' elems `shouldBe` encoded
+    encodeTupleElems elems `shouldBe` encoded
   it ("decodes " ++ desc) $
     decodeTupleElems encoded `shouldBe` Right elems
 
@@ -143,7 +143,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
                "complete version stamp"
   let ivs = IncompleteVersionStamp 12
   it "encodes incomplete version stamp" $
-    encodeTupleElems' [IncompleteVSElem ivs]
+    encodeTupleElems [IncompleteVSElem ivs]
     `shouldBe`
     exampleIncompleteVersionStamp
   -- no encodeDecode for incomplete version stamps because the encoding adds
@@ -153,4 +153,4 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $
   forAll arbitrary $ \tuple ->
-    Right tuple == decodeTupleElems (encodeTupleElems' tuple)
+    Right tuple == decodeTupleElems (encodeTupleElems tuple)

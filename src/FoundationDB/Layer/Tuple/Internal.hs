@@ -232,8 +232,7 @@ encodeElem _ (IncompleteVSElem (IncompleteVersionStamp uv)) = do
   putWord16be uv
 
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
--- tuple and the index of the incomplete version stamp, if an incomplete
--- version stamp was included in the input.
+-- tuple.
 --
 -- Note that this encodes to the format expected by FoundationDB as input, which
 -- is slightly different from the format returned by FoundationDB as output. The
@@ -241,11 +240,8 @@ encodeElem _ (IncompleteVSElem (IncompleteVersionStamp uv)) = do
 -- two bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
 -- batch order.
-encodeTupleElems :: [Elem] -> (ByteString, Maybe Int)
-encodeTupleElems = runPutTuple . mapM_ (encodeElem False)
-
-encodeTupleElems' :: [Elem] -> ByteString
-encodeTupleElems' = fst . runPutTuple . mapM_ (encodeElem False)
+encodeTupleElems :: [Elem] -> ByteString
+encodeTupleElems = fst . runPutTuple . mapM_ (encodeElem False)
 
 decodeTupleElems :: ByteString -> Either String [Elem]
 decodeTupleElems = runGet $ many (decodeElem False)
