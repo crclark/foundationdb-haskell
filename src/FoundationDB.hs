@@ -100,9 +100,7 @@ liftFDBError = either (throwError . toError) return
 fdbThrowing :: IO FDB.CFDBError -> IO ()
 fdbThrowing a = do
   e <- a
-  if FDB.isError e
-    then throwIO (toError e)
-    else return ()
+  when (FDB.isError e) (throwIO (toError e))
 
 data TransactionEnv = TransactionEnv {
   cTransaction :: FDB.Transaction
@@ -167,7 +165,7 @@ await (Future f e) = do
 
 commitFuture :: Transaction (Future ())
 commitFuture = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   allocFuture (FDB.transactionCommit t) (const $ return ())
 
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
@@ -181,19 +179,19 @@ get key = do
 -- | Set a bytestring key to a bytestring value.
 set :: ByteString -> ByteString -> Transaction ()
 set key val = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   liftIO $ FDB.transactionSet t key val
 
 -- | Delete a key from the DB.
 clear :: ByteString -> Transaction ()
 clear k = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   liftIO $ FDB.transactionClear t k
 
 -- | @clearRange k l@ deletes all keys in the half-open range [k,l).
 clearRange :: ByteString -> ByteString -> Transaction ()
 clearRange k l = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   liftIO $ FDB.transactionClearRange t k l
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
@@ -202,15 +200,15 @@ offset ks n = FDB.WithOffset n ks
 
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
-  t <- cTransaction <$> ask
-  isSnapshot <- snapshotReads . conf <$> ask
+  t <- asks cTransaction
+  isSnapshot <- asks (snapshotReads . conf)
   let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
   allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
               (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
 
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 getKeyAddresses k = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   allocFuture (FDB.transactionGetAddressesForKey t k)
               (\f -> liftIO (FDB.futureGetStringArray f) >>= liftFDBError)
 
@@ -235,8 +233,8 @@ data RangeResult =
 getRange :: Range
          -> Transaction (Future RangeResult)
 getRange Range{..} = do
-  t <- cTransaction <$> ask
-  isSnapshot <- snapshotReads . conf <$> ask
+  t <- asks cTransaction
+  isSnapshot <- asks (snapshotReads . conf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
   let (endK, endOrEqual, endOffset) = FDB.keySelectorTuple rangeEnd
   let mk = FDB.transactionGetRange t beginK beginOrEqual beginOffset
@@ -261,7 +259,7 @@ getRange Range{..} = do
                            then FDB.FirstGreaterOrEq lstK
                            else esel
             let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
-            let lim' = fmap (\x -> x - (length kvs)) lim
+            let lim' = fmap (\x -> x - length kvs) lim
             let mk' = FDB.transactionGetRange t beginK' beginOrEqual' beginOffset'
                                                 endK' endOrEqual' endOffset'
                                                 (fromMaybe 0 lim') 0
@@ -308,7 +306,7 @@ toFDBMutationType ByteMax = FDB.MutationTypeByteMax
 
 atomicOp :: AtomicOp -> ByteString -> ByteString -> Transaction ()
 atomicOp op k x = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
 
 -- | Contains useful options that are not directly exposed by the C API (for
@@ -355,11 +353,11 @@ runTransactionWithConfig conf db t = do
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
-  idem <- idempotent . conf <$> ask
+  idem <- asks (idempotent . conf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err
     then do
-      trans <- cTransaction <$> ask
+      trans <- asks cTransaction
       f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
                        (const $ return ())
       await f
@@ -374,7 +372,7 @@ runTransactionWithConfig' :: TransactionConfig
                           -> FDB.Database
                           -> Transaction a
                           -> IO (Either Error a)
-runTransactionWithConfig' conf db t = do
+runTransactionWithConfig' conf db t =
   runResourceT $ runExceptT $ do
     trans <- createTransactionEnv db conf
     flip runReaderT trans $ unTransaction $ withRetry $ do
@@ -387,7 +385,7 @@ runTransactionWithConfig' conf db t = do
 -- will throw 'TransactionCanceled'.
 cancel :: Transaction ()
 cancel = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   liftIO $ FDB.transactionCancel t
   throwError TransactionCanceled
 
@@ -398,7 +396,7 @@ withSnapshot = local $ \s ->
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()
 setOption opt = do
-  t <- cTransaction <$> ask
+  t <- asks cTransaction
   fdbExcept' $ FDB.transactionSetOption t opt
 
 -- TODO: withFoundationDB $ withDatabase is ugly.
@@ -411,10 +409,9 @@ initCluster fp = do
     fdbExcept $ FDB.futureGetCluster futureCluster
 
 withCluster :: Maybe FilePath -> (Either Error FDB.Cluster -> IO a) -> IO a
-withCluster mfp f =
+withCluster mfp =
   bracket (initCluster (fromMaybe "" mfp))
           (either (const (return ())) FDB.clusterDestroy)
-          f
 
 initDB :: FDB.Cluster -> IO (Either Error FDB.Database)
 initDB cluster = do
@@ -424,7 +421,7 @@ initDB cluster = do
     fdbExcept $ FDB.futureGetDatabase futureDB
 
 withDatabase :: Maybe FilePath -> (Either Error FDB.Database -> IO a) -> IO a
-withDatabase fp f = do
+withDatabase fp f =
   withCluster fp $ \case
     Left err -> f $ Left err
     Right cluster -> bracket (initDB cluster)
@@ -446,7 +443,7 @@ withFoundationDB :: Int
 withFoundationDB version m = do
   done <- newEmptyMVar
   fdbThrowing $ FDB.selectAPIVersion version
-  fdbThrowing $ FDB.setupNetwork
+  fdbThrowing FDB.setupNetwork
   start done
   finally m (stop done)
   where
