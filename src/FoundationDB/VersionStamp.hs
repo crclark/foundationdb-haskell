@@ -8,7 +8,6 @@
 
 module FoundationDB.VersionStamp where
 
-import Data.ByteString (ByteString)
 import Data.Word (Word16, Word64)
 
 
