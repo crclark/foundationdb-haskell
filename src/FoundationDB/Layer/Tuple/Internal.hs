@@ -41,7 +41,10 @@ import Numeric.Search.Range (searchFromTo)
 data UUID = UUID Word32 Word32 Word32 Word32
   deriving (Show, Eq, Ord)
 
--- | Elements of tuples
+-- | Elements of tuples. A tuple is represented as a list of these. Note that
+-- a tuple may contain at most one incomplete version stamp. Future versions of
+-- this library may introduce a more strongly typed tuple representation that
+-- enforces this restriction.
 data Elem =
   NoneElem
   | BytesElem ByteString
@@ -243,8 +246,28 @@ encodeElem _ (IncompleteVSElem (IncompleteVersionStamp uv)) = do
 encodeTupleElems :: [Elem] -> ByteString
 encodeTupleElems = fst . runPutTuple . mapM_ (encodeElem False)
 
+-- | Like 'encodeTupleElems', but prepends a raw bytestring prefix to the
+-- tuple. This is used by the subspace and directory layers.
+encodeTupleElemsWPrefix :: ByteString -> [Elem] -> ByteString
+encodeTupleElemsWPrefix prefix es =
+  fst $ runPutTuple $ do
+    putByteString prefix
+    mapM_ (encodeElem False) es
+
 decodeTupleElems :: ByteString -> Either String [Elem]
 decodeTupleElems = runGet $ many (decodeElem False)
+
+-- | Decodes a tuple that was encoded with a given prefix. Fails if the
+-- input prefix is not actually a prefix of the encoded tuple.
+decodeTupleElemsWPrefix :: ByteString
+                        -- ^ expected prefix
+                        -> ByteString
+                        -- ^ encoded tuple
+                        -> Either String [Elem]
+decodeTupleElemsWPrefix prefix bs = flip runGet bs $ do
+  gotPrefix <- getByteString (BS.length prefix)
+  guard (gotPrefix == prefix)
+  many (decodeElem False)
 
 decodeElem :: Bool -> Get Elem
 decodeElem nested =
