@@ -16,7 +16,7 @@ module FoundationDB (
   , Transaction
   , runTransaction
   , runTransaction'
-  , TransactionConfig(..)
+  , TransactionConfig (..)
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
@@ -26,12 +26,14 @@ module FoundationDB (
   , set
   , clear
   , clearRange
+  , addConflictRange
+  , FDBConflictRangeType (..)
   , getKey
   , getKeyAddresses
   , atomicOp
   , getRange
-  , Range(..)
-  , RangeResult(..)
+  , Range (..)
+  , RangeResult (..)
   -- * Futures
   , Future
   , await
@@ -45,6 +47,7 @@ module FoundationDB (
   , AtomicOp(..)
   -- * Errors
   , Error(..)
+  , CError(..)
   , retryable
 ) where
 
@@ -96,7 +99,6 @@ withDatabase fp f =
 -- `fdb_stop_network`, waits for `fdb_run_network` to return, then returns.
 -- Once this action has finished, it is safe for the program to exit.
 -- Can only be called once per program!
--- TODO: error handling
 withFoundationDB :: Int
                  -- ^ Desired API version.
                  -> IO a

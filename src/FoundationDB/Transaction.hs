@@ -19,6 +19,8 @@ module FoundationDB.Transaction (
   , set
   , clear
   , clearRange
+  , addConflictRange
+  , FDB.FDBConflictRangeType
   , getKey
   , getKeyAddresses
   , atomicOp
@@ -39,6 +41,7 @@ module FoundationDB.Transaction (
 ) where
 
 import Control.Exception
+import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except
 import Control.Monad.IO.Class (MonadIO(..))
@@ -74,8 +77,9 @@ createTransactionEnv db conf = do
 -- I'm leaning towards 3. We can export both Transaction and TransactionT.
 newtype Transaction a = Transaction
   {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
-  deriving (Applicative, Functor, Monad, MonadIO)
-
+  deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
+            MonadMask)
+-- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
@@ -93,7 +97,7 @@ fromCExtractor cFuture rk m =
   return $ Future cFuture $ do
     futErr <- liftIO $ FDB.futureGetError cFuture
     if FDB.isError futErr
-      then release rk >> throwError (toError futErr)
+      then release rk >> throwError (CError $ toError futErr)
       else do
         res <- m
         release rk
@@ -143,6 +147,15 @@ clearRange :: ByteString -> ByteString -> Transaction ()
 clearRange k l = do
   t <- asks cTransaction
   liftIO $ FDB.transactionClearRange t k l
+
+addConflictRange :: ByteString
+                 -> ByteString
+                 -> FDB.FDBConflictRangeType
+                 -> Transaction ()
+addConflictRange k l ty = do
+  t <- asks cTransaction
+  liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
+
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
 offset (FDB.WithOffset n ks) m = FDB.WithOffset (n+m) ks
@@ -308,8 +321,10 @@ withRetry t = catchError t $ \err -> do
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err
     then do
+      -- retryable and retryableNotCommitted can only return true for CErrors.
+      let (CError err') = err
       trans <- asks cTransaction
-      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
                        (const $ return ())
       await f
       -- await throws any error on the future, so if we reach here, we can retry
@@ -338,7 +353,7 @@ cancel :: Transaction ()
 cancel = do
   t <- asks cTransaction
   liftIO $ FDB.transactionCancel t
-  throwError TransactionCanceled
+  throwError (CError TransactionCanceled)
 
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->

@@ -76,7 +76,7 @@ main = withFoundationDB currentAPIVersion $ do
             it "should not commit cancelled transactions" $ do
               let k = prefix <> "neverCommitted"
               runTransaction db (set k "test" >> cancel)
-                `shouldThrow` (== TransactionCanceled)
+                `shouldThrow` (== CError TransactionCanceled)
               v <- runTransaction db $ get k >>= await
               v `shouldBe` Nothing
 

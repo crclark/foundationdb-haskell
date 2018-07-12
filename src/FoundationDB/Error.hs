@@ -17,7 +17,7 @@ fdbEither :: MonadIO m => m (FDB.CFDBError, a) -> m (Either Error a)
 fdbEither f = do
   (err, res) <- f
   if FDB.isError err
-    then return $ Left $ toError err
+    then return $ Left $ CError $ toError err
     else return (Right res)
 
 fdbExcept :: (MonadError Error m, MonadIO m)
@@ -30,7 +30,7 @@ fdbEither' :: MonadIO m => m FDB.CFDBError -> m (Either Error ())
 fdbEither' f = do
   err <- f
   if FDB.isError err
-    then return $ Left $ toError err
+    then return $ Left $ CError $ toError err
     else return (Right ())
 
 fdbExcept' :: (MonadError Error m, MonadIO m) =>
@@ -40,18 +40,28 @@ fdbExcept' x = do
   liftEither e
 
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
-liftFDBError = either (throwError . toError) return
+liftFDBError = either (throwError . CError . toError) return
 
 fdbThrowing :: IO FDB.CFDBError -> IO ()
 fdbThrowing a = do
   e <- a
-  when (FDB.isError e) (throwIO (toError e))
+  when (FDB.isError e) (throwIO $ CError $ toError e)
+
+data Error = CError CError | Error FDBHsError
+  deriving (Show, Eq, Ord)
+
+instance Exception Error
+
+-- | Errors arising from the foundationdb-haskell library implementation.
+data FDBHsError =
+  DirectoryLayerError String
+  deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.
 -- Most error names are self-explanatory.
 -- See https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes
 -- for a description of these errors.
-data Error =
+data CError =
   OperationFailed
   | TimedOut
   | TransactionTooOld
@@ -120,9 +130,7 @@ data Error =
   | OtherError {getOtherError :: FDB.CFDBError}
   deriving (Show, Eq, Ord)
 
-instance Exception Error
-
-toError :: FDB.CFDBError -> Error
+toError :: FDB.CFDBError -> CError
 toError 0 = error "toError called on successful error code"
 toError 1000 = OperationFailed
 toError 1004 = TimedOut
@@ -190,7 +198,7 @@ toError 4000 = UnknownError
 toError 4100 = InternalError
 toError n = OtherError n
 
-toCFDBError :: Error -> FDB.CFDBError
+toCFDBError :: CError -> FDB.CFDBError
 toCFDBError OperationFailed = 1000
 toCFDBError TimedOut = 1004
 toCFDBError TransactionTooOld = 1007
@@ -258,9 +266,11 @@ toCFDBError InternalError = 4100
 toCFDBError (OtherError err) = err
 
 retryable :: Error -> Bool
-retryable e =
+retryable (CError e) =
   FDB.errorPredicate FDB.ErrorPredicateRetryable (toCFDBError e)
+retryable (Error _) = False
 
 retryableNotCommitted :: Error -> Bool
-retryableNotCommitted e =
+retryableNotCommitted (CError e) =
   FDB.errorPredicate FDB.ErrorPredicateRetryableNotCommitted (toCFDBError e)
+retryableNotCommitted (Error _) = False
