@@ -25,7 +25,13 @@ module FoundationDB.Transaction (
   , getKeyAddresses
   , atomicOp
   , getRange
+  , getRange'
+  , FDB.FDBStreamingMode(..)
+  , getEntireRange
+  , isRangeEmpty
   , Range(..)
+  , rangeKeys
+  , prefixRange
   , RangeResult(..)
   -- * Futures
   , Future
@@ -47,7 +53,8 @@ import Control.Monad.Except
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
 
 import FoundationDB.Error
@@ -88,6 +95,9 @@ data Future a = forall b. Future
   { _cFuture :: FDB.Future b
   , _extractValue :: Transaction a
   }
+
+instance Show (Future a) where
+  show (Future c _) = show $ "Future " ++ show c
 
 fromCExtractor :: FDB.Future b
                -> ReleaseKey
@@ -188,14 +198,35 @@ data Range = Range {
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
 
+-- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
+--   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
+prefixRange :: ByteString -> Maybe Range
+prefixRange prefix
+  | prefix == BS.empty = Nothing
+  | BS.all (== 0xff) prefix = Nothing
+  | otherwise = Just $ Range
+  { rangeBegin = FDB.FirstGreaterOrEq prefix
+  , rangeEnd = FDB.FirstGreaterOrEq end
+  , rangeLimit = Nothing
+  , rangeReverse = False
+  }
+  where end = let prefix' = BS.takeWhile (/= 0xff) prefix
+                  in BS.snoc (BS.init prefix')
+                             (BS.last prefix' + 1)
+
+rangeKeys :: Range -> (ByteString, ByteString)
+rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
+
 -- | Structure for returning the result of 'getRange' in chunks.
 data RangeResult =
   RangeDone [(ByteString, ByteString)]
   | RangeMore [(ByteString, ByteString)] (Future RangeResult)
+  deriving Show
 
-getRange :: Range
-         -> Transaction (Future RangeResult)
-getRange Range{..} = do
+getRange' :: Range
+          -> FDB.FDBStreamingMode
+          -> Transaction (Future RangeResult)
+getRange' Range{..} mode = do
   t <- asks cTransaction
   isSnapshot <- asks (snapshotReads . conf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
@@ -203,14 +234,18 @@ getRange Range{..} = do
   let mk = FDB.transactionGetRange t beginK beginOrEqual beginOffset
                                      endK endOrEqual endOffset
                                      (fromMaybe 0 rangeLimit) 0
-                                     FDB.StreamingModeIterator
+                                     mode
                                      1
                                      isSnapshot
                                      rangeReverse
   let handler bsel esel i lim fut = do
         --TODO: need to return Vector or Array for efficiency
         (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
-        if more
+        -- more doesn't take into account our count limit
+        let actuallyMore = case lim of
+                             Nothing -> length kvs > 0 && more
+                             Just n  -> length kvs >0 && length kvs < n && more
+        if actuallyMore
           then do
             -- last is partial, but access guarded by @more@
             let lstK = snd $ last kvs
@@ -226,14 +261,39 @@ getRange Range{..} = do
             let mk' = FDB.transactionGetRange t beginK' beginOrEqual' beginOffset'
                                                 endK' endOrEqual' endOffset'
                                                 (fromMaybe 0 lim') 0
-                                                FDB.StreamingModeIterator
+                                                mode
                                                 (i+1)
                                                 isSnapshot
                                                 rangeReverse
             res <- allocFuture mk' (handler bsel' esel' (i+1) lim')
             return $ RangeMore kvs res
-          else return $ RangeDone kvs
+          else return $ RangeDone $ case lim of
+            Nothing -> kvs
+            Just n  -> take n kvs
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
+
+getRange :: Range -> Transaction (Future RangeResult)
+getRange r = getRange' r FDB.StreamingModeIterator
+
+-- TODO: slow and leaky! no lists!
+getEntireRange :: Range
+               -> Transaction [(ByteString, ByteString)]
+getEntireRange r = do
+  rr <- getRange' r FDB.StreamingModeWantAll >>= await
+  go rr
+
+  where go (RangeDone xs) = return xs
+        go (RangeMore xs fut) = do
+          more <- await fut
+          ys <- go more
+          return (xs ++ ys)
+
+isRangeEmpty :: Range -> Transaction Bool
+isRangeEmpty r = do
+  rr <- getRange r >>= await
+  case rr of
+    RangeDone [] -> return True
+    _            -> return False
 
 data AtomicOp =
   Add

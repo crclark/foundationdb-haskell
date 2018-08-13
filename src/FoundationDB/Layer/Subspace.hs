@@ -61,3 +61,4 @@ getLast sub = do
     RangeDone [] -> return Nothing
     RangeDone (kv:_) -> return (Just kv)
     RangeMore (kv:_) _ -> return (Just kv)
+    RangeMore [] _ -> return Nothing --TODO: impossible

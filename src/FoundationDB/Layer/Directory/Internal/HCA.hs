@@ -8,7 +8,6 @@ module FoundationDB.Layer.Directory.Internal.HCA where
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Catch (bracket_)
-import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -18,13 +17,10 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Random (getStdRandom, randomR)
 
 import FoundationDB
-import FoundationDB.Error
+import FoundationDB.Layer.Directory.Internal.Error
 import FoundationDB.Layer.Tuple
 import FoundationDB.Layer.Subspace
 import FoundationDB.Options
-
-throwDirError :: String -> Transaction a
-throwDirError = throwError . Error . DirectoryLayerError
 
 oneBytes :: ByteString
 oneBytes = BS.pack [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
@@ -107,15 +103,20 @@ findSubspaceLoop hca@HCA{..} s start window = do
         addConflictRange key (key <> "0x00") ConflictRangeTypeWrite
         return $ Just $ s <> subspace [IntElem candidate]
 
-allocate :: HCA -> Subspace -> Transaction Subspace
-allocate hca@HCA{..} s = do
+initStart :: HCA -> Transaction Int
+initStart HCA{..} = do
   mkv <- withSnapshot $ getLast counters
   case mkv of
-    Just (k,_) -> do
-      let Right [IntElem start] = unpack counters k
-      (start', window) <- findStartAndWindow hca False start
-      msub <- findSubspaceLoop hca s start' window
-      case msub of
-        Just sub -> return sub
-        Nothing -> allocate hca s
-    _ -> throwDirError "failed to get last counter"
+    Just (k,_) -> case unpack counters k of
+      Right (IntElem start: _) -> return start
+      _                        -> return 0
+    Nothing -> return 0
+
+allocate :: HCA -> Subspace -> Transaction Subspace
+allocate hca@HCA{..} s = do
+  start <- initStart hca
+  (start', window) <- findStartAndWindow hca False start
+  msub <- findSubspaceLoop hca s start' window
+  case msub of
+    Just sub -> return sub
+    Nothing -> allocate hca s

@@ -8,22 +8,24 @@ import FoundationDB.Layer.Tuple
 import FoundationDB.VersionStamp
 
 import Control.Monad
+import qualified Data.ByteString.Char8 as BS
 import Data.ByteString.Char8 (ByteString)
 import Data.Monoid ((<>))
 import System.Environment (lookupEnv)
 import Test.Hspec
 
 import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps)
+import Properties.FoundationDB.Layer.Directory (directorySpecs)
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
 prefix :: ByteString
 prefix = "foundationdb-haskell-test-"
 
-cleanup :: Database -> IO ()
-cleanup db = runTransaction db $ do
-  let begin = prefix <> "a"
-  let end = prefix <> "z"
+cleanup :: Database -> ByteString -> IO ()
+cleanup db prfx = runTransaction db $ do
+  let begin = prfx <> "a"
+  let end = prfx <> "z"
   fut <- getRange $ Range { rangeBegin = FirstGreaterOrEq begin
                           , rangeEnd = LastLessOrEq end
                           , rangeLimit = Nothing
@@ -48,7 +50,7 @@ main = withFoundationDB currentAPIVersion $ do
       Right db -> do
         hspec encodeDecodeSpecs
         hspec encodeDecodeProps
-        hspec $ after_ (cleanup db) $ do
+        hspec $ after_ (cleanup db prefix) $ do
           describe "set and get" $ do
 
             it "should round trip" $ do
@@ -95,3 +97,21 @@ main = withFoundationDB currentAPIVersion $ do
               decodeTupleElems finalK `shouldSatisfy` matches
               v `shouldBe` Just "hi"
               runTransaction db (clear finalK)
+
+          rangeSpec db
+
+        let dirSpecPrfx = "fdb-haskell-dir"
+        hspec $ after_ (cleanup db dirSpecPrfx) $ directorySpecs db dirSpecPrfx
+
+rangeSpec :: Database -> SpecWith ()
+rangeSpec db = do
+  let kvs = [(prefix <> (BS.singleton k),"a") | k <- ['a'..'z']]
+  describe "unlimited range" $ do
+    it "Should return entire range" $ do
+      forM_ kvs $ \(k,v) -> runTransaction db $ set k v
+      let unlim = Range (FirstGreaterOrEq (prefix <> "a"))
+                        (FirstGreaterOrEq (prefix <> "z\x00"))
+                        Nothing
+                        False
+      result <- runTransaction db $ getEntireRange unlim
+      result `shouldBe` kvs

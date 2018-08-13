@@ -32,7 +32,11 @@ module FoundationDB (
   , getKeyAddresses
   , atomicOp
   , getRange
+  , getEntireRange
+  , isRangeEmpty
   , Range (..)
+  , rangeKeys
+  , prefixRange
   , RangeResult (..)
   -- * Futures
   , Future
@@ -49,10 +53,13 @@ module FoundationDB (
   , Error(..)
   , CError(..)
   , retryable
+  -- * Helpers for ghci
+  , startFoundationDB
+  , stopFoundationDB
 ) where
 
 import Control.Concurrent (forkFinally)
-import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar)
+import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar, MVar)
 import Control.Exception
 import Control.Monad.Except
 import Data.Maybe (fromMaybe)
@@ -60,6 +67,7 @@ import Data.Maybe (fromMaybe)
 import FoundationDB.Error
 import qualified FoundationDB.Internal.Bindings as FDB
 import FoundationDB.Transaction
+import System.IO.Unsafe (unsafePerformIO)
 
 
 
@@ -113,3 +121,31 @@ withFoundationDB version m = do
     start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
     stop done = FDB.stopNetwork >> takeMVar done
 
+startFoundationDBGlobalLock :: MVar ()
+startFoundationDBGlobalLock = unsafePerformIO $ newEmptyMVar
+{-# NOINLINE startFoundationDBGlobalLock #-}
+
+-- | Starts up FoundationDB. You must call 'stopFoundationDB' before your
+-- program terminates. It's recommended that you use 'withFoundationDB' instead,
+-- since it handles cleanup. This function is only intended to be used in GHCi.
+startFoundationDB :: Int
+                  -- ^ Desired API version.
+                  -> Maybe FilePath
+                  -- ^ Cluster file. 'Nothing' uses the default.
+                  -> IO (Either Error FDB.Database)
+startFoundationDB v mfp = do
+  fdbThrowing $ FDB.selectAPIVersion v
+  fdbThrowing FDB.setupNetwork
+  void $ forkFinally FDB.runNetwork
+                     (\_ -> putMVar startFoundationDBGlobalLock ())
+  mcluster <- initCluster (fromMaybe "" mfp)
+  case mcluster of
+    Left e -> return $ Left e
+    Right c -> do
+      mdb <- initDB c
+      case mdb of
+        Left e -> return $ Left e
+        Right db -> return $ Right db
+
+stopFoundationDB :: IO ()
+stopFoundationDB = FDB.stopNetwork >> takeMVar startFoundationDBGlobalLock
