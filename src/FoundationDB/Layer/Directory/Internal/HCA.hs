@@ -31,8 +31,8 @@ data HCA = HCA {counters :: Subspace,
 
 newHCA :: Subspace -> HCA
 newHCA s = HCA
-  { counters = s <> subspace [IntElem 0]
-  ,  recent  = s <> subspace [IntElem 1]
+  { counters = extend s [IntElem 0]
+  ,  recent  = extend s [IntElem 1]
   }
 
 windowSize :: Int -> Int
@@ -101,7 +101,7 @@ findSubspaceLoop hca@HCA{..} s start window = do
       Just _ -> findSubspaceLoop hca s start window
       Nothing -> do
         addConflictRange key (key <> "0x00") ConflictRangeTypeWrite
-        return $ Just $ s <> subspace [IntElem candidate]
+        return $ Just $ extend s [IntElem candidate]
 
 initStart :: HCA -> Transaction Int
 initStart HCA{..} = do

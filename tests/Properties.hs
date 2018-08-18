@@ -16,6 +16,7 @@ import Test.Hspec
 
 import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps)
 import Properties.FoundationDB.Layer.Directory (directorySpecs)
+import Properties.FoundationDB.Layer.Subspace (subspaceSpecs)
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
@@ -24,10 +25,10 @@ prefix = "foundationdb-haskell-test-"
 
 cleanup :: Database -> ByteString -> IO ()
 cleanup db prfx = runTransaction db $ do
-  let begin = prfx <> "a"
-  let end = prfx <> "z"
+  let begin = prfx
+  let end = prfx <> "\xff"
   fut <- getRange $ Range { rangeBegin = FirstGreaterOrEq begin
-                          , rangeEnd = LastLessOrEq end
+                          , rangeEnd = FirstGreaterOrEq end
                           , rangeLimit = Nothing
                           , rangeReverse = False
                           }
@@ -50,6 +51,7 @@ main = withFoundationDB currentAPIVersion $ do
       Right db -> do
         hspec encodeDecodeSpecs
         hspec encodeDecodeProps
+        hspec subspaceSpecs
         hspec $ after_ (cleanup db prefix) $ do
           describe "set and get" $ do
 

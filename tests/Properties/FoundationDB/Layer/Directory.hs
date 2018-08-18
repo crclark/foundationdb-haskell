@@ -47,7 +47,9 @@ describeRemove db dl = describe "remove" $
 
 directorySpecs :: Database -> ByteString -> SpecWith ()
 directorySpecs db prefix = do
-  let dl = newDirectoryLayer (subspace [Tuple.BytesElem prefix]) mempty False
+  let dl = newDirectoryLayer (subspace [Tuple.BytesElem prefix])
+                             (Subspace "")
+                             False
   describeCreateOrOpen db dl
   describeMove db dl
   describeRemove db dl

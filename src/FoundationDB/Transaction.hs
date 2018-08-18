@@ -223,54 +223,64 @@ data RangeResult =
   | RangeMore [(ByteString, ByteString)] (Future RangeResult)
   deriving Show
 
-getRange' :: Range
-          -> FDB.FDBStreamingMode
-          -> Transaction (Future RangeResult)
-getRange' Range{..} mode = do
-  t <- asks cTransaction
+getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
+getRange' Range {..} mode = do
+  t          <- asks cTransaction
   isSnapshot <- asks (snapshotReads . conf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
-  let (endK, endOrEqual, endOffset) = FDB.keySelectorTuple rangeEnd
-  let mk = FDB.transactionGetRange t beginK beginOrEqual beginOffset
-                                     endK endOrEqual endOffset
-                                     (fromMaybe 0 rangeLimit) 0
-                                     mode
-                                     1
-                                     isSnapshot
-                                     rangeReverse
-  let handler bsel esel i lim fut = do
-        --TODO: need to return Vector or Array for efficiency
-        (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
-        -- more doesn't take into account our count limit
-        let actuallyMore = case lim of
-                             Nothing -> length kvs > 0 && more
-                             Just n  -> length kvs >0 && length kvs < n && more
-        if actuallyMore
-          then do
-            -- last is partial, but access guarded by @more@
-            let lstK = snd $ last kvs
-            let bsel' = if not rangeReverse
-                           then FDB.FirstGreaterThan lstK
-                           else bsel
-            let (beginK', beginOrEqual', beginOffset') = FDB.keySelectorTuple bsel'
-            let esel' = if rangeReverse
-                           then FDB.FirstGreaterOrEq lstK
-                           else esel
-            let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
-            let lim' = fmap (\x -> x - length kvs) lim
-            let mk' = FDB.transactionGetRange t beginK' beginOrEqual' beginOffset'
-                                                endK' endOrEqual' endOffset'
-                                                (fromMaybe 0 lim') 0
-                                                mode
-                                                (i+1)
-                                                isSnapshot
-                                                rangeReverse
-            res <- allocFuture mk' (handler bsel' esel' (i+1) lim')
-            return $ RangeMore kvs res
-          else return $ RangeDone $ case lim of
-            Nothing -> kvs
-            Just n  -> take n kvs
+  let (endK, endOrEqual, endOffset)       = FDB.keySelectorTuple rangeEnd
+  let mk = FDB.transactionGetRange t
+                                   beginK
+                                   beginOrEqual
+                                   beginOffset
+                                   endK
+                                   endOrEqual
+                                   endOffset
+                                   (fromMaybe 0 rangeLimit)
+                                   0
+                                   mode
+                                   1
+                                   isSnapshot
+                                   rangeReverse
+  let
+    handler bsel esel i lim fut = do
+      --TODO: need to return Vector or Array for efficiency
+      (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
+      -- more doesn't take into account our count limit
+      let actuallyMore = case lim of
+            Nothing -> length kvs > 0 && more
+            Just n  -> length kvs > 0 && length kvs < n && more
+      if actuallyMore
+        then do
+          -- last is partial, but access guarded by @more@
+          let lstK = snd $ last kvs
+          let bsel' =
+                if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
+          let (beginK', beginOrEqual', beginOffset') =
+                FDB.keySelectorTuple bsel'
+          let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
+          let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
+          let lim' = fmap (\x -> x - length kvs) lim
+          let mk' = FDB.transactionGetRange t
+                                            beginK'
+                                            beginOrEqual'
+                                            beginOffset'
+                                            endK'
+                                            endOrEqual'
+                                            endOffset'
+                                            (fromMaybe 0 lim')
+                                            0
+                                            mode
+                                            (i + 1)
+                                            isSnapshot
+                                            rangeReverse
+          res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
+          return $ RangeMore kvs res
+        else return $ RangeDone $ case lim of
+          Nothing -> kvs
+          Just n  -> take n kvs
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
+
 
 getRange :: Range -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator

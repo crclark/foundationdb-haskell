@@ -12,7 +12,7 @@ import FoundationDB.Layer.Tuple
 -- | Represents a subspace of keys. sub-subspaces can be created with the Monoid
 -- instance: @mySubsubpace = mySubspace <> subspace someTuple@.
 newtype Subspace = Subspace {rawPrefix :: ByteString}
-  deriving (Show, Eq, Ord, Monoid)
+  deriving (Show, Eq, Ord)
 
 -- | Create a subspace from a tuple.
 subspace :: [Elem]
@@ -27,6 +27,17 @@ prefixedSubspace :: ByteString
                  -> [Elem]
                  -> Subspace
 prefixedSubspace prefix tuple = Subspace (encodeTupleElemsWPrefix prefix tuple)
+
+subspaceKey :: Subspace -> ByteString
+subspaceKey = rawPrefix
+
+-- | Create a subsubspace by extending the prefix of a subspace by the
+-- given tuple.
+extend :: Subspace
+       -> [Elem]
+       -> Subspace
+extend (Subspace prfx) tuple =
+  prefixedSubspace prfx tuple
 
 pack :: Subspace -> [Elem] -> ByteString
 pack sub = encodeTupleElemsWPrefix (rawPrefix sub)

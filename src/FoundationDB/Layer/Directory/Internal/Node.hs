@@ -3,6 +3,7 @@
 module FoundationDB.Layer.Directory.Internal.Node where
 
 import Data.ByteString (ByteString)
+import Data.Text (Text)
 
 import FoundationDB
 import FoundationDB.Layer.Directory.Internal.Error
@@ -11,8 +12,8 @@ import FoundationDB.Layer.Tuple
 
 data Node = Node
   { nodeNodeSS :: Maybe Subspace
-  , nodePath :: [ByteString]
-  , targetPath :: [ByteString]
+  , nodePath :: [Text]
+  , targetPath :: [Text]
   } deriving (Show, Eq, Ord)
 
 -- TODO: it's not clear yet how this is used. It's possible that this should be
