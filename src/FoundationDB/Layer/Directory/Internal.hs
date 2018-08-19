@@ -132,7 +132,7 @@ open'
   -> Path
   -> ByteString
      -- ^ layer
-  -> (Maybe ByteString)
+  -> Maybe ByteString
      -- ^ optional custom prefix
   -> Transaction (Maybe Directory)
 open' _  []   _     _       = throwDirError "Can't open root directory"
@@ -159,7 +159,7 @@ createOrOpen'
   -> Path
   -> ByteString
           -- ^ layer
-  -> (Maybe ByteString)
+  -> Maybe ByteString
           -- ^ optional custom prefix
   -> Transaction Directory
 createOrOpen' _ [] _ _ = throwDirError "Can't open root directory"
@@ -172,20 +172,19 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
         Nothing -> do
           newDirPrefix  <- allocate allocator contentSS
           isPrefixEmpty <- isRangeEmpty (subspaceRange newDirPrefix)
-          when (not isPrefixEmpty)
+          unless isPrefixEmpty
                (throwDirError "Failed to alloc new dir: prefix not empty.")
           isFree <- isPrefixFree dl (pack newDirPrefix [])
-          when
-            (not isFree)
+          unless isFree
             (throwDirError
             $ "A manually allocated prefix conflicts with the one chosen by the allocator: "
-            ++ (show newDirPrefix)
+            ++ show newDirPrefix
             )
           return (pack newDirPrefix [])
         Just prefixBytes -> do
           isFree <- isPrefixFree dl prefixBytes
-          when (not isFree)
-               (throwDirError $ "The requested prefix is already in use.")
+          unless isFree
+               (throwDirError "The requested prefix is already in use.")
           return prefixBytes
       parentNode <- if length path > 1
         then do
@@ -311,7 +310,7 @@ removeRecursive dl@DirectoryLayer {..} node = do
 -- remove the children of the removed path.
 removeFromParent :: DirectoryLayer -> Path -> Transaction ()
 removeFromParent _  []   = return ()
-removeFromParent dl path = do
+removeFromParent dl path =
   find dl (init path) >>= \case
     Nothing -> throwDirError $ "parent not found for " ++ show path
     Just (Node sub _ _) ->

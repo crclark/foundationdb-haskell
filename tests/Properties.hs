@@ -95,8 +95,8 @@ main = withFoundationDB currentAPIVersion $ do
 
 rangeSpec :: Database -> SpecWith ()
 rangeSpec db = do
-  let kvs = [(prefix <> (BS.singleton k),"a") | k <- ['a'..'z']]
-  describe "unlimited range" $ do
+  let kvs = [(prefix <> BS.singleton k,"a") | k <- ['a'..'z']]
+  describe "unlimited range" $
     it "Should return entire range" $ do
       forM_ kvs $ \(k,v) -> runTransaction db $ set k v
       let unlim = Range (FirstGreaterOrEq (prefix <> "a"))

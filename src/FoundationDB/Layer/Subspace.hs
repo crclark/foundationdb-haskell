@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module FoundationDB.Layer.Subspace where
 
 import Data.ByteString (ByteString)
@@ -36,8 +34,8 @@ subspaceKey = rawPrefix
 extend :: Subspace
        -> [Elem]
        -> Subspace
-extend (Subspace prfx) tuple =
-  prefixedSubspace prfx tuple
+extend (Subspace prfx) =
+  prefixedSubspace prfx
 
 pack :: Subspace -> [Elem] -> ByteString
 pack sub = encodeTupleElemsWPrefix (rawPrefix sub)

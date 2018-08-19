@@ -248,8 +248,8 @@ getRange' Range {..} mode = do
       (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
       -- more doesn't take into account our count limit
       let actuallyMore = case lim of
-            Nothing -> length kvs > 0 && more
-            Just n  -> length kvs > 0 && length kvs < n && more
+            Nothing -> not (null kvs) && more
+            Just n  -> not (null kvs) && length kvs < n && more
       if actuallyMore
         then do
           -- last is partial, but access guarded by @more@
