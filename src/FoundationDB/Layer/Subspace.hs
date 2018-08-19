@@ -4,13 +4,15 @@ module FoundationDB.Layer.Subspace where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Monoid
 
+import FoundationDB
 import FoundationDB.Layer.Tuple
 
 -- | Represents a subspace of keys. sub-subspaces can be created with the Monoid
 -- instance: @mySubsubpace = mySubspace <> subspace someTuple@.
 newtype Subspace = Subspace {rawPrefix :: ByteString}
-  deriving (Show, Eq, Ord, Monoid)
+  deriving (Show, Eq, Ord)
 
 -- | Create a subspace from a tuple.
 subspace :: [Elem]
@@ -26,6 +28,17 @@ prefixedSubspace :: ByteString
                  -> Subspace
 prefixedSubspace prefix tuple = Subspace (encodeTupleElemsWPrefix prefix tuple)
 
+subspaceKey :: Subspace -> ByteString
+subspaceKey = rawPrefix
+
+-- | Create a subsubspace by extending the prefix of a subspace by the
+-- given tuple.
+extend :: Subspace
+       -> [Elem]
+       -> Subspace
+extend (Subspace prfx) tuple =
+  prefixedSubspace prfx tuple
+
 pack :: Subspace -> [Elem] -> ByteString
 pack sub = encodeTupleElemsWPrefix (rawPrefix sub)
 
@@ -39,3 +52,24 @@ contains :: Subspace
          -> Bool
 contains sub = BS.isPrefixOf (rawPrefix sub)
 
+subspaceRange :: Subspace -> Range
+subspaceRange s = Range
+  { rangeBegin   = FirstGreaterOrEq (k <> BS.pack [0x00])
+  , rangeEnd     = FirstGreaterOrEq (k <> BS.pack [0xff])
+  , rangeLimit   = Nothing
+  , rangeReverse = False
+  }
+  where k = pack s []
+
+-- | Get the last key,value pair in the subspace, if it exists.
+getLast :: Subspace -> Transaction (Maybe (ByteString, ByteString))
+getLast sub = do
+  rr <- getRange (subspaceRange sub) { rangeLimit = Just 1,
+                                       rangeReverse = True
+                                     }
+  kvs <- await rr
+  case kvs of
+    RangeDone [] -> return Nothing
+    RangeDone (kv:_) -> return (Just kv)
+    RangeMore (kv:_) _ -> return (Just kv)
+    RangeMore [] _ -> return Nothing --TODO: impossible

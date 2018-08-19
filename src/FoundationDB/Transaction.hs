@@ -19,11 +19,19 @@ module FoundationDB.Transaction (
   , set
   , clear
   , clearRange
+  , addConflictRange
+  , FDB.FDBConflictRangeType
   , getKey
   , getKeyAddresses
   , atomicOp
   , getRange
+  , getRange'
+  , FDB.FDBStreamingMode(..)
+  , getEntireRange
+  , isRangeEmpty
   , Range(..)
+  , rangeKeys
+  , prefixRange
   , RangeResult(..)
   -- * Futures
   , Future
@@ -39,12 +47,14 @@ module FoundationDB.Transaction (
 ) where
 
 import Control.Exception
+import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
 import Control.Monad.Except
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader
 import Control.Monad.Trans.Resource
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
 
 import FoundationDB.Error
@@ -74,8 +84,9 @@ createTransactionEnv db conf = do
 -- I'm leaning towards 3. We can export both Transaction and TransactionT.
 newtype Transaction a = Transaction
   {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
-  deriving (Applicative, Functor, Monad, MonadIO)
-
+  deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
+            MonadMask)
+-- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
@@ -85,6 +96,9 @@ data Future a = forall b. Future
   , _extractValue :: Transaction a
   }
 
+instance Show (Future a) where
+  show (Future c _) = show $ "Future " ++ show c
+
 fromCExtractor :: FDB.Future b
                -> ReleaseKey
                -> Transaction a
@@ -93,7 +107,7 @@ fromCExtractor cFuture rk m =
   return $ Future cFuture $ do
     futErr <- liftIO $ FDB.futureGetError cFuture
     if FDB.isError futErr
-      then release rk >> throwError (toError futErr)
+      then release rk >> throwError (CError $ toError futErr)
       else do
         res <- m
         release rk
@@ -144,6 +158,15 @@ clearRange k l = do
   t <- asks cTransaction
   liftIO $ FDB.transactionClearRange t k l
 
+addConflictRange :: ByteString
+                 -> ByteString
+                 -> FDB.FDBConflictRangeType
+                 -> Transaction ()
+addConflictRange k l ty = do
+  t <- asks cTransaction
+  liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
+
+
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
 offset (FDB.WithOffset n ks) m = FDB.WithOffset (n+m) ks
 offset ks n = FDB.WithOffset n ks
@@ -175,52 +198,112 @@ data Range = Range {
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
 
+-- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
+--   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
+prefixRange :: ByteString -> Maybe Range
+prefixRange prefix
+  | prefix == BS.empty = Nothing
+  | BS.all (== 0xff) prefix = Nothing
+  | otherwise = Just $ Range
+  { rangeBegin = FDB.FirstGreaterOrEq prefix
+  , rangeEnd = FDB.FirstGreaterOrEq end
+  , rangeLimit = Nothing
+  , rangeReverse = False
+  }
+  where end = let prefix' = BS.takeWhile (/= 0xff) prefix
+                  in BS.snoc (BS.init prefix')
+                             (BS.last prefix' + 1)
+
+rangeKeys :: Range -> (ByteString, ByteString)
+rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
+
 -- | Structure for returning the result of 'getRange' in chunks.
 data RangeResult =
   RangeDone [(ByteString, ByteString)]
   | RangeMore [(ByteString, ByteString)] (Future RangeResult)
+  deriving Show
 
-getRange :: Range
-         -> Transaction (Future RangeResult)
-getRange Range{..} = do
-  t <- asks cTransaction
+getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
+getRange' Range {..} mode = do
+  t          <- asks cTransaction
   isSnapshot <- asks (snapshotReads . conf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
-  let (endK, endOrEqual, endOffset) = FDB.keySelectorTuple rangeEnd
-  let mk = FDB.transactionGetRange t beginK beginOrEqual beginOffset
-                                     endK endOrEqual endOffset
-                                     (fromMaybe 0 rangeLimit) 0
-                                     FDB.StreamingModeIterator
-                                     1
-                                     isSnapshot
-                                     rangeReverse
-  let handler bsel esel i lim fut = do
-        --TODO: need to return Vector or Array for efficiency
-        (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
-        if more
-          then do
-            -- last is partial, but access guarded by @more@
-            let lstK = snd $ last kvs
-            let bsel' = if not rangeReverse
-                           then FDB.FirstGreaterThan lstK
-                           else bsel
-            let (beginK', beginOrEqual', beginOffset') = FDB.keySelectorTuple bsel'
-            let esel' = if rangeReverse
-                           then FDB.FirstGreaterOrEq lstK
-                           else esel
-            let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
-            let lim' = fmap (\x -> x - length kvs) lim
-            let mk' = FDB.transactionGetRange t beginK' beginOrEqual' beginOffset'
-                                                endK' endOrEqual' endOffset'
-                                                (fromMaybe 0 lim') 0
-                                                FDB.StreamingModeIterator
-                                                (i+1)
-                                                isSnapshot
-                                                rangeReverse
-            res <- allocFuture mk' (handler bsel' esel' (i+1) lim')
-            return $ RangeMore kvs res
-          else return $ RangeDone kvs
+  let (endK, endOrEqual, endOffset)       = FDB.keySelectorTuple rangeEnd
+  let mk = FDB.transactionGetRange t
+                                   beginK
+                                   beginOrEqual
+                                   beginOffset
+                                   endK
+                                   endOrEqual
+                                   endOffset
+                                   (fromMaybe 0 rangeLimit)
+                                   0
+                                   mode
+                                   1
+                                   isSnapshot
+                                   rangeReverse
+  let
+    handler bsel esel i lim fut = do
+      --TODO: need to return Vector or Array for efficiency
+      (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
+      -- more doesn't take into account our count limit
+      let actuallyMore = case lim of
+            Nothing -> length kvs > 0 && more
+            Just n  -> length kvs > 0 && length kvs < n && more
+      if actuallyMore
+        then do
+          -- last is partial, but access guarded by @more@
+          let lstK = snd $ last kvs
+          let bsel' =
+                if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
+          let (beginK', beginOrEqual', beginOffset') =
+                FDB.keySelectorTuple bsel'
+          let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
+          let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
+          let lim' = fmap (\x -> x - length kvs) lim
+          let mk' = FDB.transactionGetRange t
+                                            beginK'
+                                            beginOrEqual'
+                                            beginOffset'
+                                            endK'
+                                            endOrEqual'
+                                            endOffset'
+                                            (fromMaybe 0 lim')
+                                            0
+                                            mode
+                                            (i + 1)
+                                            isSnapshot
+                                            rangeReverse
+          res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
+          return $ RangeMore kvs res
+        else return $ RangeDone $ case lim of
+          Nothing -> kvs
+          Just n  -> take n kvs
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
+
+
+getRange :: Range -> Transaction (Future RangeResult)
+getRange r = getRange' r FDB.StreamingModeIterator
+
+-- TODO: slow and leaky! no lists!
+getEntireRange :: Range
+               -> Transaction [(ByteString, ByteString)]
+getEntireRange r = do
+  rr <- getRange' r FDB.StreamingModeWantAll >>= await
+  go rr
+
+  where go (RangeDone xs) = return xs
+        go (RangeMore xs fut) = do
+          more <- await fut
+          ys <- go more
+          return (xs ++ ys)
+
+isRangeEmpty :: Range -> Transaction Bool
+isRangeEmpty r = do
+  rr <- getRange r >>= await
+  case rr of
+    RangeDone [] -> return True
+    _            -> return False
 
 data AtomicOp =
   Add
@@ -308,8 +391,10 @@ withRetry t = catchError t $ \err -> do
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err
     then do
+      -- retryable and retryableNotCommitted can only return true for CErrors.
+      let (CError err') = err
       trans <- asks cTransaction
-      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
                        (const $ return ())
       await f
       -- await throws any error on the future, so if we reach here, we can retry
@@ -338,7 +423,7 @@ cancel :: Transaction ()
 cancel = do
   t <- asks cTransaction
   liftIO $ FDB.transactionCancel t
-  throwError TransactionCanceled
+  throwError (CError TransactionCanceled)
 
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->

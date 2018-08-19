@@ -40,6 +40,7 @@ module FoundationDB.Internal.Bindings (
   -- * Transaction
   , Transaction
   , KeySelector (..)
+  , keySelectorBytes
   , keySelectorTuple
   , transactionDestroy
   , transactionSetOption
@@ -378,6 +379,13 @@ data KeySelector =
   | FirstGreaterOrEq B.ByteString
   | WithOffset Int KeySelector
   deriving (Show, Eq, Ord)
+
+keySelectorBytes :: KeySelector -> B.ByteString
+keySelectorBytes (LastLessThan bs) = bs
+keySelectorBytes (LastLessOrEq bs) = bs
+keySelectorBytes (FirstGreaterThan bs) = bs
+keySelectorBytes (FirstGreaterOrEq bs) = bs
+keySelectorBytes (WithOffset _ ks) = keySelectorBytes ks
 
 -- | Convert a 'KeySelector' to its or_equal, offset settings. Equivalent to
 -- the macros @FDB_KEYSEL_LAST_LESS_THAN@ etc.
