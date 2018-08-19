@@ -11,23 +11,14 @@ import FoundationDB.Layer.Subspace
 import FoundationDB.Layer.Tuple
 
 data Node = Node
-  { nodeNodeSS :: Maybe Subspace
+  { nodeNodeSS :: Subspace
   , nodePath :: [Text]
   , targetPath :: [Text]
   } deriving (Show, Eq, Ord)
 
--- TODO: it's not clear yet how this is used. It's possible that this should be
--- a sum type, or that we shouldn't even have a 'Node' if it doesn't actually
--- exist.
-nodeExists :: Node -> Bool
-nodeExists (Node Nothing _ _) = False
-nodeExists (Node (Just _) _ _) = True
-
 getNodeLayer :: Node -> Transaction ByteString
-getNodeLayer (Node (Just ss) _ _) = do
+getNodeLayer n@(Node ss _ _) = do
   fv <- get (pack ss [BytesElem "layer"]) >>= await
   case fv of
-    Nothing -> throwDirError "Failed to get node layer."
+    Nothing -> throwDirError $ "Failed to get node layer for node " ++ show n
     Just l -> return l
-getNodeLayer (Node Nothing _ _) =
-  throwDirError "Tried to get layer of nonexistent node."

@@ -7,7 +7,7 @@ module FoundationDB.Layer.Directory.Internal where
 import Control.Monad
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromJust)
+import Data.Maybe (isJust)
 import Data.Monoid
 import Data.List (intercalate)
 import Data.Serialize.Get (runGet, getWord32le)
@@ -139,18 +139,17 @@ open' _  []   _     _       = throwDirError "Can't open root directory"
 -- TODO: prefix won't be used until we add partition support
 open' dl path layer _prefix = do
   checkVersion dl
-  existingNode <- find dl path
-  if nodeExists existingNode
-    then do
-      existingLayer <- getNodeLayer existingNode
+  find dl path >>= \case
+    Nothing -> return Nothing
+    Just node -> do
+      existingLayer <- getNodeLayer node
       when (layer /= existingLayer)
            (throwDirError "directory created with incompatible layer")
       Just
         <$> contentsOfNodeSubspace dl
-                                   (fromJust $ nodeNodeSS existingNode)
-                                   (nodePath existingNode)
+                                   (nodeNodeSS node)
+                                   (nodePath node)
                                    existingLayer
-    else return Nothing
 
 -- TODO: this can fail in various ways. Some of the failure modes can be user
 -- bugs -- might be better to return a sum type.
@@ -206,17 +205,15 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
 exists :: DirectoryLayer
        -> Path
        -> Transaction Bool
-exists dl path = nodeExists <$> find dl path
+exists dl path = isJust <$> find dl path
 
 -- | List the names of the immediate subdirectories of a directory.
 -- Returns an empty list if the directory does not exist.
 list :: DirectoryLayer -> Path -> Transaction [Text]
-list dl path = do
-  node <- find dl path
-  if nodeExists node
-     -- TODO: fix up this node type to remove fromJust
-    then subdirNames dl (fromJust $ nodeNodeSS node)
-    else return []
+list dl path =
+  find dl path >>= \case
+    Nothing -> return []
+    Just node -> subdirNames dl (nodeNodeSS node)
 
 data MoveError =
   SelfSubDir
@@ -250,19 +247,19 @@ move dl oldPath newPath = do
   if oldPath == take sliceEnd newPath
     then return (Just SelfSubDir)
     else do
-      oldNode    <- find dl oldPath
-      newNode    <- find dl newPath
-      parentNode <- find dl (init newPath)
-      case (nodeExists oldNode, nodeExists newNode, nodeExists parentNode) of
-        (False, _   , _    ) -> return (Just SourceDoesNotExist)
-        (_    , True, _    ) -> return (Just DestinationAlreadyExists)
-        (_    , _   , False) -> return (Just DestinationParentDoesNotExist)
-        _                    -> do
+      oldNodeM    <- find dl oldPath
+      newNodeM    <- find dl newPath
+      parentNodeM <- find dl (init newPath)
+      case (oldNodeM, newNodeM, parentNodeM) of
+        (Nothing, _   , _    ) -> return (Just SourceDoesNotExist)
+        (_    , Just _, _    ) -> return (Just DestinationAlreadyExists)
+        (_    , _   , Nothing) -> return (Just DestinationParentDoesNotExist)
+        (Just oldNode, Nothing, Just parentNode) -> do
           let k = pack
-                (fromJust $ nodeNodeSS parentNode)
+                (nodeNodeSS parentNode)
                 [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last newPath)]
           let ve =
-                unpack (nodeSS dl) (rawPrefix $ fromJust $ nodeNodeSS oldNode)
+                unpack (nodeSS dl) (rawPrefix $ nodeNodeSS oldNode)
           case ve of
             Left e -> throwDirError $ "move failure: " ++ e
             Right (Tuple.BytesElem v : _) -> do
@@ -280,14 +277,13 @@ remove
   -> Transaction Bool
 -- can't remove root dir
 remove _  []   = return False
-remove dl path = do
-  node <- find dl path
-  if nodeExists node
-    then do
-      removeRecursive  dl (fromJust (nodeNodeSS node))
+remove dl path =
+  find dl path >>= \case
+    Nothing -> return False
+    Just node -> do
+      removeRecursive  dl (nodeNodeSS node)
       removeFromParent dl path
       return True
-    else return False
 
 -- | Internal helper function that removes all subdirectories of the given
 -- node subspace. Does not remove the given node from its parent.
@@ -316,10 +312,9 @@ removeRecursive dl@DirectoryLayer {..} node = do
 removeFromParent :: DirectoryLayer -> Path -> Transaction ()
 removeFromParent _  []   = return ()
 removeFromParent dl path = do
-  parent <- find dl (init path)
-  case parent of
-    (Node Nothing _ _) -> throwDirError $ "parent not found for " ++ show path
-    (Node (Just sub) _ _) ->
+  find dl (init path) >>= \case
+    Nothing -> throwDirError $ "parent not found for " ++ show path
+    Just (Node sub _ _) ->
       clear (pack sub [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
 
 -- TODO: should use Node type, except it doesn't really represent a node as-is.
@@ -445,25 +440,24 @@ nodeWithPrefix DirectoryLayer {..} prefix =
 find
   :: DirectoryLayer
   -> Path
-  -> Transaction Node
+  -> Transaction (Maybe Node)
 find dl@DirectoryLayer {..} queryPath = go baseNode (zip [0 ..] queryPath)
  where
 
-  baseNode = Node (Just rootNode) [] queryPath
+  baseNode = Node rootNode [] queryPath
 
-  go n []            = return n
+  go n []            = return (Just n)
   go n ((i, p) : ps) = do
-    let nodePrefixKey = pack (fromJust $ nodeNodeSS n)
+    let nodePrefixKey = pack (nodeNodeSS n)
                              [Tuple.IntElem _SUBDIRS, Tuple.TextElem p]
-    nodePrefix <- get nodePrefixKey >>= await
-    let n' = Node (fmap (nodeWithPrefix dl) nodePrefix)
-                  (take (i + 1) queryPath)
-                  []
-    if not (nodeExists n')
-      then return n'
-      else do
+    get nodePrefixKey >>= await >>= \case
+      Nothing -> return Nothing
+      Just prefix -> do
+        let n' = Node (nodeWithPrefix dl prefix)
+                      (take (i + 1) queryPath)
+                      []
         layer <- getNodeLayer n'
-        if layer == "partition" then return n' else go n' ps
+        if layer == "partition" then return (Just n') else go n' ps
 
 contentsOfNodePartition
   :: DirectoryLayer
