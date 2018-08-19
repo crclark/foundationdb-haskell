@@ -1,4 +1,4 @@
-Unfinished Haskell bindings for the FoundationDB C client. Currently contains FFI bindings to all of the C API, plus a WIP `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/1f8d0ba2c4985d2fe3d8e6fcbc852c01050af9bb/tests/Properties.hs#L48)). So far, it's mostly untested.
+Unfinished Haskell bindings for the FoundationDB C client. Under active development. Currently contains FFI bindings to all of the C API, a `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/1f8d0ba2c4985d2fe3d8e6fcbc852c01050af9bb/tests/Properties.hs#L48)), and implementations of the standard tuple, subspace and directory layers. Tests are still sparser than I'd like, and the API is still changing.
 
 ### Generating options from `fdb.options`
 
