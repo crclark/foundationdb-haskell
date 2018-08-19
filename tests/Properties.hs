@@ -27,19 +27,7 @@ cleanup :: Database -> ByteString -> IO ()
 cleanup db prfx = runTransaction db $ do
   let begin = prfx
   let end = prfx <> "\xff"
-  fut <- getRange $ Range { rangeBegin = FirstGreaterOrEq begin
-                          , rangeEnd = FirstGreaterOrEq end
-                          , rangeLimit = Nothing
-                          , rangeReverse = False
-                          }
-  res <- await fut
-  go res
-
-  where go (RangeDone kvs) = forM_ (map fst kvs) clear
-        go (RangeMore kvs more) = do
-          forM_ (map fst kvs) clear
-          res <- await more
-          go res
+  clearRange begin end
 
 main :: IO ()
 main = withFoundationDB currentAPIVersion $ do

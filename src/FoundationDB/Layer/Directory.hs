@@ -4,13 +4,30 @@
 -- TODO: look for simplifications for the interface exported here. See
 -- https://github.com/apple/foundationdb/blob/master/bindings/go/src/fdb/directory/directory.go
 -- for ideas to simplify.
+
+-- | The directory layer. The directory layer provides tools for creating a
+-- hierarchy of 'Subspace's, which can be operated on efficiently with a
+-- directory-like API.
+--
+-- This implementation of the directory layer does not yet support directory
+-- partitions. They will be added in the future.
 module FoundationDB.Layer.Directory (
-  open
+  DirectoryLayer
+  , Directory
+  , Path
+  , dirSubspace
+  , dirDirectoryLayer
+  , dirPath
+  , dirLayer
+  , open
   , createOrOpen
   , move
   , remove
   , exists
   , list
+  -- * Advanced usage
+  , open'
+  , createOrOpen'
 ) where
 
 import FoundationDB.Layer.Directory.Internal

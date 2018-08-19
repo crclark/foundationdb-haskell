@@ -42,7 +42,7 @@ windowSize start
   | otherwise     = 8192
 
 -- | global lock used for allocating. We use this simply because the other
--- clients have it. It's not yet clear if it's actually needed. TODO: find out.
+-- clients have it. It's not yet clear to me why it's needed. TODO: find out.
 globalAllocateLock :: MVar ()
 globalAllocateLock = unsafePerformIO (newMVar ())
 {-# NOINLINE globalAllocateLock #-}

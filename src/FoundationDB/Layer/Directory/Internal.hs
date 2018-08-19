@@ -35,6 +35,9 @@ throwing s = either (const $ throwDirError s) return
 
 --TODO: stuff can break if users change parts of the internals of this thing.
 -- Don't export.
+
+-- | Represents a directory tree. A value of this type must be supplied to all
+-- functions in this module.
 data DirectoryLayer = DirectoryLayer
   { nodeSS :: Subspace
     -- ^ Subspace for directory metadata.
@@ -47,13 +50,36 @@ data DirectoryLayer = DirectoryLayer
   , dlPath :: [Text]
   } deriving (Show, Eq, Ord)
 
-data DirSubspace = DirSubspace
-  { dirSubspace :: Subspace
-  , dirSubspaceDL :: DirectoryLayer
-  , dirSubspacePath :: [Text]
-  , dirSubspaceLayer :: ByteString
+-- | A path is a list of unicode strings.
+type Path = [Text]
+
+-- | Represents a single directory.
+data Directory = Directory
+  { directorySubspace :: Subspace
+  , directoryDL :: DirectoryLayer
+  , directoryPath :: Path
+  , directoryLayer :: ByteString
   } deriving (Show, Eq, Ord)
 
+-- | Gets the subspace of a directory.
+dirSubspace :: Directory -> Subspace
+dirSubspace = directorySubspace
+
+-- | Returns a 'DirectoryLayer' representing the directory hierarchy rooted
+-- at the given directory.
+dirDirectoryLayer :: Directory -> DirectoryLayer
+dirDirectoryLayer = directoryDL
+
+-- | Gets the path of a directory.
+dirPath :: Directory -> Path
+dirPath = directoryPath
+
+-- | Gets the layer tag that was specified when the directory was created.
+dirLayer :: Directory -> ByteString
+dirLayer = directoryLayer
+
+-- TODO: this library doesn't yet support partitions. Some code exists, but it's
+-- not yet used.
 data DirPartition = DirPartition
   { dirPartition :: DirectoryLayer
   , dirPartitionParentDL :: DirectoryLayer
@@ -73,26 +99,45 @@ newDirectoryLayer nodeSS contentSS allowManualPrefixes =
       dlPath    = []
   in  DirectoryLayer {..}
 
+-- | The default directory layer has node subspace prefix @0xfe@.
+-- This corresponds to using the defaults for all arguments to the
+-- @DirectoryLayer@ constructor in other languages' bindings.
 defaultDirLayer :: DirectoryLayer
 defaultDirLayer = newDirectoryLayer (Subspace "\xfe") (Subspace "") False
 
--- TODO: why not combine this with newDirectoryLayer?
+-- | Opens a directory at the given path. If the directory exists, returns it.
+open :: DirectoryLayer
+     -> Path
+     -> Transaction (Maybe Directory)
+open dl p = open' dl p "" Nothing
+
+-- | Opens a directory at the given path. If the directory does not exist, it
+-- is created.
+createOrOpen :: DirectoryLayer
+             -> Path
+             -> Transaction Directory
+createOrOpen dl p = createOrOpen' dl p "" Nothing
+
+-- TODO: why not combine open with newDirectoryLayer?
 -- then we don't have the clumsiness of always passing a prefix and having
 -- to check the allowManualPrefixes bool. Could just pass Maybe Prefix instead.
 -- Or is this creating or opening a subdirectory of the input DL?
--- | Open a directory. Returns 'Nothing' if the directory doesn't exist.
-open
+
+
+
+-- | Open a directory, with optional custom prefix and layer.
+-- Returns 'Nothing' if the directory doesn't exist.
+open'
   :: DirectoryLayer
-  -> [Text]
-     -- ^ path
+  -> Path
   -> ByteString
      -- ^ layer
   -> (Maybe ByteString)
      -- ^ optional custom prefix
-  -> Transaction (Maybe DirSubspace)
-open _  []   _     _       = throwDirError "Can't open root directory"
+  -> Transaction (Maybe Directory)
+open' _  []   _     _       = throwDirError "Can't open root directory"
 -- TODO: prefix won't be used until we add partition support
-open dl path layer _prefix = do
+open' dl path layer _prefix = do
   checkVersion dl
   existingNode <- find dl path
   if nodeExists existingNode
@@ -109,18 +154,18 @@ open dl path layer _prefix = do
 
 -- TODO: this can fail in various ways. Some of the failure modes can be user
 -- bugs -- might be better to return a sum type.
-createOrOpen
+-- | Opens a directory at the given path, with optional custom prefix and layer.
+createOrOpen'
   :: DirectoryLayer
-  -> [Text]
-          -- ^ path
+  -> Path
   -> ByteString
           -- ^ layer
   -> (Maybe ByteString)
           -- ^ optional custom prefix
-  -> Transaction DirSubspace
-createOrOpen _ [] _ _ = throwDirError "Can't open root directory"
-createOrOpen dl@DirectoryLayer {..} path layer prefix = do
-  tryOpen <- open dl path layer prefix
+  -> Transaction Directory
+createOrOpen' _ [] _ _ = throwDirError "Can't open root directory"
+createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
+  tryOpen <- open' dl path layer prefix
   case tryOpen of
     Just ss -> return ss
     Nothing -> do
@@ -145,8 +190,8 @@ createOrOpen dl@DirectoryLayer {..} path layer prefix = do
           return prefixBytes
       parentNode <- if length path > 1
         then do
-          pd <- createOrOpen dl (init path) "" Nothing
-          let pdk = subspaceKey (dirSubspace pd)
+          pd <- createOrOpen' dl (init path) "" Nothing
+          let pdk = subspaceKey (directorySubspace pd)
           return $ nodeWithPrefix dl pdk
         else return rootNode
       --TODO: null check of parentNode here in Go code
@@ -157,18 +202,21 @@ createOrOpen dl@DirectoryLayer {..} path layer prefix = do
       set (pack node [Tuple.BytesElem "layer"]) layer
       contentsOfNodeSubspace dl node path layer
 
-exists :: DirectoryLayer -> [Text] -> Transaction Bool
+-- | Returns 'True' iff the given path exists.
+exists :: DirectoryLayer
+       -> Path
+       -> Transaction Bool
 exists dl path = nodeExists <$> find dl path
 
--- | List the contents of a directory. Returns 'Nothing' if the directory
--- does not exist.
-list :: DirectoryLayer -> [Text] -> Transaction (Maybe [Text])
+-- | List the names of the immediate subdirectories of a directory.
+-- Returns an empty list if the directory does not exist.
+list :: DirectoryLayer -> Path -> Transaction [Text]
 list dl path = do
   node <- find dl path
   if nodeExists node
      -- TODO: fix up this node type to remove fromJust
-    then Just <$> subdirNames dl (fromJust $ nodeNodeSS node)
-    else return Nothing
+    then subdirNames dl (fromJust $ nodeNodeSS node)
+    else return []
 
 data MoveError =
   SelfSubDir
@@ -188,11 +236,12 @@ data MoveError =
   -- ^ Returned by 'move' if the destination path is the root path.
   deriving (Show, Eq, Ord)
 
+-- | Move a directory from one path to another.
 move
   :: DirectoryLayer
-  -> [Text]
+  -> Path
      -- ^ from path
-  -> [Text]
+  -> Path
      -- ^ to path
   -> Transaction (Maybe MoveError)
 move _  _       []      = return $ Just CannotMoveToRoot
@@ -225,11 +274,9 @@ move dl oldPath newPath = do
 -- | Remove a directory path, its contents, and all subdirectories.
 -- Returns 'True' if removal succeeds. Fails for nonexistent paths and the root
 -- directory.
--- TODO: just return ()?
 remove
   :: DirectoryLayer
-  -> [Text]
-       -- ^ path
+  -> Path
   -> Transaction Bool
 -- can't remove root dir
 remove _  []   = return False
@@ -242,6 +289,8 @@ remove dl path = do
       return True
     else return False
 
+-- | Internal helper function that removes all subdirectories of the given
+-- node subspace. Does not remove the given node from its parent.
 removeRecursive
   :: DirectoryLayer
   -> Subspace
@@ -262,7 +311,9 @@ removeRecursive dl@DirectoryLayer {..} node = do
     Right _ -> throwDirError "node unpacked to non-bytes tuple element"
   uncurry clearRange (rangeKeys (subspaceRange node))
 
-removeFromParent :: DirectoryLayer -> [Text] -> Transaction ()
+-- | Internal helper function that removes a path from its parent. Does not
+-- remove the children of the removed path.
+removeFromParent :: DirectoryLayer -> Path -> Transaction ()
 removeFromParent _  []   = return ()
 removeFromParent dl path = do
   parent <- find dl (init path)
@@ -271,13 +322,13 @@ removeFromParent dl path = do
     (Node (Just sub) _ _) ->
       clear (pack sub [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
 
--- TODO: should use Node type, except it's bizarre and broken.
+-- TODO: should use Node type, except it doesn't really represent a node as-is.
 -- existing Node type should probably be renamed NodeQueryResult or
 -- something, and a real Node type introduced.
 subdirNameNodes
   :: DirectoryLayer
   -> Subspace
-                -- ^ node
+  -- ^ node
   -> Transaction [(Text, Subspace)]
 subdirNameNodes dl@DirectoryLayer {..} node = do
   let sd = extend node [Tuple.IntElem _SUBDIRS]
@@ -393,8 +444,7 @@ nodeWithPrefix DirectoryLayer {..} prefix =
 -- path exists, returns it.
 find
   :: DirectoryLayer
-  -> [Text]
-     -- ^ path
+  -> Path
   -> Transaction Node
 find dl@DirectoryLayer {..} queryPath = go baseNode (zip [0 ..] queryPath)
  where
@@ -419,8 +469,7 @@ contentsOfNodePartition
   :: DirectoryLayer
   -> Subspace
   -- ^ node
-  -> [Text]
-  -- ^ path
+  -> Path
   -> Transaction DirPartition
 contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
   -- TODO: need a type class of things that can be converted to keys to avoid
@@ -439,9 +488,9 @@ contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
 contentsOfNodeSubspace
   :: DirectoryLayer
   -> Subspace
-  -> [Text]
+  -> Path
   -> ByteString
-  -> Transaction DirSubspace
+  -> Transaction Directory
 contentsOfNodeSubspace dl@DirectoryLayer {..} node queryPath layer = do
   -- TODO: need a type class of things that can be converted to keys to avoid
   -- @pack node []@
@@ -449,5 +498,5 @@ contentsOfNodeSubspace dl@DirectoryLayer {..} node queryPath layer = do
   case p of
     [Tuple.BytesElem prefixBytes] -> do
       let newPath = dlPath <> queryPath
-      return $ DirSubspace (Subspace prefixBytes) dl newPath layer
+      return $ Directory (Subspace prefixBytes) dl newPath layer
     _ -> throwDirError "unexpected contents for node prefix value"
