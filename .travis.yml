@@ -1,0 +1,12 @@
+language: haskell
+dist: xenial
+ghc:
+  - "8.2"
+before_install:
+  - wget https://www.foundationdb.org/downloads/5.1.7/ubuntu/installers/foundationdb-clients_5.1.7-1_amd64.deb
+  - wget https://www.foundationdb.org/downloads/5.1.7/ubuntu/installers/foundationdb-server_5.1.7-1_amd64.deb
+  - sudo dpkg -i foundationdb-clients_5.1.7-1_amd64.deb
+  - sudo dpkg -i foundationdb-server_5.1.7-1_amd64.deb
+  - sudo apt-get install c2hs
+env:
+  - FDB_HASKELL_TEST_CLUSTER_FILE=/etc/foundationdb/fdb.cluster
