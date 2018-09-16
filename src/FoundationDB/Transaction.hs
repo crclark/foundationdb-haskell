@@ -71,18 +71,7 @@ import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as FDB
 import FoundationDB.Versionstamp
 
-data TransactionEnv = TransactionEnv {
-  cTransaction :: FDB.Transaction
-  , conf :: TransactionConfig
-  } deriving (Show)
-
-createTransactionEnv :: FDB.Database
-                       -> TransactionConfig
-                       -> ExceptT Error (ResourceT IO) TransactionEnv
-createTransactionEnv db conf = do
-  (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
-                            (either (const $ return ()) FDB.transactionDestroy)
-  liftEither $ fmap (flip TransactionEnv conf) eTrans
+import FoundationDB.Transaction.Internal
 
 -- TODO: this will be exported to users with a MonadIO instance. At first
 -- glance, that seems bad, since runTransaction does auto
@@ -387,25 +376,6 @@ atomicOp :: AtomicOp -> ByteString -> ByteString -> Transaction ()
 atomicOp op k x = do
   t <- asks cTransaction
   liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
-
--- | Contains useful options that are not directly exposed by the C API (for
---   options that are, see 'setOption').
-data TransactionConfig = TransactionConfig {
-  idempotent :: Bool
-  -- ^ When set to 'True' (default is 'False'), running the transaction will
-  -- retry even on errors where the transaction may have completed successfully.
-  -- When 'False', the transaction will retry only when it is guaranteed that
-  -- the transaction was not committed.
-  , snapshotReads :: Bool
-  -- ^ When set to 'True' (default is 'False'), reads will see the effects of
-  -- concurrent transactions, removing the default serializable isolation
-  -- guarantee. To enable this feature selectively within a transaction,
-  -- see 'withSnapshot'.
-  } deriving (Show, Read, Eq, Ord)
-
-
-defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False
 
 runTransaction :: FDB.Database -> Transaction a -> IO a
 runTransaction = runTransactionWithConfig defaultConfig
