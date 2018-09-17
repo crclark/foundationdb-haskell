@@ -10,6 +10,7 @@ import Data.IORef
 import Data.Maybe (fromJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Text.Pretty.Simple
 
 import FoundationDB
 import FoundationDB.Transaction
@@ -157,7 +158,7 @@ getOps db prefix = runTransaction db $ do
 runMachine :: IORef (Map ByteString TransactionEnv) -> StackMachine -> ResIO ()
 runMachine transMap StackMachine {..} = do
   ops <- liftIO $ getOps db transactionName
-  undefined
+  pPrint ops
 
 runTests :: Int -> ByteString -> Database -> IO ()
 runTests ver prefix db = do

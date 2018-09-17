@@ -137,10 +137,11 @@ executable bindingtester
                        , foundationdb-haskell
                        , containers
                        , resourcet
+                       , pretty-simple
   else
     buildable: False
   default-language:    Haskell2010
-  ghc-options:         -Wall
+  ghc-options:         -Wall -threaded
   hs-source-dirs:      bindingtester
   main-is:             Main.hs
   other-modules:       StackMachine
