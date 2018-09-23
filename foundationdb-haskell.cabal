@@ -138,6 +138,7 @@ executable bindingtester
                        , containers
                        , resourcet
                        , pretty-simple
+                       , text
   else
     buildable: False
   default-language:    Haskell2010

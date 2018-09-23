@@ -1,16 +1,21 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module StackMachine where
 
+import Control.Concurrent.MVar
 import Control.Monad.Trans.Resource
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.ByteString (ByteString)
 import Data.IORef
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Pretty.Simple
+import System.IO.Unsafe (unsafePerformIO)
 
 import FoundationDB
 import FoundationDB.Transaction
@@ -46,6 +51,12 @@ popN n st@StackMachine {..} = if stackLen < n
     let (popped, rest) = splitAt n stack
     in  Just (popped, st { stack = rest, stackLen = stackLen - n })
 
+-- TODO: it's probably possible to pass this around to avoid making it truly
+-- global.
+transactions :: MVar (Map ByteString TransactionEnv)
+transactions = unsafePerformIO $ newMVar mempty
+{-# NOINLINE transactions #-}
+
 data Op =
   Push StackItem
   | Dup
@@ -58,19 +69,19 @@ data Op =
   | NewTransaction
   | UseTransaction
   | OnError
-  | Get { snapshot :: Bool, database :: Bool }
-  | GetKey { snapshot :: Bool, database :: Bool}
-  | GetRange { snapshot :: Bool, database :: Bool}
-  | GetRangeStartsWith { snapshot :: Bool, database :: Bool}
-  | GetRangeSelector { snapshot :: Bool, database :: Bool}
-  | GetReadVersion { snapshot :: Bool }
+  | Get
+  | GetKey
+  | GetRange
+  | GetRangeStartsWith
+  | GetRangeSelector
+  | GetReadVersion
   | GetVersionstamp
-  | Set { database :: Bool }
+  | Set
   | SetReadVersion
-  | Clear { database :: Bool }
-  | ClearRange { database :: Bool }
-  | ClearRangeStartsWith { database :: Bool }
-  | AtomicOp { database :: Bool }
+  | Clear
+  | ClearRange
+  | ClearRangeStartsWith
+  | AtomicOp
   | ReadConflictRange
   | WriteConflictRange
   | ReadConflictKey
@@ -92,72 +103,96 @@ data Op =
   | DecodeDouble
   | StartThread
   | WaitEmpty
+  | SnapshotOp Op
+  | DatabaseOp Op
   | UnknownOp [Elem]
   deriving Show
 
-parseOp :: ByteString -> Op
-parseOp v = case decodeTupleElems v of
-  Right [TextElem "PUSH", item]      -> Push (StackItem item)
-  Right [TextElem "DUP"            ] -> Dup
-  Right [TextElem "EMPTY_STACK"    ] -> EmptyStack
-  Right [TextElem "SWAP"           ] -> Swap
-  Right [TextElem "POP"            ] -> Pop
-  Right [TextElem "SUB"            ] -> Sub
-  Right [TextElem "CONCAT"         ] -> Concat
-  Right [TextElem "LOG_STACK"      ] -> LogStack
-  Right [TextElem "NEW_TRANSACTION"] -> NewTransaction
-  Right [TextElem "USE_TRANSACTION"] -> UseTransaction
-  Right [TextElem "ON_ERROR"       ] -> OnError
-  Right [TextElem "GET", BoolElem snapshot, BoolElem database] -> Get {..}
-  Right [TextElem "GET_KEY", BoolElem snapshot, BoolElem database] ->
-    GetKey {..}
-  Right [TextElem "GET_RANGE", BoolElem snapshot, BoolElem database] ->
-    GetRange {..}
-  Right [TextElem "GET_RANGE_STARTS_WITH", BoolElem snapshot, BoolElem database]
-    -> GetRangeStartsWith {..}
-  Right [TextElem "GET_RANGE_SELECTOR", BoolElem snapshot, BoolElem database]
-    -> GetRangeSelector {..}
-  Right [TextElem "GET_READ_VERSION", BoolElem snapshot] -> GetReadVersion {..}
-  Right [TextElem "GET_VERSIONSTAMP"]                    -> GetVersionstamp
-  Right [TextElem "SET", BoolElem database]              -> Set {..}
-  Right [TextElem "SET_READ_VERSION"]                    -> SetReadVersion
-  Right [TextElem "CLEAR"      , BoolElem database]      -> Clear {..}
-  Right [TextElem "CLEAR_RANGE", BoolElem database]      -> ClearRange {..}
-  Right [TextElem "CLEAR_RANGE_STARTS_WITH", BoolElem database] ->
-    ClearRangeStartsWith {..}
-  Right [TextElem "ATOMIC_OP", BoolElem database] -> AtomicOp {..}
-  Right [TextElem "READ_CONFLICT_RANGE"         ] -> ReadConflictRange
-  Right [TextElem "WRITE_CONFLICT_RANGE"        ] -> WriteConflictRange
-  Right [TextElem "READ_CONFLICT_KEY"           ] -> ReadConflictKey
-  Right [TextElem "WRITE_CONFLICT_KEY"          ] -> WriteConflictKey
-  Right [TextElem "DISABLE_WRITE_CONFLICT"      ] -> DisableWriteConflict
-  Right [TextElem "COMMIT"                      ] -> Commit
-  Right [TextElem "RESET"                       ] -> Reset
-  Right [TextElem "CANCEL"                      ] -> Cancel
-  Right [TextElem "GET_COMMITTED_VERSION"       ] -> GetCommittedVersion
-  Right [TextElem "WAIT_FUTURE"                 ] -> WaitFuture
-  Right [TextElem "TUPLE_PACK"                  ] -> TuplePack
-  Right [TextElem "TUPLE_PACK_WITH_VERSIONSTAMP"] -> TuplePackWithVersionstamp
-  Right [TextElem "TUPLE_UNPACK"                ] -> TupleUnpack
-  Right [TextElem "TUPLE_SORT"                  ] -> TupleSort
-  Right [TextElem "ENCODE_FLOAT"                ] -> EncodeFloat
-  Right [TextElem "ENCODE_DOUBLE"               ] -> EncodeDouble
-  Right [TextElem "DECODE_FLOAT"                ] -> DecodeFloat
-  Right [TextElem "DECODE_DOUBLE"               ] -> DecodeDouble
-  Right [TextElem "START_THREAD"                ] -> StartThread
-  Right [TextElem "WAIT_EMPTY"                  ] -> WaitEmpty
-  Right unknown -> UnknownOp unknown
-  Left  err     -> error $ "Failed to decode tuple: " ++ show v
+isUnknown :: Op -> Bool
+isUnknown (UnknownOp _) = True
+isUnknown _ = False
 
+-- TODO: lots of repetition with the _DATABASE suffices. Instead of containing
+-- a bool deciding if its a database-level op (that should be run in an
+-- anonymous transaction, in the case of our bindings), perhaps it would make
+-- more sense to wrap these ops in a @DatabaseOp@ constructor to reduce repetition
+-- on the execution side, and use a helper function that parses out _DATABASE
+-- suffices to reduce repetition on the parsing side.
+
+-- TODO: are the _SNAPSHOT and _DATABASE suffices mutually exclusive?
+
+-- | Parses a parameterless op. In practice, that means any op except for PUSH.
+-- If the Op is unknown/unimplemented, returns 'Nothing'.
+parseBasicOp :: Text -> Maybe Op
+parseBasicOp (T.stripSuffix "_DATABASE" -> Just t) =
+  DatabaseOp <$> parseBasicOp t
+parseBasicOp (T.stripSuffix "_SNAPSHOT" -> Just t) =
+  SnapshotOp <$> parseBasicOp t
+parseBasicOp t = case t of
+  "DUP" -> Just Dup
+  "EMPTY_STACK" -> Just EmptyStack
+  "SWAP" -> Just Swap
+  "POP" -> Just Pop
+  "SUB" -> Just Sub
+  "CONCAT" -> Just Concat
+  "LOG_STACK" -> Just LogStack
+  "NEW_TRANSACTION" -> Just NewTransaction
+  "USE_TRANSACTION" -> Just UseTransaction
+  "ON_ERROR" -> Just OnError
+  "GET" -> Just Get
+  "GET_KEY" -> Just GetKey
+  "GET_RANGE" -> Just GetRange
+  "GET_RANGE_STARTS_WITH" -> Just GetRangeStartsWith
+  "GET_RANGE_SELECTOR" -> Just GetRangeSelector
+  "GET_READ_VERSION" -> Just GetReadVersion
+  "GET_VERSIONSTAMP" -> Just GetVersionstamp
+  "SET" -> Just Set
+  "SET_READ_VERSION" -> Just SetReadVersion
+  "CLEAR" -> Just Clear
+  "CLEAR_RANGE" -> Just ClearRange
+  "CLEAR_RANGE_STARTS_WITH" -> Just ClearRangeStartsWith
+  "ATOMIC_OP" -> Just AtomicOp
+  "READ_CONFLICT_RANGE" -> Just ReadConflictRange
+  "WRITE_CONFLICT_RANGE" -> Just WriteConflictRange
+  "READ_CONFLICT_KEY" -> Just ReadConflictKey
+  "WRITE_CONFLICT_KEY" -> Just WriteConflictKey
+  "DISABLE_WRITE_CONFLICT" -> Just DisableWriteConflict
+  "COMMIT" -> Just Commit
+  "RESET" -> Just Reset
+  "CANCEL" -> Just Cancel
+  "GET_COMMITTED_VERSION" -> Just GetCommittedVersion
+  "WAIT_FUTURE" -> Just WaitFuture
+  "TUPLE_PACK" -> Just TuplePack
+  "TUPLE_PACK_WITH_VERSIONSTAMP" -> Just TuplePackWithVersionstamp
+  "TUPLE_UNPACK" -> Just TupleUnpack
+  "TUPLE_RANGE" -> Just TupleRange
+  "TUPLE_SORT" -> Just TupleSort
+  "ENCODE_FLOAT" -> Just EncodeFloat
+  "ENCODE_DOUBLE" -> Just EncodeDouble
+  "DECODE_FLOAT" -> Just DecodeFloat
+  "DECODE_DOUBLE" -> Just DecodeDouble
+  "START_THREAD" -> Just StartThread
+  "WAIT_EMPTY" -> Just WaitEmpty
+  _ -> Nothing
+
+parseOp :: ByteString -> Op
+parseOp bs = case decodeTupleElems bs of
+  Right [TextElem "PUSH", item] -> Push (StackItem item)
+  Right t@[TextElem op] -> fromMaybe (UnknownOp t) (parseBasicOp op)
+  Right t -> UnknownOp t
+  Left e -> error $ "Error parsing tuple: " ++ show e
 
 getOps :: Database -> ByteString -> IO [Op]
 getOps db prefix = runTransaction db $ do
-  kvs <- getEntireRange $ fromJust $ prefixRange prefix
+  let prefixTuple = encodeTupleElems [BytesElem prefix]
+  kvs <- getEntireRange $ fromJust $ prefixRange prefixTuple
   return $ map (parseOp . snd) kvs
 
 runMachine :: IORef (Map ByteString TransactionEnv) -> StackMachine -> ResIO ()
 runMachine transMap StackMachine {..} = do
   ops <- liftIO $ getOps db transactionName
+  let numUnk = length (filter isUnknown ops)
+  liftIO $ putStrLn $ "Got " ++ show numUnk ++ " unknown ops."
   pPrint ops
 
 runTests :: Int -> ByteString -> Database -> IO ()
