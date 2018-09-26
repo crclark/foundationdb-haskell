@@ -12,6 +12,7 @@ module FoundationDB.Transaction (
   , runTransaction
   , runTransaction'
   , TransactionConfig(..)
+  , defaultConfig
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
@@ -51,6 +52,13 @@ module FoundationDB.Transaction (
   , offset
   -- * Atomic operations
   , AtomicOp(..)
+  -- * Advanced Usage
+  -- $advanced
+  , TransactionEnv (envConf)
+  , createTransactionEnv
+  , onEnv
+  , commitFuture
+  , onError
 ) where
 
 import Control.Exception
@@ -71,8 +79,6 @@ import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as FDB
 import FoundationDB.Versionstamp
 
-import FoundationDB.Transaction.Internal
-
 -- TODO: this will be exported to users with a MonadIO instance. At first
 -- glance, that seems bad, since runTransaction does auto
 -- retries. I see a few options in various DB libraries on Hackage:
@@ -87,6 +93,7 @@ newtype Transaction a = Transaction
             MonadMask)
 -- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
+-- TODO: does this MonadReader instance need to be exposed?
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
@@ -161,6 +168,8 @@ await (Future f e) = do
   fdbExcept' $ FDB.futureBlockUntilReady f
   e
 
+-- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
+-- works without errors, the transaction was committed.
 commitFuture :: Transaction (Future ())
 commitFuture = do
   t <- asks cTransaction
@@ -171,7 +180,7 @@ commitFuture = do
 get :: ByteString -> Transaction (Future (Maybe ByteString))
 get key = do
   t <- ask
-  let isSnapshot = snapshotReads (conf t)
+  let isSnapshot = snapshotReads (envConf t)
   allocFuture (FDB.transactionGet (cTransaction t) key isSnapshot)
               (\f -> liftIO (FDB.futureGetValue f) >>= liftFDBError)
 
@@ -209,7 +218,7 @@ offset ks n = FDB.WithOffset n ks
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
   t <- asks cTransaction
-  isSnapshot <- asks (snapshotReads . conf)
+  isSnapshot <- asks (snapshotReads . envConf)
   let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
   allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
               (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
@@ -261,7 +270,7 @@ data RangeResult =
 getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
 getRange' Range {..} mode = do
   t          <- asks cTransaction
-  isSnapshot <- asks (snapshotReads . conf)
+  isSnapshot <- asks (snapshotReads . envConf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
   let (endK, endOrEqual, endOffset)       = FDB.keySelectorTuple rangeEnd
   let mk = FDB.transactionGetRange t
@@ -383,6 +392,24 @@ runTransaction = runTransactionWithConfig defaultConfig
 runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
+defaultConfig :: TransactionConfig
+defaultConfig = TransactionConfig False False
+
+-- | Contains useful options that are not directly exposed by the C API (for
+--   options that are, see 'setOption').
+data TransactionConfig = TransactionConfig {
+  idempotent :: Bool
+  -- ^ When set to 'True' (default is 'False'), running the transaction will
+  -- retry even on errors where the transaction may have completed successfully.
+  -- When 'False', the transaction will retry only when it is guaranteed that
+  -- the transaction was not committed.
+  , snapshotReads :: Bool
+  -- ^ When set to 'True' (default is 'False'), reads will see the effects of
+  -- concurrent transactions, removing the default serializable isolation
+  -- guarantee. To enable this feature selectively within a transaction,
+  -- see 'withSnapshot'.
+  } deriving (Show, Read, Eq, Ord)
+
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
 -- transaction for retryable errors.
@@ -403,7 +430,7 @@ runTransactionWithConfig conf db t = do
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
-  idem <- asks (idempotent . conf)
+  idem <- asks (idempotent . envConf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err
     then do
@@ -443,7 +470,7 @@ cancel = do
 
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
-  TransactionEnv (cTransaction s) ((conf s) {snapshotReads = True})
+  TransactionEnv (cTransaction s) ((envConf s) {snapshotReads = True})
 
 -- | Sets the read version on the current transaction. As the FoundationDB docs
 -- state, "this is not needed in simple cases".
@@ -478,3 +505,40 @@ setOption :: FDB.TransactionOption -> Transaction ()
 setOption opt = do
   t <- asks cTransaction
   fdbExcept' $ FDB.transactionSetOption t opt
+
+{- $advanced
+   The functionality in this section is for more advanced use cases where you
+   need to be able to refer to an in-progress transaction and add operations to
+   it incrementally. This is similar to how the Python's bindings work -- you
+   pass around a transaction object and call methods on it one by one before
+   finally calling @.commit()@.
+
+   This functionality was needed to create the bindings tester, which is
+   required to follow the semantics of the bindings for imperative languages
+   more closely. You probably don't need this. In fact, it's not entirely clear
+   that the bindings tester needs it.
+-}
+
+data TransactionEnv = TransactionEnv {
+  cTransaction :: FDB.Transaction
+  , envConf :: TransactionConfig
+  } deriving (Show)
+
+createTransactionEnv :: FDB.Database
+  -> TransactionConfig
+  -> ExceptT Error (ResourceT IO) TransactionEnv
+createTransactionEnv db config = do
+  (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
+                            (either (const $ return ()) FDB.transactionDestroy)
+  liftEither $ fmap (flip TransactionEnv config) eTrans
+
+onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
+onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
+
+onError :: Error -> Transaction ()
+onError (CError err) = do
+  trans <- asks cTransaction
+  f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+                   (const $ return ())
+  await f
+onError _ = return ()

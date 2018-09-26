@@ -43,6 +43,7 @@ module FoundationDB.Internal.Bindings (
   , KeySelector (..)
   , keySelectorBytes
   , keySelectorTuple
+  , tupleKeySelector
   , transactionDestroy
   , transactionSetOption
   , transactionSetReadVersion
@@ -67,7 +68,7 @@ module FoundationDB.Internal.Bindings (
   , transactionAddConflictRange
   , FDBConflictRangeType (..)
   -- * Error
-  , CFDBError
+  , CFDBError (..)
   , isError
   , getError
   , errorPredicate
@@ -400,6 +401,14 @@ keySelectorTuple (FirstGreaterThan bs) = (bs, True, 1)
 keySelectorTuple (FirstGreaterOrEq bs) = (bs, False, 1)
 keySelectorTuple (WithOffset n ks) =
   (\(x,y,z) -> (x, y, z+n)) (keySelectorTuple ks)
+
+-- | Inverse of 'keySelectorTuple'
+tupleKeySelector :: (B.ByteString, Bool, Int) -> KeySelector
+tupleKeySelector (bs, False, 0) = LastLessThan bs
+tupleKeySelector (bs, True, 0) = LastLessOrEq bs
+tupleKeySelector (bs, True, 1) = FirstGreaterThan bs
+tupleKeySelector (bs, False, 1) = FirstGreaterOrEq bs
+tupleKeySelector (bs, b, n) = WithOffset n $ tupleKeySelector (bs, b, 0)
 
 transactionGetKey :: Transaction
                   -> B.ByteString
