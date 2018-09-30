@@ -360,7 +360,9 @@ step i GetRangeSelector = popRangeSelector >>= \case
       push (StackItem (BytesElem tuple) i)
   _ -> warnUnexpectedState GetRangeSelector
 
-step i GetReadVersion = undefined i
+step i GetReadVersion =
+  bubblingError i (getReadVersion >>= await) $ \ver ->
+    push (StackItem (BytesElem "GOT_READ_VERSION") i)
 
 step i GetVersionstamp = undefined i
 
