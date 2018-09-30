@@ -88,6 +88,13 @@ main = withFoundationDB currentAPIVersion $ do
               v `shouldBe` Just "hi"
               runTransaction db (clear finalK)
 
+          describe "Read versions" $
+            it "trivial get followed by set gives error" $ do
+              res <- runTransaction' db $ do
+                       v <- getReadVersion >>= await
+                       setReadVersion v
+              res `shouldBe` Left (CError ReadVersionAlreadySet)
+
           rangeSpec db
 
         let dirSpecPrfx = "fdb-haskell-dir"

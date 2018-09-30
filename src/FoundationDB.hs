@@ -22,6 +22,8 @@ module FoundationDB (
   , cancel
   , withSnapshot
   , setOption
+  , setReadVersion
+  , getReadVersion
   , get
   , set
   , clear
