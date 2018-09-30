@@ -15,6 +15,8 @@ module FoundationDB.Transaction (
   , cancel
   , withSnapshot
   , setOption
+  , getReadVersion
+  , setReadVersion
   , get
   , set
   , clear
@@ -428,6 +430,21 @@ cancel = do
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
   TransactionEnv (cTransaction s) ((conf s) {snapshotReads = True})
+
+-- | Sets the read version on the current transaction. As the FoundationDB docs
+-- state, "this is not needed in simple cases".
+setReadVersion :: Int -> Transaction ()
+setReadVersion v = do
+  t <- asks cTransaction
+  liftIO $ FDB.transactionSetReadVersion t (fromIntegral v)
+
+-- | Gets the read version of the current transaction, representing all
+-- transactions that were reported committed before this one.
+getReadVersion :: Transaction (Future Int)
+getReadVersion = do
+  t <- asks cTransaction
+  allocFuture (FDB.transactionGetReadVersion t)
+              (\f -> fromIntegral <$> fdbExcept (FDB.futureGetVersion f))
 
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()
