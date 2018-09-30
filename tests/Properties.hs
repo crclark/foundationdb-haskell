@@ -5,7 +5,7 @@ module Main where
 
 import FoundationDB
 import FoundationDB.Layer.Tuple
-import FoundationDB.VersionStamp
+import FoundationDB.Versionstamp
 
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
@@ -75,9 +75,9 @@ main = withFoundationDB currentAPIVersion $ do
           describe "versionstamped tuple key" $
             it "can set and get keys containing version stamps" $ do
               let k = encodeTupleElems
-                      [IntElem 2, IncompleteVSElem (IncompleteVersionStamp 2)]
+                      [IntElem 2, IncompleteVSElem (IncompleteVersionstamp 2)]
               let kLower = encodeTupleElems [IntElem 2]
-              runTransaction db (atomicOp SetVersionStampedKey k "hi")
+              runTransaction db (atomicOp SetVersionstampedKey k "hi")
               (finalK, v) <- runTransaction db $ do
                 finalK <- getKey (FirstGreaterThan kLower) >>= await
                 v <- get finalK >>= await

@@ -539,7 +539,7 @@ transactionAtomicOp t k arg mutation =
   {`Transaction', alloca- `Int'} -> `CFDBError' CFDBError#}
 
 {#fun unsafe transaction_get_versionstamp as ^
-  {`Transaction'} -> `Future a' outFuture #}
+  {`Transaction'} -> `Future B.ByteString' outFuture #}
 
 {#fun unsafe transaction_watch as transactionWatch_
   {`Transaction', id `Ptr CUChar', `Int'}

@@ -317,8 +317,8 @@ data AtomicOp =
   | BitXor
   | Max
   | Min
-  | SetVersionStampedKey
-  | SetVersionStampedValue
+  | SetVersionstampedKey
+  | SetVersionstampedValue
   | ByteMin
   | ByteMax
   deriving (Enum, Eq, Ord, Show, Read)
@@ -333,8 +333,8 @@ toFDBMutationType Xor = FDB.MutationTypeXor
 toFDBMutationType BitXor = FDB.MutationTypeBitXor
 toFDBMutationType Max = FDB.MutationTypeMax
 toFDBMutationType Min = FDB.MutationTypeMin
-toFDBMutationType SetVersionStampedKey = FDB.MutationTypeSetVersionstampedKey
-toFDBMutationType SetVersionStampedValue =
+toFDBMutationType SetVersionstampedKey = FDB.MutationTypeSetVersionstampedKey
+toFDBMutationType SetVersionstampedValue =
   FDB.MutationTypeSetVersionstampedValue
 toFDBMutationType ByteMin = FDB.MutationTypeByteMin
 toFDBMutationType ByteMax = FDB.MutationTypeByteMax
