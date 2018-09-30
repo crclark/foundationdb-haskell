@@ -59,6 +59,7 @@ module FoundationDB.Transaction (
   , onEnv
   , commitFuture
   , onError
+  , prefixRangeEnd
 ) where
 
 import Control.Exception
@@ -246,17 +247,14 @@ data Range = Range {
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
 prefixRange :: ByteString -> Maybe Range
 prefixRange prefix
-  | prefix == BS.empty = Nothing
+  | BS.null prefix = Nothing
   | BS.all (== 0xff) prefix = Nothing
   | otherwise = Just $ Range
   { rangeBegin = FDB.FirstGreaterOrEq prefix
-  , rangeEnd = FDB.FirstGreaterOrEq end
+  , rangeEnd = FDB.FirstGreaterOrEq (prefixRangeEnd prefix)
   , rangeLimit = Nothing
   , rangeReverse = False
   }
-  where end = let prefix' = BS.takeWhile (/= 0xff) prefix
-                  in BS.snoc (BS.init prefix')
-                             (BS.last prefix' + 1)
 
 rangeKeys :: Range -> (ByteString, ByteString)
 rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
@@ -542,3 +540,13 @@ onError (CError err) = do
                    (const $ return ())
   await f
 onError _ = return ()
+
+
+-- @prefixRangeEnd prefix@ returns the lexicographically greatest bytestring
+-- of which @prefix@ is a prefix. Usually, it's easier to just use
+-- 'prefixRange'.
+prefixRangeEnd :: ByteString -> ByteString
+prefixRangeEnd prefix =
+  let prefix' = BS.takeWhile (/= 0xff) prefix
+                in BS.snoc (BS.init prefix')
+                           (BS.last prefix' + 1)

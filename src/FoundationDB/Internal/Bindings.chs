@@ -435,6 +435,7 @@ transactionGetAddressesForKey t k = B.useAsCStringLen k $ \(kstr, klen) ->
 
 deriving instance Eq FDBStreamingMode
 deriving instance Ord FDBStreamingMode
+deriving instance Bounded FDBStreamingMode
 deriving instance Show FDBStreamingMode
 
 {#fun unsafe transaction_get_range as transactionGetRange_

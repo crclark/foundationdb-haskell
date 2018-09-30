@@ -14,7 +14,7 @@ go :: ByteString -> Int -> Maybe FilePath -> IO ()
 go prefix ver mpath =
   withFoundationDB ver $ withDatabase mpath $ \case
     Left err -> error (show err)
-    Right db -> runTests ver prefix db
+    Right database -> runTests ver prefix database
 
 main :: IO ()
 main = do
