@@ -12,9 +12,10 @@ module FoundationDB.Internal.Bindings (
   , stopNetwork
   , networkSetOption
   -- * Future
-  , Future
+  , Future (..)
   , futureCancel
   , futureDestroy
+  , futureDestroyPtr
   , futureBlockUntilReady
   , futureIsReady
   , futureReleaseMemory
@@ -143,6 +144,9 @@ deriving instance Storable Cluster
 {#fun unsafe future_cancel as ^ {inFuture `Future a'} -> `()'#}
 
 {#fun unsafe future_destroy as ^ {inFuture `Future a'} -> `()'#}
+
+foreign import ccall "fdbc_wrapper.h &fdb_future_destroy"
+  futureDestroyPtr :: FunPtr (Ptr a -> IO ())
 
 {#fun future_block_until_ready as ^
   {inFuture `Future a'} -> `CFDBError' CFDBError#}

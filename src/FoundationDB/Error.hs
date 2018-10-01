@@ -55,6 +55,7 @@ instance Exception Error
 -- | Errors arising from the foundationdb-haskell library implementation.
 data FDBHsError =
   DirectoryLayerError String
+  | ParseError String
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.

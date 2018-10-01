@@ -78,12 +78,15 @@ main = withFoundationDB currentAPIVersion $ do
                       [IntElem 2, IncompleteVSElem (IncompleteVersionstamp 2)]
               let kLower = encodeTupleElems [IntElem 2]
               runTransaction db (atomicOp SetVersionstampedKey k "hi")
-              (finalK, v) <- runTransaction db $ do
+              (finalK, v, vsFuture) <- runTransaction db $ do
                 finalK <- getKey (FirstGreaterThan kLower) >>= await
                 v <- get finalK >>= await
-                return (finalK, v)
+                vsFuture <- getVersionstamp
+                return (finalK, v, vsFuture)
               let matches (Right [IntElem 2, CompleteVSElem _]) = True
                   matches _ = False
+              vs <- awaitIO vsFuture
+              vs `shouldSatisfy` isRight
               decodeTupleElems finalK `shouldSatisfy` matches
               v `shouldBe` Just "hi"
               runTransaction db (clear finalK)
@@ -112,3 +115,7 @@ rangeSpec db = do
                         False
       result <- runTransaction db $ getEntireRange unlim
       result `shouldBe` kvs
+
+isRight :: Either a b -> Bool
+isRight (Left _) = False
+isRight _ = True
