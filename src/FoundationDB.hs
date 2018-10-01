@@ -24,6 +24,7 @@ module FoundationDB (
   , setOption
   , setReadVersion
   , getReadVersion
+  , getVersionstamp
   , get
   , set
   , clear
@@ -43,6 +44,8 @@ module FoundationDB (
   -- * Futures
   , Future
   , await
+  , FutureIO
+  , awaitIO
   -- * Key selectors
   , FDB.KeySelector( LastLessThan
                    , LastLessOrEq

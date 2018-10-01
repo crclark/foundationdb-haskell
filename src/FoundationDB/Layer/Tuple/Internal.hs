@@ -11,7 +11,7 @@
 
 module FoundationDB.Layer.Tuple.Internal where
 
-import FoundationDB.VersionStamp
+import FoundationDB.Versionstamp hiding (decodeVersionstamp)
 
 import Control.Applicative
 import Control.Monad
@@ -55,8 +55,8 @@ data Elem =
   | DoubleElem Double
   | BoolElem Bool
   | UUIDElem UUID
-  | CompleteVSElem (VersionStamp 'Complete)
-  | IncompleteVSElem (VersionStamp 'Incomplete)
+  | CompleteVSElem (Versionstamp 'Complete)
+  | IncompleteVSElem (Versionstamp 'Incomplete)
 
 deriving instance Show Elem
 deriving instance Ord Elem
@@ -94,7 +94,7 @@ versionstampCode = 0x33
 
 data SerializationState = SerializationState
   { currLength :: Int
-  , incompleteVersionStampPos :: Maybe Int
+  , incompleteVersionstampPos :: Maybe Int
   } deriving (Show, Eq, Ord)
 
 newtype PutTuple a =
@@ -109,7 +109,7 @@ runPutTuple :: PutTuple () -> (ByteString, Maybe Int)
 runPutTuple x =
   let (((), s), bs) = Put.runPutM $
                       runStateT (unPutTuple x) (SerializationState 0 Nothing)
-      in case incompleteVersionStampPos s of
+      in case incompleteVersionstampPos s of
         Nothing -> (bs, Nothing)
         Just i -> (bs <> Put.runPut (Put.putWord16le (fromIntegral i)), Just i)
 
@@ -221,15 +221,15 @@ encodeElem _ (TupleElem xs) = do
   putWord8 nestedCode
   mapM_ (encodeElem True) xs
   putWord8 0x00
-encodeElem _ (CompleteVSElem (CompleteVersionStamp tv tb uv)) = do
+encodeElem _ (CompleteVSElem (CompleteVersionstamp tv tb uv)) = do
   putWord8 versionstampCode
   putWord64be tv
   putWord16be tb
   putWord16be uv
-encodeElem _ (IncompleteVSElem (IncompleteVersionStamp uv)) = do
+encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
   putWord8 versionstampCode
   s <- get
-  put s{incompleteVersionStampPos = Just $ currLength s}
+  put s{incompleteVersionstampPos = Just $ currLength s}
   putWord64be maxBound
   putWord16be maxBound
   putWord16be uv
@@ -280,7 +280,7 @@ decodeElem nested =
   <|> decodeBoolElem
   <|> decodeUUIDElem
   <|> decodeTupleElem
-  <|> decodeVersionStamp
+  <|> decodeVersionstamp
 
 expectCode :: Word8 -> Get ()
 expectCode c = do
@@ -445,12 +445,12 @@ decodeTupleElem = do
         then lookAhead ((/= 0xff) <$> getWord8) <|> return True
         else return False
 
-decodeVersionStamp :: Get Elem
-decodeVersionStamp = do
+decodeVersionstamp :: Get Elem
+decodeVersionstamp = do
   expectCode versionstampCode
   tv <- getWord64be
   bo <- getWord16be
   uv <- getWord16be
   if tv == maxBound && bo == maxBound
-    then return $ IncompleteVSElem $ IncompleteVersionStamp uv
-    else return $ CompleteVSElem $ CompleteVersionStamp tv bo uv
+    then return $ IncompleteVSElem $ IncompleteVersionstamp uv
+    else return $ CompleteVSElem $ CompleteVersionstamp tv bo uv

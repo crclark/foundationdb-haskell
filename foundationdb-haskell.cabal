@@ -65,7 +65,8 @@ library
                      , FoundationDB.Layer.Tuple.Internal
                      , FoundationDB.Options
                      , FoundationDB.Transaction
-                     , FoundationDB.VersionStamp
+                     , FoundationDB.Versionstamp
+                     , FoundationDB.Versionstamp.Internal
 
   -- Modules included in this library but not exported.
   -- other-modules:

@@ -5,7 +5,7 @@ module Main where
 
 import FoundationDB
 import FoundationDB.Layer.Tuple
-import FoundationDB.VersionStamp
+import FoundationDB.Versionstamp
 
 import Control.Monad
 import qualified Data.ByteString.Char8 as BS
@@ -75,15 +75,18 @@ main = withFoundationDB currentAPIVersion $ do
           describe "versionstamped tuple key" $
             it "can set and get keys containing version stamps" $ do
               let k = encodeTupleElems
-                      [IntElem 2, IncompleteVSElem (IncompleteVersionStamp 2)]
+                      [IntElem 2, IncompleteVSElem (IncompleteVersionstamp 2)]
               let kLower = encodeTupleElems [IntElem 2]
-              runTransaction db (atomicOp SetVersionStampedKey k "hi")
-              (finalK, v) <- runTransaction db $ do
+              runTransaction db (atomicOp SetVersionstampedKey k "hi")
+              (finalK, v, vsFuture) <- runTransaction db $ do
                 finalK <- getKey (FirstGreaterThan kLower) >>= await
                 v <- get finalK >>= await
-                return (finalK, v)
+                vsFuture <- getVersionstamp
+                return (finalK, v, vsFuture)
               let matches (Right [IntElem 2, CompleteVSElem _]) = True
                   matches _ = False
+              vs <- awaitIO vsFuture
+              vs `shouldSatisfy` isRight
               decodeTupleElems finalK `shouldSatisfy` matches
               v `shouldBe` Just "hi"
               runTransaction db (clear finalK)
@@ -112,3 +115,7 @@ rangeSpec db = do
                         False
       result <- runTransaction db $ getEntireRange unlim
       result `shouldBe` kvs
+
+isRight :: Either a b -> Bool
+isRight (Left _) = False
+isRight _ = True

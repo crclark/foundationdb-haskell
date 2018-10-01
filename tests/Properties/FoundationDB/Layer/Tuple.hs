@@ -6,7 +6,7 @@
 module Properties.FoundationDB.Layer.Tuple where
 
 import FoundationDB.Layer.Tuple.Internal
-import FoundationDB.VersionStamp
+import FoundationDB.Versionstamp
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -19,11 +19,11 @@ import Test.QuickCheck (forAll)
 import Test.QuickCheck.Arbitrary (Arbitrary(..), genericShrink)
 import Test.QuickCheck.Gen (oneof)
 
-instance Arbitrary (VersionStamp 'Complete) where
-  arbitrary = CompleteVersionStamp <$> arbitrary <*> arbitrary <*> arbitrary
+instance Arbitrary (Versionstamp 'Complete) where
+  arbitrary = CompleteVersionstamp <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance Arbitrary (VersionStamp 'Incomplete) where
-  arbitrary = IncompleteVersionStamp <$> arbitrary
+instance Arbitrary (Versionstamp 'Incomplete) where
+  arbitrary = IncompleteVersionstamp <$> arbitrary
 
 instance Arbitrary UUID where
   arbitrary = UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
@@ -105,12 +105,12 @@ exampleUUID :: ByteString
 exampleUUID = BS.pack
   [48, 135, 36, 87, 101, 200, 209, 66, 248, 133, 41, 255, 47, 94, 32, 226, 252]
 
-exampleCompleteVersionStamp :: ByteString
-exampleCompleteVersionStamp = BS.pack
+exampleCompleteVersionstamp :: ByteString
+exampleCompleteVersionstamp = BS.pack
   [51, 222, 173, 190, 239, 222, 173, 190, 239, 190, 239, 0, 12]
 
-exampleIncompleteVersionStamp :: ByteString
-exampleIncompleteVersionStamp = BS.pack
+exampleIncompleteVersionstamp :: ByteString
+exampleIncompleteVersionstamp = BS.pack
   [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0]
 
 encodeDecode :: [Elem] -> ByteString -> String -> SpecWith ()
@@ -137,15 +137,15 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   let uuid = fromJust $ UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"
   let (w1,w2,w3,w4) = UUID.toWords uuid
   encodeDecode [UUIDElem (UUID w1 w2 w3 w4)] exampleUUID "UUID"
-  let vs = CompleteVersionStamp 0xdeadbeefdeadbeef 0xbeef 12
+  let vs = CompleteVersionstamp 0xdeadbeefdeadbeef 0xbeef 12
   encodeDecode [CompleteVSElem vs]
-               exampleCompleteVersionStamp
+               exampleCompleteVersionstamp
                "complete version stamp"
-  let ivs = IncompleteVersionStamp 12
+  let ivs = IncompleteVersionstamp 12
   it "encodes incomplete version stamp" $
     encodeTupleElems [IncompleteVSElem ivs]
     `shouldBe`
-    exampleIncompleteVersionStamp
+    exampleIncompleteVersionstamp
   -- no encodeDecode for incomplete version stamps because the encoding adds
   -- two bytes at the end that the C FFI bindings remove. The Python code
   -- doesn't roundtrip either.

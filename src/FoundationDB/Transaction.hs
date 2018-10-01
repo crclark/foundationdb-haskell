@@ -3,6 +3,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DataKinds #-}
 
 module FoundationDB.Transaction (
   -- * Transactions
@@ -17,6 +19,7 @@ module FoundationDB.Transaction (
   , setOption
   , getReadVersion
   , setReadVersion
+  , getVersionstamp
   , get
   , set
   , clear
@@ -38,6 +41,8 @@ module FoundationDB.Transaction (
   -- * Futures
   , Future
   , await
+  , FutureIO
+  , awaitIO
   -- * Key selectors
   , FDB.KeySelector( LastLessThan
                    , LastLessOrEq
@@ -58,10 +63,13 @@ import Control.Monad.Trans.Resource
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
+import Foreign.ForeignPtr
+import Foreign.Ptr (castPtr)
 
 import FoundationDB.Error
 import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as FDB
+import FoundationDB.Versionstamp
 
 data TransactionEnv = TransactionEnv {
   cTransaction :: FDB.Transaction
@@ -93,6 +101,12 @@ deriving instance MonadError Error Transaction
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
+-- | A future result of a FoundationDB call. Should not be returned from
+-- 'runTransaction' or its variants. You can block on a future with 'await'.
+-- WARNING: returning a value of this type from 'runTransaction' and then
+-- calling 'await' on the value in another transaction will cause a segfault!
+-- Future versions of this library may use more sophisticated types to prevent
+-- this.
 data Future a = forall b. Future
   { _cFuture :: FDB.Future b
   , _extractValue :: Transaction a
@@ -100,6 +114,36 @@ data Future a = forall b. Future
 
 instance Show (Future a) where
   show (Future c _) = show $ "Future " ++ show c
+
+-- | A future that can only be awaited after its transaction has committed.
+-- That is, in contrast to 'Future', this __must__ be returned from
+-- 'runTransaction' before it can safely be awaited. Use 'awaitIO' to await it.
+-- This future type is not needed frequently.
+data FutureIO a = forall b. FutureIO
+  { _cFutureIO :: FDB.Future b
+  , _fgnPtr :: ForeignPtr ()
+  -- ^ Hack because we can't get a Ptr back out of a ForeignPtr, so we just
+  -- keep this around to ensure that when this FutureIO gets GC'ed, our
+  -- finalizer on the future pointer gets called. To simplify so that we don't
+  -- have to carry around both cFutureIO and fgnPtr (which both point to the
+  -- same thing), we'd need to make
+  -- duplicate versions of all Future functions at the bindings level that work
+  -- with a second Future newtype that's defined as a ForeignPtr. Then we would
+  -- only need _fgnPtr.
+  , _extractValueIO :: IO a}
+
+instance Show (FutureIO a) where
+  show (FutureIO p _ _) = show $ "FutureIO " ++ show p
+
+allocFutureIO :: FDB.Future b -> IO a -> IO (FutureIO a)
+allocFutureIO (FDB.Future f) e = do
+  fp <- newForeignPtr FDB.futureDestroyPtr (castPtr f)
+  return $ FutureIO (FDB.Future f) fp e
+
+awaitIO :: FutureIO a -> IO (Either Error a)
+awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
+  Left err -> return $ Left err
+  Right () -> e >>= (return . Right)
 
 fromCExtractor :: FDB.Future b
                -> ReleaseKey
@@ -317,8 +361,8 @@ data AtomicOp =
   | BitXor
   | Max
   | Min
-  | SetVersionStampedKey
-  | SetVersionStampedValue
+  | SetVersionstampedKey
+  | SetVersionstampedValue
   | ByteMin
   | ByteMax
   deriving (Enum, Eq, Ord, Show, Read)
@@ -333,8 +377,8 @@ toFDBMutationType Xor = FDB.MutationTypeXor
 toFDBMutationType BitXor = FDB.MutationTypeBitXor
 toFDBMutationType Max = FDB.MutationTypeMax
 toFDBMutationType Min = FDB.MutationTypeMin
-toFDBMutationType SetVersionStampedKey = FDB.MutationTypeSetVersionstampedKey
-toFDBMutationType SetVersionStampedValue =
+toFDBMutationType SetVersionstampedKey = FDB.MutationTypeSetVersionstampedKey
+toFDBMutationType SetVersionstampedValue =
   FDB.MutationTypeSetVersionstampedValue
 toFDBMutationType ByteMin = FDB.MutationTypeByteMin
 toFDBMutationType ByteMax = FDB.MutationTypeByteMax
@@ -445,6 +489,19 @@ getReadVersion = do
   t <- asks cTransaction
   allocFuture (FDB.transactionGetReadVersion t)
               (\f -> fromIntegral <$> fdbExcept (FDB.futureGetVersion f))
+
+-- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
+-- transaction. Most applications won't need this.
+getVersionstamp :: Transaction (FutureIO (Either Error (Versionstamp 'Complete)))
+getVersionstamp = do
+  t <- asks cTransaction
+  f <- liftIO $ FDB.transactionGetVersionstamp t
+  liftIO $ allocFutureIO f $
+    FDB.futureGetKey f >>= \case
+      Left err -> return $ Left (CError $ toError err)
+      Right bs -> case decodeVersionstamp bs of
+        Nothing -> return $ Left $ Error $ ParseError "Failed to parse versionstamp"
+        Just vs -> return $ Right vs
 
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()
