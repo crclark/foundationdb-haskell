@@ -26,7 +26,9 @@ module FoundationDB.Transaction (
   , clear
   , clearRange
   , addConflictRange
-  , FDB.FDBConflictRangeType
+  , FDB.FDBConflictRangeType(..)
+  , addReadConflictKey
+  , addWriteConflictKey
   , getKey
   , getKeyAddresses
   , atomicOp
@@ -211,6 +213,14 @@ addConflictRange k l ty = do
   t <- asks cTransaction
   liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
 
+addReadConflictKey :: ByteString -> Transaction ()
+addReadConflictKey k =
+  addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeRead
+
+
+addWriteConflictKey :: ByteString -> Transaction ()
+addWriteConflictKey k =
+  addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
 offset (FDB.WithOffset n ks) m = FDB.WithOffset (n+m) ks
@@ -347,6 +357,7 @@ isRangeEmpty r = do
     RangeDone [] -> return True
     _            -> return False
 
+-- TODO: this is redundant with and inconsistent with those exposed in Options!
 data AtomicOp =
   Add
   | And
@@ -540,7 +551,6 @@ onError (CError err) = do
                    (const $ return ())
   await f
 onError _ = return ()
-
 
 -- @prefixRangeEnd prefix@ returns the lexicographically greatest bytestring
 -- of which @prefix@ is a prefix. Usually, it's easier to just use
