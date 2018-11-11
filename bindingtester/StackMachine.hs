@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -36,12 +37,16 @@ import FoundationDB.Internal.Bindings ( getCFDBError
                                       , tupleKeySelector
                                       , CFDBError (..)
                                       , keySelectorBytes)
+import qualified FoundationDB.Options as Opts
+import FoundationDB.Versionstamp
 
 strinc :: ByteString -> ByteString
 strinc = prefixRangeEnd
 
 -- TODO: stack items can be of many types
-data StackItem = StackItem Elem Int
+data StackItem =
+  StackItem Elem Int
+  | StackVersionstampFuture (FutureIO (Either Error (Versionstamp 'Complete))) Int
   deriving Show
 
 pattern StackBytes :: ByteString -> StackItem
@@ -58,6 +63,16 @@ data StackMachine = StackMachine
   , db :: Database
   , prefixTuple :: ByteString
   } deriving (Show)
+
+getLastVersion :: MonadState StackMachine m => m Int
+getLastVersion = do
+  StackMachine {..} <- State.get
+  return version
+
+setLastVersion :: MonadState StackMachine m => Int -> m ()
+setLastVersion v = do
+  st@StackMachine {..} <- State.get
+  State.put st {version = v}
 
 push :: MonadState StackMachine m => StackItem -> m ()
 push i = do
@@ -195,6 +210,31 @@ popRangeSelector = popN 10 >>= \case
         return $ Just (r, toEnum (mode + 1), prefix)
   _ -> return Nothing
 
+popAtomicOp :: MonadState StackMachine m
+            => m (Maybe (AtomicOp, ByteString, ByteString))
+popAtomicOp = popN 3 >>= \case
+  Just [ StackBytes opBytes
+       , StackBytes k
+       , StackBytes v] -> case parse opBytes of
+        Just op -> return $ Just (op, k, v)
+        Nothing -> error $ "unknown op: " ++ show opBytes
+  _ -> return Nothing
+
+  where parse "ADD" = Just Add
+        parse "AND" = Just And
+        parse "BIT_AND" = Just BitAnd
+        parse "OR" = Just Or
+        parse "BIT_OR" = Just BitOr
+        parse "XOR" = Just Xor
+        parse "BIT_XOR" = Just BitXor
+        parse "MAX" = Just Max
+        parse "MIN" = Just Min
+        parse "SET_VERSIONSTAMPED_KEY" = Just SetVersionstampedKey
+        parse "SET_VERSIONSTAMPED_VALUE" = Just SetVersionstampedValue
+        parse "BYTE_MIN" = Just ByteMin
+        parse "BYTE_MAX" = Just ByteMax
+        parse _ = Nothing
+
 rangeList :: RangeResult -> Transaction [(ByteString, ByteString)]
 rangeList (RangeDone xs) = return xs
 rangeList (RangeMore xs more) = do
@@ -270,7 +310,8 @@ step i LogStack = do
         let v = BS.take 40000 $ encodeTupleElems [x]
         set k v
       go db prfx xs (n-1)
-
+    go _ _ (StackVersionstampFuture _ _:_) _ =
+      error "Tried to log a versionstamp future. It should have been awaited."
 
 step _ NewTransaction = do
   st <- State.get
@@ -361,42 +402,97 @@ step i GetRangeSelector = popRangeSelector >>= \case
   _ -> warnUnexpectedState GetRangeSelector
 
 step i GetReadVersion =
-  bubblingError i (getReadVersion >>= await) $ \ver ->
+  bubblingError i (getReadVersion >>= await) $ \ver -> do
+    setLastVersion ver
     push (StackItem (BytesElem "GOT_READ_VERSION") i)
 
-step i GetVersionstamp = undefined i
+step i GetVersionstamp =
+  bubblingError i getVersionstamp $ \futVs ->
+    push (StackVersionstampFuture futVs i)
 
-step i Set = undefined i
+step i Set = popN 2 >>= \case
+  Just [ StackBytes k
+       , StackBytes v] -> bubblingError i (set k v) return
+  _ -> warnUnexpectedState Set
 
-step i SetReadVersion = undefined i
+step i SetReadVersion = do
+  v <- getLastVersion
+  bubblingError i (setReadVersion v) return
 
-step i Clear = undefined i
+step i Clear = pop >>= \case
+  Just (StackBytes k) ->
+    bubblingError i (clear k) return
+  _ -> warnUnexpectedState Clear
 
-step i ClearRange = undefined i
+step i ClearRange = popN 2 >>= \case
+  Just [ StackBytes begin
+       , StackBytes end ] ->
+        bubblingError i (clearRange begin end) return
+  _ -> warnUnexpectedState ClearRange
 
-step i ClearRangeStartsWith = undefined i
+step i ClearRangeStartsWith = pop >>= \case
+  Just (StackBytes prefix) ->
+    bubblingError i (clearRange prefix (prefixRangeEnd prefix)) return
+  _ -> warnUnexpectedState ClearRangeStartsWith
 
-step i AtomicOp = undefined i
+step i AtomicOp = popAtomicOp >>= \case
+  Just (op, k, v) ->
+    bubblingError i (atomicOp op k v) return
+  Nothing -> warnUnexpectedState AtomicOp
 
-step i ReadConflictRange = undefined i
+step i ReadConflictRange = popN 2 >>= \case
+  Just [ StackBytes begin
+       , StackBytes end] -> do
+    bubblingError i (addConflictRange begin end ConflictRangeTypeRead) return
+    push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
+  _ -> warnUnexpectedState ReadConflictRange
 
-step i WriteConflictRange = undefined i
+step i WriteConflictRange = popN 2 >>= \case
+  Just [ StackBytes begin
+       , StackBytes end] -> do
+    bubblingError i (addConflictRange begin end ConflictRangeTypeWrite) return
+    push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
+  _ -> warnUnexpectedState WriteConflictRange
 
-step i ReadConflictKey = undefined i
+step i ReadConflictKey = pop >>= \case
+  Just (StackBytes k) -> do
+    bubblingError i (addReadConflictKey k) return
+    push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
+  _ -> warnUnexpectedState ReadConflictKey
 
-step i WriteConflictKey = undefined i
+step i WriteConflictKey = pop >>= \case
+  Just (StackBytes k) -> do
+    bubblingError i (addWriteConflictKey k) return
+    push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
+  _ -> warnUnexpectedState WriteConflictKey
 
-step i DisableWriteConflict = undefined i
+step i DisableWriteConflict =
+  bubblingError i (setOption Opts.nextWriteNoWriteConflictRange) return
 
-step i Commit = undefined i
+step i Commit =
+  bubblingError i (commitFuture >>= await) return
 
-step i Reset = undefined i
+step i Reset =
+  bubblingError i reset return
 
-step i Cancel = undefined i
+step i Cancel =
+  bubblingError i cancel return
 
-step i GetCommittedVersion = undefined i
+step i GetCommittedVersion =
+  bubblingError i getCommittedVersion $ \_ ->
+    push (StackItem (BytesElem "GOT_COMMITTED_VERSION") i)
 
-step i WaitFuture = undefined i
+step i WaitFuture = do
+  x <- pop
+  case x of
+    Nothing -> return ()
+    Just (StackVersionstampFuture f _) -> do
+      res <- liftIO $ awaitIO f
+      case res of
+        Left err -> error $ show err
+        Right (Left err) -> error $ show err
+        Right (Right vs) -> push $ StackItem (BytesElem (encodeVersionstamp vs)) i
+    Just y -> push y
 
 step i TuplePack = undefined i
 

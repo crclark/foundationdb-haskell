@@ -16,6 +16,7 @@ module FoundationDB.Transaction (
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
+  , reset
   , withSnapshot
   , setOption
   , getReadVersion
@@ -62,6 +63,7 @@ module FoundationDB.Transaction (
   , commitFuture
   , onError
   , prefixRangeEnd
+  , getCommittedVersion
 ) where
 
 import Control.Exception
@@ -477,6 +479,12 @@ cancel = do
   liftIO $ FDB.transactionCancel t
   throwError (CError TransactionCanceled)
 
+-- | Reset the transaction. All operations prior to this will be discarded.
+reset :: Transaction ()
+reset = do
+  t <- asks cTransaction
+  liftIO $ FDB.transactionReset t
+
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
   TransactionEnv (cTransaction s) ((envConf s) {snapshotReads = True})
@@ -560,3 +568,8 @@ prefixRangeEnd prefix =
   let prefix' = BS.takeWhile (/= 0xff) prefix
                 in BS.snoc (BS.init prefix')
                            (BS.last prefix' + 1)
+
+getCommittedVersion :: Transaction Int
+getCommittedVersion = do
+  t <- asks cTransaction
+  fdbExcept (FDB.transactionGetCommittedVersion t)

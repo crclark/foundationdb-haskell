@@ -550,7 +550,7 @@ transactionAtomicOp t k arg mutation =
   {`Transaction'} -> `Future ()' outFuture #}
 
 {#fun unsafe transaction_get_committed_version as ^
-  {`Transaction', alloca- `Int'} -> `CFDBError' CFDBError#}
+  {`Transaction', alloca- `Int' peekIntegral*} -> `CFDBError' CFDBError#}
 
 {#fun unsafe transaction_get_versionstamp as ^
   {`Transaction'} -> `Future B.ByteString' outFuture #}
