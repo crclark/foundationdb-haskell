@@ -293,6 +293,10 @@ bubblingError i t handle = do
     Left err -> bubbleError i err
     Right x -> handle x
 
+-- | Pushes a @RESULT_NOT_PRESENT@ bytestring for the given instruction number.
+resultNotPresent :: (MonadState StackMachine m) => Int -> m ()
+resultNotPresent i = push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
+
 -- | Runs a single operation on a stack machine.
 step :: Int
      -- ^ instruction number
@@ -378,7 +382,6 @@ step i UseTransaction = pop >>= \case
                       else M.insert txnName env m
               in (m, m')
         State.put st {transactionName = txnName}
-        liftIO $ putStrLn $ "UseTransaction created transaction named " ++ show txnName
   x -> errorUnexpectedState i x UseTransaction
 
 step i OnError = pop >>= \case
@@ -387,17 +390,15 @@ step i OnError = pop >>= \case
     let cErr = CFDBError $ fromIntegral errCode
     case toError cErr of
       Just e -> liftIO (onEnv env (onError (CError e))) >>= \case
-        Left reRaised -> do
-          liftIO $ putStrLn $ "onError re-raised " ++ show reRaised
-          bubbleError i reRaised
-        Right () -> liftIO $ putStrLn $ "onError didn't re-raise: " ++ show e
+        Left reRaised -> bubbleError i reRaised
+        Right () -> resultNotPresent i
       Nothing -> return ()
   x -> errorUnexpectedState i x OnError
 
 step i Get = pop >>= \case
   Just (StackItem (BytesElem k) _) ->
     bubblingError i (get k >>= await) $ \case
-      Nothing -> push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
+      Nothing -> resultNotPresent i
       Just v -> push (StackItem (BytesElem v) i)
   x -> errorUnexpectedState i x Get
 
@@ -405,7 +406,7 @@ step i GetKey = popKeySelector >>= \case
   Just (sel, prefix) -> do
     let k = keySelectorBytes sel
     bubblingError i (get k >>= await) $ \case
-      Nothing -> push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
+      Nothing -> resultNotPresent i
       Just v
         | BS.isPrefixOf prefix v -> push (StackItem (BytesElem v) i)
         | v < prefix -> push (StackItem (BytesElem prefix) i)
@@ -509,7 +510,7 @@ step i DisableWriteConflict =
   bubblingError i (setOption Opts.nextWriteNoWriteConflictRange) return
 
 step i Commit =
-  bubblingError i (commitFuture >>= await) return
+  bubblingError i (commitFuture >>= await) (const $ resultNotPresent i)
 
 step i Reset =
   bubblingError i reset return
