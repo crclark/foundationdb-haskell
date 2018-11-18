@@ -3,9 +3,9 @@
 module FoundationDB.Error where
 
 import Control.Exception
-import Control.Monad
 import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
+import Data.Maybe (fromJust)
 
 import qualified FoundationDB.Internal.Bindings as FDB
 
@@ -16,9 +16,9 @@ import qualified FoundationDB.Internal.Bindings as FDB
 fdbEither :: MonadIO m => m (FDB.CFDBError, a) -> m (Either Error a)
 fdbEither f = do
   (err, res) <- f
-  if FDB.isError err
-    then return $ Left $ CError $ toError err
-    else return (Right res)
+  case toError err of
+    Just x -> return $ Left $ CError x
+    Nothing -> return (Right res)
 
 fdbExcept :: (MonadError Error m, MonadIO m)
              => IO (FDB.CFDBError, a) -> m a
@@ -29,9 +29,9 @@ fdbExcept x = do
 fdbEither' :: MonadIO m => m FDB.CFDBError -> m (Either Error ())
 fdbEither' f = do
   err <- f
-  if FDB.isError err
-    then return $ Left $ CError $ toError err
-    else return (Right ())
+  case toError err of
+    Just x -> return $ Left $ CError x
+    Nothing -> return (Right ())
 
 fdbExcept' :: (MonadError Error m, MonadIO m) =>
                IO FDB.CFDBError -> m ()
@@ -40,12 +40,14 @@ fdbExcept' x = do
   liftEither e
 
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
-liftFDBError = either (throwError . CError . toError) return
+liftFDBError = either (throwError . CError . fromJust . toError) return
 
 fdbThrowing :: IO FDB.CFDBError -> IO ()
 fdbThrowing a = do
   e <- a
-  when (FDB.isError e) (throwIO $ CError $ toError e)
+  case toError e of
+    Just x -> throwIO $ CError x
+    Nothing -> return ()
 
 data Error = CError CError | Error FDBHsError
   deriving (Show, Eq, Ord)
@@ -131,73 +133,75 @@ data CError =
   | OtherError {getOtherError :: FDB.CFDBError}
   deriving (Show, Eq, Ord)
 
-toError :: FDB.CFDBError -> CError
-toError 0 = error "toError called on successful error code"
-toError 1000 = OperationFailed
-toError 1004 = TimedOut
-toError 1007 = TransactionTooOld
-toError 1009 = FutureVersion
-toError 1020 = NotCommitted
-toError 1021 = CommitUnknownResult
-toError 1025 = TransactionCanceled
-toError 1031 = TransactionTimedOut
-toError 1032 = TooManyWatches
-toError 1034 = WatchesDisabled
-toError 1036 = AccessedUnreadable
-toError 1038 = DatabaseLocked
-toError 1039 = ClusterVersionChanged
-toError 1040 = ExternalClientAlreadyLoaded
-toError 1101 = OperationCancelled
-toError 1102 = FutureReleased
-toError 1500 = PlatformError
-toError 1501 = LargeAllocFailed
-toError 1502 = PerformanceCounterError
-toError 1510 = IOError
-toError 1511 = FileNotFound
-toError 1512 = BindFailed
-toError 1513 = FileNotReadable
-toError 1514 = FileNotWritable
-toError 1515 = NoClusterFileFound
-toError 1516 = FileTooLarge
-toError 2000 = ClientInvalidOperation
-toError 2002 = CommitReadIncomplete
-toError 2003 = TestSpecificationInvalid
-toError 2004 = KeyOutsideLegalRange
-toError 2005 = InvertedRange
-toError 2006 = InvalidOptionValue
-toError 2007 = InvalidOption
-toError 2008 = NetworkNotSetup
-toError 2009 = NetworkAlreadySetup
-toError 2010 = ReadVersionAlreadySet
-toError 2011 = VersionInvalid
-toError 2012 = RangeLimitsInvalid
-toError 2013 = InvalidDatabaseName
-toError 2014 = AttributeNotFound
-toError 2015 = FutureNotSet
-toError 2016 = FutureNotError
-toError 2017 = UsedDuringCommit
-toError 2018 = InvalidMutationType
-toError 2020 = TransactionInvalidVersion
-toError 2021 = TransactionReadOnly2021
-toError 2022 = EnvironmentVariableNetworkOptionFailed
-toError 2023 = TransactionReadOnly2023
-toError 2100 = IncompatibleProtocolVersion
-toError 2101 = TransactionTooLarge
-toError 2102 = KeyTooLarge
-toError 2103 = ValueTooLarge
-toError 2104 = ConnectionStringInvalid
-toError 2105 = AddressInUse
-toError 2106 = InvalidLocalAddress
-toError 2107 = TLSError
-toError 2108 = UnsupportedOperation
-toError 2200 = APIVersionUnset
-toError 2201 = APIVersionAlreadySet
-toError 2202 = APIVersionInvalid
-toError 2203 = APIVersionNotSupported
-toError 2210 = ExactModeWithoutLimits
-toError 4000 = UnknownError
-toError 4100 = InternalError
-toError n = OtherError n
+-- | Convert error int to 'CError' sum. If 0 (which indicates success), returns
+-- 'Nothing'. See 'isError' for another way to guard for success.
+toError :: FDB.CFDBError -> Maybe CError
+toError 0 = Nothing
+toError 1000 = Just OperationFailed
+toError 1004 = Just TimedOut
+toError 1007 = Just TransactionTooOld
+toError 1009 = Just FutureVersion
+toError 1020 = Just NotCommitted
+toError 1021 = Just CommitUnknownResult
+toError 1025 = Just TransactionCanceled
+toError 1031 = Just TransactionTimedOut
+toError 1032 = Just TooManyWatches
+toError 1034 = Just WatchesDisabled
+toError 1036 = Just AccessedUnreadable
+toError 1038 = Just DatabaseLocked
+toError 1039 = Just ClusterVersionChanged
+toError 1040 = Just ExternalClientAlreadyLoaded
+toError 1101 = Just OperationCancelled
+toError 1102 = Just FutureReleased
+toError 1500 = Just PlatformError
+toError 1501 = Just LargeAllocFailed
+toError 1502 = Just PerformanceCounterError
+toError 1510 = Just IOError
+toError 1511 = Just FileNotFound
+toError 1512 = Just BindFailed
+toError 1513 = Just FileNotReadable
+toError 1514 = Just FileNotWritable
+toError 1515 = Just NoClusterFileFound
+toError 1516 = Just FileTooLarge
+toError 2000 = Just ClientInvalidOperation
+toError 2002 = Just CommitReadIncomplete
+toError 2003 = Just TestSpecificationInvalid
+toError 2004 = Just KeyOutsideLegalRange
+toError 2005 = Just InvertedRange
+toError 2006 = Just InvalidOptionValue
+toError 2007 = Just InvalidOption
+toError 2008 = Just NetworkNotSetup
+toError 2009 = Just NetworkAlreadySetup
+toError 2010 = Just ReadVersionAlreadySet
+toError 2011 = Just VersionInvalid
+toError 2012 = Just RangeLimitsInvalid
+toError 2013 = Just InvalidDatabaseName
+toError 2014 = Just AttributeNotFound
+toError 2015 = Just FutureNotSet
+toError 2016 = Just FutureNotError
+toError 2017 = Just UsedDuringCommit
+toError 2018 = Just InvalidMutationType
+toError 2020 = Just TransactionInvalidVersion
+toError 2021 = Just TransactionReadOnly2021
+toError 2022 = Just EnvironmentVariableNetworkOptionFailed
+toError 2023 = Just TransactionReadOnly2023
+toError 2100 = Just IncompatibleProtocolVersion
+toError 2101 = Just TransactionTooLarge
+toError 2102 = Just KeyTooLarge
+toError 2103 = Just ValueTooLarge
+toError 2104 = Just ConnectionStringInvalid
+toError 2105 = Just AddressInUse
+toError 2106 = Just InvalidLocalAddress
+toError 2107 = Just TLSError
+toError 2108 = Just UnsupportedOperation
+toError 2200 = Just APIVersionUnset
+toError 2201 = Just APIVersionAlreadySet
+toError 2202 = Just APIVersionInvalid
+toError 2203 = Just APIVersionNotSupported
+toError 2210 = Just ExactModeWithoutLimits
+toError 4000 = Just UnknownError
+toError 4100 = Just InternalError
+toError n = Just $ OtherError n
 
 toCFDBError :: CError -> FDB.CFDBError
 toCFDBError OperationFailed = 1000

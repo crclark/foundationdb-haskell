@@ -139,10 +139,6 @@ getEnv :: (MonadState StackMachine m, MonadIO m)
 getEnv = do
   st <- State.get
   m <- liftIO $ readIORef $ transactions st
-  liftIO $ putStrLn $ "Attempting to get transaction "
-                      ++ show (transactionName st)
-                      ++ " from map "
-                      ++ show m
   return $ m M.! transactionName st
 
 withAnonTransaction :: StateT StackMachine ResIO ()
@@ -156,30 +152,33 @@ withAnonTransaction a = do
     Left err -> error (show err)
     Right anon -> do
       updateTransactions $ M.insert "anon" anon
-      liftIO $ putStrLn "### put anon transaction"
       State.put st {transactionName = "anon"}
       res <- a
-      liftIO $ putStrLn "### returned from anon action"
       -- TODO: need to pass actual op number in here
       bubblingError 1 (commitFuture >>= await) $ \_ -> do
         State.put st
         return res
 
-warnEmptyStack :: MonadIO m => Op -> m ()
-warnEmptyStack op = liftIO $ putStrLn $ "WARN: Empty stack for op: " ++ show op
+errorEmptyStack :: MonadIO m => Int -> Op -> m ()
+errorEmptyStack i op = error $ "Empty stack for op: " ++ show op
+                               ++ "\ninstruction number: " ++ show i
 
-warnUnexpectedState :: (Show a, MonadIO m) => a -> Op -> m ()
-warnUnexpectedState x op =
-  liftIO $ putStrLn $ "WARN: Bad stack state " ++ show x
-                      ++ " for op: " ++ show op
+errorUnexpectedState :: (Show a, MonadState StackMachine m, MonadIO m)
+                     => Int -> a -> Op -> m ()
+errorUnexpectedState i x op =
+  error $ "Bad stack state " ++ show x
+          ++ "\nfor op: " ++ show op
+          ++ "\ninstruction number: " ++ show i
 
-bubbleError :: MonadState StackMachine m => Int -> Error -> m ()
+bubbleError :: (MonadState StackMachine m, MonadIO m) => Int -> Error -> m ()
 bubbleError i (CError err) =
   let errCode = getCFDBError $ toCFDBError err
       errTuple = [BytesElem "ERROR", BytesElem (BS.pack (show errCode))]
       packedErrTuple = encodeTupleElems errTuple
-      in push (StackItem (BytesElem packedErrTuple) i)
-bubbleError _ _ = error "Can't bubble FDBHaskell error"
+      in do
+        liftIO $ putStrLn $ "### pushing bubbled error " ++ show errTuple
+        push (StackItem (BytesElem packedErrTuple) i)
+bubbleError _ _ = error "Internal FDBHaskell error"
 
 popKeySelector :: MonadState StackMachine m
                => m (Maybe (KeySelector, ByteString))
@@ -204,7 +203,7 @@ popRangeArgs = popN 5 >>= \case
          , rangeEnd = FirstGreaterOrEq end
          , rangeLimit = Just limit
          , rangeReverse = rev == 1
-       }, toEnum (mode + 1))
+       }, toEnum mode)
   _ -> return Nothing
 
 popRangeStartsWith :: MonadState StackMachine m
@@ -219,7 +218,7 @@ popRangeStartsWith = popN 4 >>= \case
            rangeLimit = Just limit,
            rangeReverse = rev == 1
            }
-         return (r', toEnum (mode + 1))
+         return (r', toEnum mode)
   _ -> return Nothing
 
 popRangeSelector :: MonadState StackMachine m
@@ -243,7 +242,7 @@ popRangeSelector = popN 10 >>= \case
                 , rangeLimit = Just limit
                 , rangeReverse = rev == 1
                 }
-        return $ Just (r, toEnum (mode + 1), prefix)
+        return $ Just (r, toEnum mode, prefix)
   _ -> return Nothing
 
 popAtomicOp :: MonadState StackMachine m
@@ -302,33 +301,33 @@ step :: Int
 
 step _ (Push item) = push item
 
-step _ Dup = peek >>= \case
-  Nothing -> return ()
-  Just x -> warnEmptyStack Dup >> push x
+step i Dup = peek >>= \case
+  Nothing -> errorEmptyStack i Dup
+  Just x -> push x
 
 step _ EmptyStack = do
   st <- State.get
   State.put st {stack = [], stackLen = 0}
 
-step _ Swap = pop >>= \case
+step i Swap = pop >>= \case
   Just (StackItem (IntElem n) _) -> swap n
-  x -> warnUnexpectedState x Swap
+  x -> errorUnexpectedState i x Swap
 
-step _ Pop = pop >>= \case
+step i Pop = pop >>= \case
   Just _ -> return ()
-  x -> warnUnexpectedState x Pop
+  x -> errorUnexpectedState i x Pop
 
 step i Sub = popN 2 >>= \case
   Just [StackItem (IntElem x) _, StackItem (IntElem y) _] ->
     push $ StackItem (IntElem (x - y)) i
-  x -> warnUnexpectedState x Sub
+  x -> errorUnexpectedState i x Sub
 
 step i Concat = popN 2 >>= \case
   Just [StackItem (BytesElem x) _, StackItem (BytesElem y) _] ->
     push $ StackItem (BytesElem (x <> y)) i
   Just [StackItem (TextElem x) _, StackItem (TextElem y) _] ->
     push $ StackItem (TextElem (x <> y)) i
-  x -> warnUnexpectedState x Concat
+  x -> errorUnexpectedState i x Concat
 
 step i LogStack = do
   Just (StackItem (BytesElem prfx) _) <- pop
@@ -359,16 +358,12 @@ step _ NewTransaction = do
     Right env -> do
       let k = transactionName st
       updateTransactions $ M.insert k env
-      m <- liftIO $ readIORef $ transactions st
-      liftIO $ putStrLn $ "New transaction created with name " ++ show k
-                          ++ " transactions now contains: " ++ show m
-      return ()
 
 -- TODO: duplication with NewTransaction case
 -- TODO: spec says to create transaction if it doesn't exist, but this always
 -- creates a transaction, letting it get GC'ed if one already exists. Kind of
 -- clumsy.
-step _ UseTransaction = pop >>= \case
+step i UseTransaction = pop >>= \case
   Just (StackItem (BytesElem txnName) _) -> do
     st <- State.get
     envE <- State.lift $
@@ -384,23 +379,27 @@ step _ UseTransaction = pop >>= \case
               in (m, m')
         State.put st {transactionName = txnName}
         liftIO $ putStrLn $ "UseTransaction created transaction named " ++ show txnName
-  x -> warnUnexpectedState x UseTransaction
+  x -> errorUnexpectedState i x UseTransaction
 
 step i OnError = pop >>= \case
   Just (StackItem (IntElem errCode) _) -> do
     env <- getEnv
-    let err = CError (toError (CFDBError $ fromIntegral errCode))
-    liftIO (onEnv env (onError err)) >>= \case
-      Left err' -> bubbleError i err'
-      Right () -> return ()
-  x -> warnUnexpectedState x OnError
+    let cErr = CFDBError $ fromIntegral errCode
+    case toError cErr of
+      Just e -> liftIO (onEnv env (onError (CError e))) >>= \case
+        Left reRaised -> do
+          liftIO $ putStrLn $ "onError re-raised " ++ show reRaised
+          bubbleError i reRaised
+        Right () -> liftIO $ putStrLn $ "onError didn't re-raise: " ++ show e
+      Nothing -> return ()
+  x -> errorUnexpectedState i x OnError
 
 step i Get = pop >>= \case
   Just (StackItem (BytesElem k) _) ->
     bubblingError i (get k >>= await) $ \case
       Nothing -> push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
       Just v -> push (StackItem (BytesElem v) i)
-  x -> warnUnexpectedState x Get
+  x -> errorUnexpectedState i x Get
 
 step i GetKey = popKeySelector >>= \case
   Just (sel, prefix) -> do
@@ -412,7 +411,7 @@ step i GetKey = popKeySelector >>= \case
         | v < prefix -> push (StackItem (BytesElem prefix) i)
         | v > prefix -> push (StackItem (BytesElem (strinc prefix)) i)
         | otherwise -> error "impossible case for GetKey"
-  _ -> warnEmptyStack GetKey
+  _ -> errorEmptyStack i GetKey
 
 step i GetRange = popRangeArgs >>= \case
   Just (range, mode) -> do
@@ -421,7 +420,7 @@ step i GetRange = popRangeArgs >>= \case
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
       let tuple = encodeTupleElems $ map BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
-  _ -> warnEmptyStack GetRange
+  _ -> errorEmptyStack i GetRange
 
 step i GetRangeStartsWith = popRangeStartsWith >>= \case
   Just (range, mode) -> do
@@ -430,7 +429,7 @@ step i GetRangeStartsWith = popRangeStartsWith >>= \case
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
       let tuple = encodeTupleElems $ map BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
-  x -> warnUnexpectedState x GetRangeStartsWith
+  x -> errorUnexpectedState i x GetRangeStartsWith
 
 step i GetRangeSelector = popRangeSelector >>= \case
   Just (range, mode, prefix) -> do
@@ -439,7 +438,7 @@ step i GetRangeSelector = popRangeSelector >>= \case
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
       let tuple = encodeTupleElems $ map BytesElem $ flatten $ filter (BS.isPrefixOf prefix . fst) xs
       push (StackItem (BytesElem tuple) i)
-  x -> warnUnexpectedState x GetRangeSelector
+  x -> errorUnexpectedState i x GetRangeSelector
 
 step i GetReadVersion =
   bubblingError i (getReadVersion >>= await) $ \ver -> do
@@ -453,7 +452,7 @@ step i GetVersionstamp =
 step i Set = popN 2 >>= \case
   Just [ StackBytes k
        , StackBytes v] -> bubblingError i (set k v) return
-  x -> warnUnexpectedState x Set
+  x -> errorUnexpectedState i x Set
 
 step i SetReadVersion = do
   v <- getLastVersion
@@ -462,49 +461,49 @@ step i SetReadVersion = do
 step i Clear = pop >>= \case
   Just (StackBytes k) ->
     bubblingError i (clear k) return
-  x -> warnUnexpectedState x Clear
+  x -> errorUnexpectedState i x Clear
 
 step i ClearRange = popN 2 >>= \case
   Just [ StackBytes begin
        , StackBytes end ] ->
         bubblingError i (clearRange begin end) return
-  x -> warnUnexpectedState x ClearRange
+  x -> errorUnexpectedState i x ClearRange
 
 step i ClearRangeStartsWith = pop >>= \case
   Just (StackBytes prefix) ->
     bubblingError i (clearRange prefix (prefixRangeEnd prefix)) return
-  x -> warnUnexpectedState x ClearRangeStartsWith
+  x -> errorUnexpectedState i x ClearRangeStartsWith
 
 step i AtomicOp = popAtomicOp >>= \case
   Just (op, k, v) ->
     bubblingError i (atomicOp op k v) return
-  x@Nothing -> warnUnexpectedState x AtomicOp
+  x@Nothing -> errorUnexpectedState i x AtomicOp
 
 step i ReadConflictRange = popN 2 >>= \case
   Just [ StackBytes begin
        , StackBytes end] -> do
     bubblingError i (addConflictRange begin end ConflictRangeTypeRead) return
     push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
-  x -> warnUnexpectedState x ReadConflictRange
+  x -> errorUnexpectedState i x ReadConflictRange
 
 step i WriteConflictRange = popN 2 >>= \case
   Just [ StackBytes begin
        , StackBytes end] -> do
     bubblingError i (addConflictRange begin end ConflictRangeTypeWrite) return
     push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
-  x -> warnUnexpectedState x WriteConflictRange
+  x -> errorUnexpectedState i x WriteConflictRange
 
 step i ReadConflictKey = pop >>= \case
   Just (StackBytes k) -> do
     bubblingError i (addReadConflictKey k) return
     push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
-  x -> warnUnexpectedState x ReadConflictKey
+  x -> errorUnexpectedState i x ReadConflictKey
 
 step i WriteConflictKey = pop >>= \case
   Just (StackBytes k) -> do
     bubblingError i (addWriteConflictKey k) return
     push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
-  x -> warnUnexpectedState x WriteConflictKey
+  x -> errorUnexpectedState i x WriteConflictKey
 
 step i DisableWriteConflict =
   bubblingError i (setOption Opts.nextWriteNoWriteConflictRange) return
@@ -692,9 +691,9 @@ parseBasicOp t = case t of
   "WAIT_EMPTY" -> Just WaitEmpty
   _ -> Nothing
 
-parseOp :: ByteString -> Op
-parseOp bs = case decodeTupleElems bs of
-  Right [TextElem "PUSH", item] -> Push (StackItem item 1337)
+parseOp :: Int -> ByteString -> Op
+parseOp idx bs = case decodeTupleElems bs of
+  Right [TextElem "PUSH", item] -> Push (StackItem item idx)
   Right t@[TextElem op] -> fromMaybe (UnknownOp t) (parseBasicOp op)
   Right t -> UnknownOp t
   Left e -> error $ "Error parsing tuple: " ++ show e
@@ -703,7 +702,7 @@ getOps :: Database -> ByteString -> IO [Op]
 getOps db prefix = runTransaction db $ do
   let prefixTuple = encodeTupleElems [BytesElem prefix]
   kvs <- getEntireRange $ fromJust $ prefixRange prefixTuple
-  return $ map (parseOp . snd) kvs
+  return $ map (\(idx, (_k, v)) -> parseOp idx v) (zip [0..] kvs)
 
 runMachine :: StackMachine -> ResIO ()
 runMachine st@StackMachine {..} = do
@@ -711,7 +710,7 @@ runMachine st@StackMachine {..} = do
   let numUnk = length (filter isUnknown ops)
   liftIO $ putStrLn $ "Got " ++ show numUnk ++ " unknown ops."
   pPrint ops
-  State.evalStateT (forM_ (zip [1..] ops) (uncurry step)) st
+  State.evalStateT (forM_ (zip [0..] ops) (uncurry step)) st
 
 runTests :: Int -> ByteString -> Database -> IO ()
 runTests ver prefix db = do

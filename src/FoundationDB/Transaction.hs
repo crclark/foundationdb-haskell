@@ -75,7 +75,7 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Foreign.ForeignPtr
 import Foreign.Ptr (castPtr)
 
@@ -144,19 +144,19 @@ allocFutureIO (FDB.Future f) e = do
 awaitIO :: FutureIO a -> IO (Either Error a)
 awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
   Left err -> return $ Left err
-  Right () -> e >>= (return . Right)
+  Right () -> Right <$> e
 
 fromCExtractor :: FDB.Future b
                -> ReleaseKey
                -> Transaction a
                -> Transaction (Future a)
-fromCExtractor cFuture rk m =
+fromCExtractor cFuture rk extract =
   return $ Future cFuture $ do
     futErr <- liftIO $ FDB.futureGetError cFuture
-    if FDB.isError futErr
-      then release rk >> throwError (CError $ toError futErr)
-      else do
-        res <- m
+    case toError futErr of
+      Just x -> release rk >> throwError (CError x)
+      Nothing -> do
+        res <- extract
         release rk
         return res
 
@@ -512,7 +512,7 @@ getVersionstamp = do
   f <- liftIO $ FDB.transactionGetVersionstamp t
   liftIO $ allocFutureIO f $
     FDB.futureGetKey f >>= \case
-      Left err -> return $ Left (CError $ toError err)
+      Left err -> return $ Left (CError $ fromJust $ toError err)
       Right bs -> case decodeVersionstamp bs of
         Nothing -> return $ Left $ Error $ ParseError "Failed to parse versionstamp"
         Just vs -> return $ Right vs
