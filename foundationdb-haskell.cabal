@@ -136,7 +136,6 @@ executable bindingtester
                        , foundationdb-haskell
                        , containers
                        , resourcet
-                       , pretty-simple
                        , text
                        , mtl
   else

@@ -8,6 +8,7 @@
 
 module StackMachine where
 
+import Data.Char (isAscii, isPrint)
 import Data.IORef
 import Control.Monad
 import Control.Monad.Except (runExceptT)
@@ -24,7 +25,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.Pretty.Simple
+import Text.Printf (printf)
 
 import FoundationDB
 import FoundationDB.Error
@@ -42,7 +43,13 @@ import FoundationDB.Versionstamp
 strinc :: ByteString -> ByteString
 strinc = prefixRangeEnd
 
--- TODO: stack items can be of many types
+-- | attempts to mimic the behavior of Python's print function on byte strings.
+pythonShow :: ByteString -> String
+pythonShow = concatMap toStr . BS.unpack
+  where toStr c | isAscii c && isPrint c = [c]
+                | c == toEnum 0 = "\\x00"
+                | otherwise = '\\' : tail (printf "%#0.2x" c)
+
 data StackItem =
   StackItem Elem Int
   | StackVersionstampFuture (FutureIO (Either Error (Versionstamp 'Complete))) Int
@@ -141,9 +148,10 @@ getEnv = do
   m <- liftIO $ readIORef $ transactions st
   return $ m M.! transactionName st
 
-withAnonTransaction :: StateT StackMachine ResIO ()
+withAnonTransaction :: Int
                     -> StateT StackMachine ResIO ()
-withAnonTransaction a = do
+                    -> StateT StackMachine ResIO ()
+withAnonTransaction i a = do
   st <- State.get
   anonE <- State.lift $
           runExceptT $
@@ -154,8 +162,7 @@ withAnonTransaction a = do
       updateTransactions $ M.insert "anon" anon
       State.put st {transactionName = "anon"}
       res <- a
-      -- TODO: need to pass actual op number in here
-      bubblingError 1 (commitFuture >>= await) $ \_ -> do
+      bubblingError i (commitFuture >>= await) $ \_ -> do
         State.put st
         return res
 
@@ -177,6 +184,7 @@ bubbleError i (CError err) =
       packedErrTuple = encodeTupleElems errTuple
       in do
         liftIO $ putStrLn $ "### pushing bubbled error " ++ show errTuple
+                            ++ " for instruction number " ++ show i
         push (StackItem (BytesElem packedErrTuple) i)
 bubbleError _ _ = error "Internal FDBHaskell error"
 
@@ -277,8 +285,6 @@ rangeList (RangeMore xs more) = do
   ys <- rangeList rr
   return $ xs ++ ys
 
--- TODO: lots of repetition below. Pattern synonym for the StackItem noise?
-
 -- | Runs a transaction in the current env, handling transaction errors as
 -- specified by the bindings tester spec. If no error occurs, passes the result
 -- of the transaction to the given handler function.
@@ -296,6 +302,16 @@ bubblingError i t handle = do
 -- | Pushes a @RESULT_NOT_PRESENT@ bytestring for the given instruction number.
 resultNotPresent :: (MonadState StackMachine m) => Int -> m ()
 resultNotPresent i = push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
+
+-- | Handles pushing @RESULT_NOT_PRESENT@ for @_DATABASE@ operations that don't
+-- return results.
+finishDBOp :: (MonadState StackMachine m) => Int -> Op -> m ()
+finishDBOp i Set = resultNotPresent i
+finishDBOp i Clear = resultNotPresent i
+finishDBOp i ClearRange = resultNotPresent i
+finishDBOp i ClearRangeStartsWith = resultNotPresent i
+finishDBOp i AtomicOp = resultNotPresent i
+finishDBOp _ _ = return ()
 
 -- | Runs a single operation on a stack machine.
 step :: Int
@@ -392,7 +408,11 @@ step i OnError = pop >>= \case
       Just e -> liftIO (onEnv env (onError (CError e))) >>= \case
         Left reRaised -> bubbleError i reRaised
         Right () -> resultNotPresent i
-      Nothing -> return ()
+      -- Our CError type doesn't include success, which means it's impossible
+      -- to pass success to transaction_on_error. However, the stack tester
+      -- will ask us to, so we need to simulate the error on_error would return
+      -- here.
+      Nothing -> bubbleError i (CError ClientInvalidOperation)
   x -> errorUnexpectedState i x OnError
 
 step i Get = pop >>= \case
@@ -452,7 +472,12 @@ step i GetVersionstamp =
 
 step i Set = popN 2 >>= \case
   Just [ StackBytes k
-       , StackBytes v] -> bubblingError i (set k v) return
+       , StackBytes v] ->do
+        liftIO $ putStrLn $ "### " ++ show i
+                            ++ " Setting " ++ pythonShow k
+                            ++ " (tuple: " ++ show (decodeTupleElems k) ++ " )"
+                            ++ " to " ++ pythonShow v
+        bubblingError i (set k v) return
   x -> errorUnexpectedState i x Set
 
 step i SetReadVersion = do
@@ -525,7 +550,7 @@ step i GetCommittedVersion =
 step i WaitFuture = do
   x <- pop
   case x of
-    Nothing -> return ()
+    Nothing -> errorUnexpectedState i x WaitFuture
     Just (StackVersionstampFuture f _) -> do
       res <- liftIO $ awaitIO f
       case res of
@@ -568,7 +593,7 @@ step i (SnapshotOp op) = do
   updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False False})
                                 (transactionName st)
 
-step i (DatabaseOp op) = withAnonTransaction (step i op)
+step i (DatabaseOp op) = withAnonTransaction i (step i op) >> finishDBOp i op
 
 step _ (UnknownOp x) = error $ "tried to execute unknown op: " ++ show x
 
@@ -628,6 +653,10 @@ data Op =
 isUnknown :: Op -> Bool
 isUnknown (UnknownOp _) = True
 isUnknown _ = False
+
+debugDisplay :: Op -> String
+debugDisplay (Push (StackBytes bs)) = "Push " ++ pythonShow bs
+debugDisplay x = show x
 
 -- TODO: lots of repetition with the _DATABASE suffices. Instead of containing
 -- a bool deciding if its a database-level op (that should be run in an
@@ -710,7 +739,8 @@ runMachine st@StackMachine {..} = do
   ops <- liftIO $ getOps db transactionName
   let numUnk = length (filter isUnknown ops)
   liftIO $ putStrLn $ "Got " ++ show numUnk ++ " unknown ops."
-  pPrint ops
+  liftIO $ mapM_ (\(i, x) -> putStrLn $ show i ++ " " ++ x)
+                 (zip [(0 :: Int)..] (map debugDisplay ops))
   State.evalStateT (forM_ (zip [0..] ops) (uncurry step)) st
 
 runTests :: Int -> ByteString -> Database -> IO ()
