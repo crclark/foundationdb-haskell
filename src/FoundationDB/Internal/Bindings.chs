@@ -43,6 +43,7 @@ module FoundationDB.Internal.Bindings (
   , KeySelector (..)
   , keySelectorBytes
   , keySelectorTuple
+  , tupleKeySelector
   , transactionDestroy
   , transactionSetOption
   , transactionSetReadVersion
@@ -67,7 +68,7 @@ module FoundationDB.Internal.Bindings (
   , transactionAddConflictRange
   , FDBConflictRangeType (..)
   -- * Error
-  , CFDBError
+  , CFDBError (..)
   , isError
   , getError
   , errorPredicate
@@ -401,6 +402,14 @@ keySelectorTuple (FirstGreaterOrEq bs) = (bs, False, 1)
 keySelectorTuple (WithOffset n ks) =
   (\(x,y,z) -> (x, y, z+n)) (keySelectorTuple ks)
 
+-- | Inverse of 'keySelectorTuple'
+tupleKeySelector :: (B.ByteString, Bool, Int) -> KeySelector
+tupleKeySelector (bs, False, 0) = LastLessThan bs
+tupleKeySelector (bs, True, 0) = LastLessOrEq bs
+tupleKeySelector (bs, True, 1) = FirstGreaterThan bs
+tupleKeySelector (bs, False, 1) = FirstGreaterOrEq bs
+tupleKeySelector (bs, b, n) = WithOffset n $ tupleKeySelector (bs, b, 0)
+
 transactionGetKey :: Transaction
                   -> B.ByteString
                   -> Bool
@@ -426,6 +435,7 @@ transactionGetAddressesForKey t k = B.useAsCStringLen k $ \(kstr, klen) ->
 
 deriving instance Eq FDBStreamingMode
 deriving instance Ord FDBStreamingMode
+deriving instance Bounded FDBStreamingMode
 deriving instance Show FDBStreamingMode
 
 {#fun unsafe transaction_get_range as transactionGetRange_
@@ -540,7 +550,7 @@ transactionAtomicOp t k arg mutation =
   {`Transaction'} -> `Future ()' outFuture #}
 
 {#fun unsafe transaction_get_committed_version as ^
-  {`Transaction', alloca- `Int'} -> `CFDBError' CFDBError#}
+  {`Transaction', alloca- `Int' peekIntegral*} -> `CFDBError' CFDBError#}
 
 {#fun unsafe transaction_get_versionstamp as ^
   {`Transaction'} -> `Future B.ByteString' outFuture #}

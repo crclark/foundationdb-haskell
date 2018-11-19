@@ -12,9 +12,11 @@ module FoundationDB.Transaction (
   , runTransaction
   , runTransaction'
   , TransactionConfig(..)
+  , defaultConfig
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
+  , reset
   , withSnapshot
   , setOption
   , getReadVersion
@@ -25,7 +27,9 @@ module FoundationDB.Transaction (
   , clear
   , clearRange
   , addConflictRange
-  , FDB.FDBConflictRangeType
+  , FDB.FDBConflictRangeType(..)
+  , addReadConflictKey
+  , addWriteConflictKey
   , getKey
   , getKeyAddresses
   , atomicOp
@@ -51,6 +55,15 @@ module FoundationDB.Transaction (
   , offset
   -- * Atomic operations
   , AtomicOp(..)
+  -- * Advanced Usage
+  -- $advanced
+  , TransactionEnv (envConf)
+  , createTransactionEnv
+  , onEnv
+  , commitFuture
+  , onError
+  , prefixRangeEnd
+  , getCommittedVersion
 ) where
 
 import Control.Exception
@@ -62,7 +75,7 @@ import Control.Monad.Reader
 import Control.Monad.Trans.Resource
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Foreign.ForeignPtr
 import Foreign.Ptr (castPtr)
 
@@ -70,19 +83,6 @@ import FoundationDB.Error
 import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as FDB
 import FoundationDB.Versionstamp
-
-data TransactionEnv = TransactionEnv {
-  cTransaction :: FDB.Transaction
-  , conf :: TransactionConfig
-  } deriving (Show)
-
-createTransactionEnv :: FDB.Database
-                       -> TransactionConfig
-                       -> ExceptT Error (ResourceT IO) TransactionEnv
-createTransactionEnv db conf = do
-  (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
-                            (either (const $ return ()) FDB.transactionDestroy)
-  liftEither $ fmap (flip TransactionEnv conf) eTrans
 
 -- TODO: this will be exported to users with a MonadIO instance. At first
 -- glance, that seems bad, since runTransaction does auto
@@ -98,6 +98,7 @@ newtype Transaction a = Transaction
             MonadMask)
 -- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
+-- TODO: does this MonadReader instance need to be exposed?
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
@@ -143,19 +144,19 @@ allocFutureIO (FDB.Future f) e = do
 awaitIO :: FutureIO a -> IO (Either Error a)
 awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
   Left err -> return $ Left err
-  Right () -> e >>= (return . Right)
+  Right () -> Right <$> e
 
 fromCExtractor :: FDB.Future b
                -> ReleaseKey
                -> Transaction a
                -> Transaction (Future a)
-fromCExtractor cFuture rk m =
+fromCExtractor cFuture rk extract =
   return $ Future cFuture $ do
     futErr <- liftIO $ FDB.futureGetError cFuture
-    if FDB.isError futErr
-      then release rk >> throwError (CError $ toError futErr)
-      else do
-        res <- m
+    case toError futErr of
+      Just x -> release rk >> throwError (CError x)
+      Nothing -> do
+        res <- extract
         release rk
         return res
 
@@ -172,6 +173,8 @@ await (Future f e) = do
   fdbExcept' $ FDB.futureBlockUntilReady f
   e
 
+-- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
+-- works without errors, the transaction was committed.
 commitFuture :: Transaction (Future ())
 commitFuture = do
   t <- asks cTransaction
@@ -182,7 +185,7 @@ commitFuture = do
 get :: ByteString -> Transaction (Future (Maybe ByteString))
 get key = do
   t <- ask
-  let isSnapshot = snapshotReads (conf t)
+  let isSnapshot = snapshotReads (envConf t)
   allocFuture (FDB.transactionGet (cTransaction t) key isSnapshot)
               (\f -> liftIO (FDB.futureGetValue f) >>= liftFDBError)
 
@@ -212,6 +215,14 @@ addConflictRange k l ty = do
   t <- asks cTransaction
   liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
 
+addReadConflictKey :: ByteString -> Transaction ()
+addReadConflictKey k =
+  addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeRead
+
+
+addWriteConflictKey :: ByteString -> Transaction ()
+addWriteConflictKey k =
+  addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
 offset (FDB.WithOffset n ks) m = FDB.WithOffset (n+m) ks
@@ -220,7 +231,7 @@ offset ks n = FDB.WithOffset n ks
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
   t <- asks cTransaction
-  isSnapshot <- asks (snapshotReads . conf)
+  isSnapshot <- asks (snapshotReads . envConf)
   let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
   allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
               (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
@@ -248,17 +259,14 @@ data Range = Range {
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
 prefixRange :: ByteString -> Maybe Range
 prefixRange prefix
-  | prefix == BS.empty = Nothing
+  | BS.null prefix = Nothing
   | BS.all (== 0xff) prefix = Nothing
   | otherwise = Just $ Range
   { rangeBegin = FDB.FirstGreaterOrEq prefix
-  , rangeEnd = FDB.FirstGreaterOrEq end
+  , rangeEnd = FDB.FirstGreaterOrEq (prefixRangeEnd prefix)
   , rangeLimit = Nothing
   , rangeReverse = False
   }
-  where end = let prefix' = BS.takeWhile (/= 0xff) prefix
-                  in BS.snoc (BS.init prefix')
-                             (BS.last prefix' + 1)
 
 rangeKeys :: Range -> (ByteString, ByteString)
 rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
@@ -272,7 +280,7 @@ data RangeResult =
 getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
 getRange' Range {..} mode = do
   t          <- asks cTransaction
-  isSnapshot <- asks (snapshotReads . conf)
+  isSnapshot <- asks (snapshotReads . envConf)
   let (beginK, beginOrEqual, beginOffset) = FDB.keySelectorTuple rangeBegin
   let (endK, endOrEqual, endOffset)       = FDB.keySelectorTuple rangeEnd
   let mk = FDB.transactionGetRange t
@@ -351,6 +359,7 @@ isRangeEmpty r = do
     RangeDone [] -> return True
     _            -> return False
 
+-- TODO: this is redundant with and inconsistent with those exposed in Options!
 data AtomicOp =
   Add
   | And
@@ -388,6 +397,15 @@ atomicOp op k x = do
   t <- asks cTransaction
   liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
 
+runTransaction :: FDB.Database -> Transaction a -> IO a
+runTransaction = runTransactionWithConfig defaultConfig
+
+runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
+runTransaction' = runTransactionWithConfig' defaultConfig
+
+defaultConfig :: TransactionConfig
+defaultConfig = TransactionConfig False False
+
 -- | Contains useful options that are not directly exposed by the C API (for
 --   options that are, see 'setOption').
 data TransactionConfig = TransactionConfig {
@@ -402,16 +420,6 @@ data TransactionConfig = TransactionConfig {
   -- guarantee. To enable this feature selectively within a transaction,
   -- see 'withSnapshot'.
   } deriving (Show, Read, Eq, Ord)
-
-
-defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False
-
-runTransaction :: FDB.Database -> Transaction a -> IO a
-runTransaction = runTransactionWithConfig defaultConfig
-
-runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
-runTransaction' = runTransactionWithConfig' defaultConfig
 
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
@@ -433,7 +441,7 @@ runTransactionWithConfig conf db t = do
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
-  idem <- asks (idempotent . conf)
+  idem <- asks (idempotent . envConf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err
     then do
@@ -471,9 +479,15 @@ cancel = do
   liftIO $ FDB.transactionCancel t
   throwError (CError TransactionCanceled)
 
+-- | Reset the transaction. All operations prior to this will be discarded.
+reset :: Transaction ()
+reset = do
+  t <- asks cTransaction
+  liftIO $ FDB.transactionReset t
+
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
-  TransactionEnv (cTransaction s) ((conf s) {snapshotReads = True})
+  TransactionEnv (cTransaction s) ((envConf s) {snapshotReads = True})
 
 -- | Sets the read version on the current transaction. As the FoundationDB docs
 -- state, "this is not needed in simple cases".
@@ -498,7 +512,7 @@ getVersionstamp = do
   f <- liftIO $ FDB.transactionGetVersionstamp t
   liftIO $ allocFutureIO f $
     FDB.futureGetKey f >>= \case
-      Left err -> return $ Left (CError $ toError err)
+      Left err -> return $ Left (CError $ fromJust $ toError err)
       Right bs -> case decodeVersionstamp bs of
         Nothing -> return $ Left $ Error $ ParseError "Failed to parse versionstamp"
         Just vs -> return $ Right vs
@@ -508,3 +522,54 @@ setOption :: FDB.TransactionOption -> Transaction ()
 setOption opt = do
   t <- asks cTransaction
   fdbExcept' $ FDB.transactionSetOption t opt
+
+{- $advanced
+   The functionality in this section is for more advanced use cases where you
+   need to be able to refer to an in-progress transaction and add operations to
+   it incrementally. This is similar to how the Python's bindings work -- you
+   pass around a transaction object and call methods on it one by one before
+   finally calling @.commit()@.
+
+   This functionality was needed to create the bindings tester, which is
+   required to follow the semantics of the bindings for imperative languages
+   more closely. You probably don't need this. In fact, it's not entirely clear
+   that the bindings tester needs it.
+-}
+
+data TransactionEnv = TransactionEnv {
+  cTransaction :: FDB.Transaction
+  , envConf :: TransactionConfig
+  } deriving (Show)
+
+createTransactionEnv :: FDB.Database
+  -> TransactionConfig
+  -> ExceptT Error (ResourceT IO) TransactionEnv
+createTransactionEnv db config = do
+  (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
+                            (either (const $ return ()) FDB.transactionDestroy)
+  liftEither $ fmap (flip TransactionEnv config) eTrans
+
+onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
+onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
+
+onError :: Error -> Transaction ()
+onError (CError err) = do
+  trans <- asks cTransaction
+  f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+                   (const $ return ())
+  await f
+onError _ = return ()
+
+-- @prefixRangeEnd prefix@ returns the lexicographically greatest bytestring
+-- of which @prefix@ is a prefix. Usually, it's easier to just use
+-- 'prefixRange'.
+prefixRangeEnd :: ByteString -> ByteString
+prefixRangeEnd prefix =
+  let prefix' = BS.takeWhile (/= 0xff) prefix
+                in BS.snoc (BS.init prefix')
+                           (BS.last prefix' + 1)
+
+getCommittedVersion :: Transaction Int
+getCommittedVersion = do
+  t <- asks cTransaction
+  fdbExcept (FDB.transactionGetCommittedVersion t)

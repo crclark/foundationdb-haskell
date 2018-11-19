@@ -50,6 +50,11 @@ flag with-generate-options
   Manual:            True
   Default:           False
 
+flag with-bindingtester
+  description:       Also build bindingtester executable.
+  Manual:            True
+  Default:           False
+
 library
   -- Modules exported by the library.
   exposed-modules:   FoundationDB
@@ -123,6 +128,23 @@ executable generate-options
   hs-source-dirs:     generate-options
   main-is:            Main.hs
   other-modules:      Generate, Parse
+
+executable bindingtester
+  if flag(with-bindingtester)
+    build-depends:     base >=4.10 && <5
+                       , bytestring >= 0.10.8.2 && <0.11
+                       , foundationdb-haskell
+                       , containers
+                       , resourcet
+                       , text
+                       , mtl
+  else
+    buildable: False
+  default-language:    Haskell2010
+  ghc-options:         -Wall -threaded
+  hs-source-dirs:      bindingtester
+  main-is:             Main.hs
+  other-modules:       StackMachine
 
 test-suite tests
   build-depends:       base >=4.10 && <5
