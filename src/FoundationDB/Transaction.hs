@@ -66,17 +66,22 @@ module FoundationDB.Transaction (
   , getCommittedVersion
 ) where
 
-import Control.Exception
+import Control.Exception (throwIO)
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
-import Control.Monad.Except
+import Control.Monad.Except (ExceptT, liftEither, runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.Reader
-import Control.Monad.Trans.Resource
+import Control.Monad.Reader (ask, asks, local, MonadReader, ReaderT, runReaderT)
+import Control.Monad.Trans.Resource ( allocate
+                                    , MonadResource
+                                    , release
+                                    , ReleaseKey
+                                    , ResourceT
+                                    , runResourceT)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe, fromJust)
-import Foreign.ForeignPtr
+import Foreign.ForeignPtr (ForeignPtr, newForeignPtr)
 import Foreign.Ptr (castPtr)
 
 import FoundationDB.Error
@@ -143,26 +148,24 @@ allocFutureIO (FDB.Future f) e = do
 
 awaitIO :: FutureIO a -> IO (Either Error a)
 awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
-  Left err -> return $ Left err
-  Right () -> Right <$> e
+  Left  err -> return $ Left err
+  Right ()  -> Right <$> e
 
-fromCExtractor :: FDB.Future b
-               -> ReleaseKey
-               -> Transaction a
-               -> Transaction (Future a)
-fromCExtractor cFuture rk extract =
-  return $ Future cFuture $ do
-    futErr <- liftIO $ FDB.futureGetError cFuture
-    case toError futErr of
-      Just x -> release rk >> throwError (CError x)
-      Nothing -> do
-        res <- extract
-        release rk
-        return res
+fromCExtractor
+  :: FDB.Future b -> ReleaseKey -> Transaction a -> Transaction (Future a)
+fromCExtractor cFuture rk extract = return $ Future cFuture $ do
+  futErr <- liftIO $ FDB.futureGetError cFuture
+  case toError futErr of
+    Just x  -> release rk >> throwError (CError x)
+    Nothing -> do
+      res <- extract
+      release rk
+      return res
 
-allocFuture :: IO (FDB.Future b)
-            -> (FDB.Future b -> Transaction a)
-            -> Transaction (Future a)
+allocFuture
+  :: IO (FDB.Future b)
+  -> (FDB.Future b -> Transaction a)
+  -> Transaction (Future a)
 allocFuture make extract = do
   (rk, future) <- allocate make FDB.futureDestroy
   fromCExtractor future rk (extract future)
@@ -207,10 +210,8 @@ clearRange k l = do
   t <- asks cTransaction
   liftIO $ FDB.transactionClearRange t k l
 
-addConflictRange :: ByteString
-                 -> ByteString
-                 -> FDB.FDBConflictRangeType
-                 -> Transaction ()
+addConflictRange
+  :: ByteString -> ByteString -> FDB.FDBConflictRangeType -> Transaction ()
 addConflictRange k l ty = do
   t <- asks cTransaction
   liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
@@ -225,12 +226,12 @@ addWriteConflictKey k =
   addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
 offset :: FDB.KeySelector -> Int -> FDB.KeySelector
-offset (FDB.WithOffset n ks) m = FDB.WithOffset (n+m) ks
-offset ks n = FDB.WithOffset n ks
+offset (FDB.WithOffset n ks) m = FDB.WithOffset (n + m) ks
+offset ks                    n = FDB.WithOffset n ks
 
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
-  t <- asks cTransaction
+  t          <- asks cTransaction
   isSnapshot <- asks (snapshotReads . envConf)
   let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
   allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
@@ -262,11 +263,11 @@ prefixRange prefix
   | BS.null prefix = Nothing
   | BS.all (== 0xff) prefix = Nothing
   | otherwise = Just $ Range
-  { rangeBegin = FDB.FirstGreaterOrEq prefix
-  , rangeEnd = FDB.FirstGreaterOrEq (prefixRangeEnd prefix)
-  , rangeLimit = Nothing
-  , rangeReverse = False
-  }
+    { rangeBegin   = FDB.FirstGreaterOrEq prefix
+    , rangeEnd     = FDB.FirstGreaterOrEq (prefixRangeEnd prefix)
+    , rangeLimit   = Nothing
+    , rangeReverse = False
+    }
 
 rangeKeys :: Range -> (ByteString, ByteString)
 rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
@@ -340,17 +341,16 @@ getRange :: Range -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator
 
 -- TODO: slow and leaky! no lists!
-getEntireRange :: Range
-               -> Transaction [(ByteString, ByteString)]
+getEntireRange :: Range -> Transaction [(ByteString, ByteString)]
 getEntireRange r = do
   rr <- getRange' r FDB.StreamingModeWantAll >>= await
   go rr
-
-  where go (RangeDone xs) = return xs
-        go (RangeMore xs fut) = do
-          more <- await fut
-          ys <- go more
-          return (xs ++ ys)
+ where
+  go (RangeDone xs    ) = return xs
+  go (RangeMore xs fut) = do
+    more <- await fut
+    ys   <- go more
+    return (xs ++ ys)
 
 isRangeEmpty :: Range -> Transaction Bool
 isRangeEmpty r = do
@@ -377,15 +377,15 @@ data AtomicOp =
   deriving (Enum, Eq, Ord, Show, Read)
 
 toFDBMutationType :: AtomicOp -> FDB.FDBMutationType
-toFDBMutationType Add = FDB.MutationTypeAdd
-toFDBMutationType And = FDB.MutationTypeAnd
-toFDBMutationType BitAnd = FDB.MutationTypeBitAnd
-toFDBMutationType Or = FDB.MutationTypeOr
-toFDBMutationType BitOr = FDB.MutationTypeBitOr
-toFDBMutationType Xor = FDB.MutationTypeXor
-toFDBMutationType BitXor = FDB.MutationTypeBitXor
-toFDBMutationType Max = FDB.MutationTypeMax
-toFDBMutationType Min = FDB.MutationTypeMin
+toFDBMutationType Add                  = FDB.MutationTypeAdd
+toFDBMutationType And                  = FDB.MutationTypeAnd
+toFDBMutationType BitAnd               = FDB.MutationTypeBitAnd
+toFDBMutationType Or                   = FDB.MutationTypeOr
+toFDBMutationType BitOr                = FDB.MutationTypeBitOr
+toFDBMutationType Xor                  = FDB.MutationTypeXor
+toFDBMutationType BitXor               = FDB.MutationTypeBitXor
+toFDBMutationType Max                  = FDB.MutationTypeMax
+toFDBMutationType Min                  = FDB.MutationTypeMin
 toFDBMutationType SetVersionstampedKey = FDB.MutationTypeSetVersionstampedKey
 toFDBMutationType SetVersionstampedValue =
   FDB.MutationTypeSetVersionstampedValue
@@ -424,15 +424,13 @@ data TransactionConfig = TransactionConfig {
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
 -- transaction for retryable errors.
-runTransactionWithConfig :: TransactionConfig
-                         -> FDB.Database
-                         -> Transaction a
-                         -> IO a
+runTransactionWithConfig
+  :: TransactionConfig -> FDB.Database -> Transaction a -> IO a
 runTransactionWithConfig conf db t = do
   res <- runTransactionWithConfig' conf db t
   case res of
-    Left err -> throwIO err
-    Right x -> return x
+    Left  err -> throwIO err
+    Right x   -> return x
 
 -- TODO: the docs say "on receiving an error from fdb_transaction_*", but we're
 -- calling this upon receiving an error from any fdb function. Will that cause
@@ -448,8 +446,8 @@ withRetry t = catchError t $ \err -> do
       -- retryable and retryableNotCommitted can only return true for CErrors.
       let (CError err') = err
       trans <- asks cTransaction
-      f <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
-                       (const $ return ())
+      f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
+                           (const $ return ())
       await f
       -- await throws any error on the future, so if we reach here, we can retry
       withRetry t
@@ -458,18 +456,15 @@ withRetry t = catchError t $ \err -> do
 -- Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
 -- errors.
-runTransactionWithConfig' :: TransactionConfig
-                          -> FDB.Database
-                          -> Transaction a
-                          -> IO (Either Error a)
-runTransactionWithConfig' conf db t =
-  runResourceT $ runExceptT $ do
-    trans <- createTransactionEnv db conf
-    flip runReaderT trans $ unTransaction $ withRetry $ do
-      res <- t
-      commit <- commitFuture
-      await commit
-      return res
+runTransactionWithConfig'
+  :: TransactionConfig -> FDB.Database -> Transaction a -> IO (Either Error a)
+runTransactionWithConfig' conf db t = runResourceT $ runExceptT $ do
+  trans <- createTransactionEnv db conf
+  flip runReaderT trans $ unTransaction $ withRetry $ do
+    res    <- t
+    commit <- commitFuture
+    await commit
+    return res
 
 -- | Cancel a transaction. The transaction will not be committed, and
 -- will throw 'TransactionCanceled'.
@@ -487,7 +482,7 @@ reset = do
 
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
-  TransactionEnv (cTransaction s) ((envConf s) {snapshotReads = True})
+  TransactionEnv (cTransaction s) ((envConf s) { snapshotReads = True })
 
 -- | Sets the read version on the current transaction. As the FoundationDB docs
 -- state, "this is not needed in simple cases".
@@ -506,16 +501,17 @@ getReadVersion = do
 
 -- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
 -- transaction. Most applications won't need this.
-getVersionstamp :: Transaction (FutureIO (Either Error (Versionstamp 'Complete)))
+getVersionstamp
+  :: Transaction (FutureIO (Either Error (Versionstamp 'Complete)))
 getVersionstamp = do
   t <- asks cTransaction
   f <- liftIO $ FDB.transactionGetVersionstamp t
-  liftIO $ allocFutureIO f $
-    FDB.futureGetKey f >>= \case
-      Left err -> return $ Left (CError $ fromJust $ toError err)
-      Right bs -> case decodeVersionstamp bs of
-        Nothing -> return $ Left $ Error $ ParseError "Failed to parse versionstamp"
-        Just vs -> return $ Right vs
+  liftIO $ allocFutureIO f $ FDB.futureGetKey f >>= \case
+    Left  err -> return $ Left (CError $ fromJust $ toError err)
+    Right bs  -> case decodeVersionstamp bs of
+      Nothing ->
+        return $ Left $ Error $ ParseError "Failed to parse versionstamp"
+      Just vs -> return $ Right vs
 
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()
@@ -541,12 +537,14 @@ data TransactionEnv = TransactionEnv {
   , envConf :: TransactionConfig
   } deriving (Show)
 
-createTransactionEnv :: FDB.Database
+createTransactionEnv
+  :: FDB.Database
   -> TransactionConfig
   -> ExceptT Error (ResourceT IO) TransactionEnv
 createTransactionEnv db config = do
-  (_rk, eTrans) <- allocate (fdbEither $ FDB.databaseCreateTransaction db)
-                            (either (const $ return ()) FDB.transactionDestroy)
+  (_rk, eTrans) <- allocate
+    (fdbEither $ FDB.databaseCreateTransaction db)
+    (either (const $ return ()) FDB.transactionDestroy)
   liftEither $ fmap (flip TransactionEnv config) eTrans
 
 onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
@@ -555,8 +553,8 @@ onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
 onError :: Error -> Transaction ()
 onError (CError err) = do
   trans <- asks cTransaction
-  f <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
-                   (const $ return ())
+  f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+                       (const $ return ())
   await f
 onError _ = return ()
 
@@ -566,8 +564,7 @@ onError _ = return ()
 prefixRangeEnd :: ByteString -> ByteString
 prefixRangeEnd prefix =
   let prefix' = BS.takeWhile (/= 0xff) prefix
-                in BS.snoc (BS.init prefix')
-                           (BS.last prefix' + 1)
+  in  BS.snoc (BS.init prefix') (BS.last prefix' + 1)
 
 getCommittedVersion :: Transaction Int
 getCommittedVersion = do
