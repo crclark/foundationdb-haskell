@@ -49,12 +49,14 @@ fdbThrowing a = do
     Just x -> throwIO $ CError x
     Nothing -> return ()
 
+-- | Represents all errors that can occur when running a 'Transaction'.
 data Error = CError CError | Error FDBHsError
   deriving (Show, Eq, Ord)
 
 instance Exception Error
 
--- | Errors arising from the foundationdb-haskell library implementation.
+-- | Errors arising from the foundationdb-haskell library implementation. If you
+-- get one of these errors, it's most likely a bug in foundationdb-haskell.
 data FDBHsError =
   DirectoryLayerError String
   | ParseError String

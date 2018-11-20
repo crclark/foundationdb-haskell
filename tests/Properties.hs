@@ -30,11 +30,11 @@ cleanup db prfx = runTransaction db $ do
   clearRange begin end
 
 main :: IO ()
-main = withFoundationDB currentAPIVersion $ do
+main = do
   mdbPath <- lookupEnv "FDB_HASKELL_TEST_CLUSTER_FILE"
   case mdbPath of
     Nothing -> error "tests require FDB_HASKELL_TEST_CLUSTER_FILE to be set."
-    Just _ -> withDatabase mdbPath $ \case
+    Just _ -> withFoundationDB currentAPIVersion mdbPath $ \case
       Left e -> error $ "error starting DB: " ++ show e
       Right db -> do
         hspec encodeDecodeSpecs

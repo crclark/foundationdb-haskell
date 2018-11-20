@@ -6,6 +6,7 @@
 -- partitions. They will be added in the future.
 module FoundationDB.Layer.Directory (
   DirectoryLayer
+  , newDirectoryLayer
   , Directory
   , Path
   , dirSubspace

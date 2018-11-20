@@ -11,8 +11,6 @@ import Data.Word (Word16, Word64)
 import Data.Serialize.Get
 import Data.Serialize.Put
 
--- TODO: everything else spells it Versionstamp, not VersionStamp
-
 data VersionstampCompleteness = Complete | Incomplete
 
 -- | Represents a version stamp. Version stamps consist of

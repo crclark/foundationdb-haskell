@@ -31,8 +31,6 @@ import FoundationDB
 import FoundationDB.Error
 import FoundationDB.Transaction
 import FoundationDB.Layer.Tuple
--- TODO: are there any things we had to import from internal that should be
--- exposed?
 import FoundationDB.Internal.Bindings ( getCFDBError
                                       , tupleKeySelector
                                       , CFDBError (..)

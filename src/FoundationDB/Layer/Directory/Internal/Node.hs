@@ -10,14 +10,15 @@ import FoundationDB.Layer.Directory.Internal.Error
 import FoundationDB.Layer.Subspace
 import FoundationDB.Layer.Tuple
 
-data Node = Node
+-- | Represents the result of searching for a node with 'find'.
+data FoundNode = FoundNode
   { nodeNodeSS :: Subspace
   , nodePath :: [Text]
   , targetPath :: [Text]
   } deriving (Show, Eq, Ord)
 
-getNodeLayer :: Node -> Transaction ByteString
-getNodeLayer n@(Node ss _ _) = do
+getFoundNodeLayer :: FoundNode -> Transaction ByteString
+getFoundNodeLayer n@(FoundNode ss _ _) = do
   fv <- get (pack ss [BytesElem "layer"]) >>= await
   case fv of
     Nothing -> throwDirError $ "Failed to get node layer for node " ++ show n
