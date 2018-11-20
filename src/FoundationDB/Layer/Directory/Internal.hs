@@ -33,9 +33,6 @@ microVersion = 0
 throwing :: String -> Either a b -> Transaction b
 throwing s = either (const $ throwDirError s) return
 
---TODO: stuff can break if users change parts of the internals of this thing.
--- Don't export.
-
 -- | Represents a directory tree. A value of this type must be supplied to all
 -- functions in this module.
 data DirectoryLayer = DirectoryLayer
@@ -87,11 +84,11 @@ data DirPartition = DirPartition
 
 newDirectoryLayer
   :: Subspace
-                  -- ^ node subspace for directory metadata
+  -- ^ node subspace for directory metadata
   -> Subspace
-                  -- ^ content subspace
+  -- ^ content subspace
   -> Bool
-                  -- ^ allow manual prefixes
+  -- ^ allow manual prefixes
   -> DirectoryLayer
 newDirectoryLayer nodeSS contentSS allowManualPrefixes =
   let rootNode  = extend nodeSS [Tuple.BytesElem (subspaceKey nodeSS)]
@@ -105,7 +102,8 @@ newDirectoryLayer nodeSS contentSS allowManualPrefixes =
 defaultDirLayer :: DirectoryLayer
 defaultDirLayer = newDirectoryLayer (Subspace "\xfe") (Subspace "") False
 
--- | Opens a directory at the given path. If the directory exists, returns it.
+-- | Tries to open a directory at the given path.
+--   If the directory exists, returns it. Otherwise, returns 'Nothing'.
 open :: DirectoryLayer
      -> Path
      -> Transaction (Maybe Directory)
@@ -142,7 +140,7 @@ open' dl path layer _prefix = do
   find dl path >>= \case
     Nothing -> return Nothing
     Just node -> do
-      existingLayer <- getNodeLayer node
+      existingLayer <- getFoundNodeLayer node
       when (layer /= existingLayer)
            (throwDirError "directory created with incompatible layer")
       Just
@@ -313,12 +311,9 @@ removeFromParent _  []   = return ()
 removeFromParent dl path =
   find dl (init path) >>= \case
     Nothing -> throwDirError $ "parent not found for " ++ show path
-    Just (Node sub _ _) ->
+    Just (FoundNode sub _ _) ->
       clear (pack sub [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
 
--- TODO: should use Node type, except it doesn't really represent a node as-is.
--- existing Node type should probably be renamed NodeQueryResult or
--- something, and a real Node type introduced.
 subdirNameNodes
   :: DirectoryLayer
   -> Subspace
@@ -388,13 +383,8 @@ isPrefixFree dl@DirectoryLayer {..} prefix
         Nothing -> return False
         Just r  -> do
           let (bk, ek) = rangeKeys r
-          -- TODO: other bindings have a KeyRange type for this common case
-          -- we should probably have a keyRange function.
-          let r' = Range
-                (FirstGreaterOrEq (pack nodeSS [Tuple.BytesElem bk]))
-                (FirstGreaterOrEq (pack nodeSS [Tuple.BytesElem ek]))
-                Nothing
-                False
+          let r' = keyRange (pack nodeSS [Tuple.BytesElem bk])
+                            (pack nodeSS [Tuple.BytesElem ek])
           isRangeEmpty r'
 
 
@@ -439,11 +429,11 @@ nodeWithPrefix DirectoryLayer {..} prefix =
 find
   :: DirectoryLayer
   -> Path
-  -> Transaction (Maybe Node)
+  -> Transaction (Maybe FoundNode)
 find dl@DirectoryLayer {..} queryPath = go baseNode (zip [0 ..] queryPath)
  where
 
-  baseNode = Node rootNode [] queryPath
+  baseNode = FoundNode rootNode [] queryPath
 
   go n []            = return (Just n)
   go n ((i, p) : ps) = do
@@ -452,10 +442,10 @@ find dl@DirectoryLayer {..} queryPath = go baseNode (zip [0 ..] queryPath)
     get nodePrefixKey >>= await >>= \case
       Nothing -> return Nothing
       Just prefix -> do
-        let n' = Node (nodeWithPrefix dl prefix)
-                      (take (i + 1) queryPath)
-                      []
-        layer <- getNodeLayer n'
+        let n' = FoundNode (nodeWithPrefix dl prefix)
+                           (take (i + 1) queryPath)
+                           []
+        layer <- getFoundNodeLayer n'
         if layer == "partition" then return (Just n') else go n' ps
 
 contentsOfNodePartition

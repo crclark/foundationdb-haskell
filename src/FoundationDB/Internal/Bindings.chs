@@ -1,3 +1,6 @@
+-- | Raw bindings to the underlying C client API. These are not memory safe.
+-- For documentation, see <https://apple.github.io/foundationdb/api-c.html>.
+
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -97,6 +100,7 @@ newtype CFDBError = CFDBError {getCFDBError :: CInt}
 isError :: CFDBError -> Bool
 isError = (/=0) . getCFDBError
 
+-- | Current version of the installed FDB library.
 currentAPIVersion :: Int
 currentAPIVersion = {#const FDB_API_VERSION#}
 
@@ -189,7 +193,7 @@ futureGetKey f = do
 {#fun unsafe future_get_cluster as ^
   {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
 
-
+-- | Handle to the underlying C API client state.
 {#pointer *FDBDatabase as Database newtype #}
 
 deriving instance Show Database

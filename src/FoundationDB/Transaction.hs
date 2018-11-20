@@ -40,6 +40,7 @@ module FoundationDB.Transaction (
   , isRangeEmpty
   , Range(..)
   , rangeKeys
+  , keyRange
   , prefixRange
   , RangeResult(..)
   -- * Futures
@@ -97,6 +98,19 @@ import FoundationDB.Versionstamp
 -- 3. Export a TransactionT with MonadIO m => MonadIO (TransactionT m)
 --    so that users can decide whether they want to deal with the risk.
 -- I'm leaning towards 3. We can export both Transaction and TransactionT.
+
+-- | A transaction monad. This is currently exported with a 'MonadIO' instance,
+-- but using it comes with caveats:
+--
+--   - 'runTransaction' will retry your transaction in some cases, which means
+--     any IO in your transaction will be repeated.
+--
+--   - Transactions have strict time limits, so slow IO operations should be
+--     avoided.
+--
+-- The 'MonadIO' instance may be removed in the future, to improve type safety.
+-- In its place, we may export a 'TransactionT' transformer that can be wrapped
+-- around IO, if desired.
 newtype Transaction a = Transaction
   {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
   deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
@@ -107,8 +121,8 @@ deriving instance MonadError Error Transaction
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadResource Transaction
 
--- | A future result of a FoundationDB call. Should not be returned from
--- 'runTransaction' or its variants. You can block on a future with 'await'.
+-- | A future result of a FoundationDB call. You can block on a future with
+-- 'await'.
 -- WARNING: returning a value of this type from 'runTransaction' and then
 -- calling 'await' on the value in another transaction will cause a segfault!
 -- Future versions of this library may use more sophisticated types to prevent
@@ -237,6 +251,8 @@ getKey ks = do
   allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
               (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
 
+-- | Get the public network addresses of all nodes responsible for storing
+-- the given key.
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 getKeyAddresses k = do
   t <- asks cTransaction
@@ -255,6 +271,12 @@ data Range = Range {
   , rangeReverse :: Bool
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
+
+-- | @keyRange begin end@ is the range of all keys between @begin@ and @end@,
+-- inclusive.
+keyRange :: ByteString -> ByteString -> Range
+keyRange begin end =
+  Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterOrEq end) Nothing False
 
 -- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
@@ -397,9 +419,14 @@ atomicOp op k x = do
   t <- asks cTransaction
   liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
 
+-- | Attempts to commit a transaction against the given database. If an
+-- unretryable error occurs, throws an 'Error'. Attempts to retry the
+-- transaction for retryable errors.
 runTransaction :: FDB.Database -> Transaction a -> IO a
 runTransaction = runTransactionWithConfig defaultConfig
 
+-- | Like 'runTransaction', but returns a sum instead of throwing an exception
+-- on errors.
 runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
@@ -432,9 +459,6 @@ runTransactionWithConfig conf db t = do
     Left  err -> throwIO err
     Right x   -> return x
 
--- TODO: the docs say "on receiving an error from fdb_transaction_*", but we're
--- calling this upon receiving an error from any fdb function. Will that cause
--- problems?
 -- | Handles the retry logic described in the FDB docs.
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
@@ -480,6 +504,9 @@ reset = do
   t <- asks cTransaction
   liftIO $ FDB.transactionReset t
 
+-- | Runs a transaction using snapshot reads, which means that the transaction
+-- will see the results of concurrent transactions, removing the default
+-- serializable isolation guarantee.
 withSnapshot :: Transaction a -> Transaction a
 withSnapshot = local $ \s ->
   TransactionEnv (cTransaction s) ((envConf s) { snapshotReads = True })
@@ -532,6 +559,8 @@ setOption opt = do
    that the bindings tester needs it.
 -}
 
+-- | The internal state of a transaction as it is being executed by
+-- 'runTransaction'.
 data TransactionEnv = TransactionEnv {
   cTransaction :: FDB.Transaction
   , envConf :: TransactionConfig
@@ -550,6 +579,8 @@ createTransactionEnv db config = do
 onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
 onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
 
+-- | Calls the C API's @fdb_transaction_on_error@ function. Re-raises
+-- unretryable errors.
 onError :: Error -> Transaction ()
 onError (CError err) = do
   trans <- asks cTransaction
@@ -566,6 +597,10 @@ prefixRangeEnd prefix =
   let prefix' = BS.takeWhile (/= 0xff) prefix
   in  BS.snoc (BS.init prefix') (BS.last prefix' + 1)
 
+-- | Gets the committed version of a transaction. Can only be called after the
+-- transaction has committed, so must be used in conjunction with
+-- 'TransactionEnv', since 'runTransaction' and its variants immediately destroy
+-- the internal 'TransactionEnv' as soon as they return.
 getCommittedVersion :: Transaction Int
 getCommittedVersion = do
   t <- asks cTransaction

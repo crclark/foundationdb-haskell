@@ -68,7 +68,7 @@ describeRemove db dl = describe "remove" $
     stillExists `shouldBe` False
 
 describeList :: Database -> DirectoryLayer -> SpecWith ()
-describeList db dl = describe "list" $ do
+describeList db dl = describe "list" $
   it "lists only immediate nodes, not grandchildren" $ do
     res <- runTransaction db $ do
       void $ createOrOpen' dl ["abc", "def", "ghi"] "" Nothing

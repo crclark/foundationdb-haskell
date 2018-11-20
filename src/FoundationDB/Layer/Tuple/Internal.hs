@@ -24,16 +24,25 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
-import Data.Serialize.Get
+import Data.Serialize.Get ( Get
+                          , getBytes
+                          , getByteString
+                          , getWord16be
+                          , getWord32be
+                          , getWord64be
+                          , getWord8
+                          , lookAhead
+                          , remaining
+                          , runGet)
 import qualified Data.Serialize.IEEE754 as Put
 import Data.Serialize.IEEE754 (getFloat32be, getFloat64be)
 import qualified Data.Serialize.Put as Put
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Word (Word8, Word16, Word32, Word64)
-import GHC.Exts
+import GHC.Exts (Int(I#))
 import GHC.Generics (Generic)
-import GHC.Integer.Logarithms
+import GHC.Integer.Logarithms (integerLog2#)
 import Numeric.Search.Range (searchFromTo)
 
 -- | Crude UUID type to avoid dependency on UUID library. Interconvertible with

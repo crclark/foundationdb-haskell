@@ -10,7 +10,6 @@ module FoundationDB (
   -- * Initialization
   FDB.currentAPIVersion
   , withFoundationDB
-  , withDatabase
   , FDB.Database
   -- * Transactions
   , Transaction
@@ -39,6 +38,7 @@ module FoundationDB (
   , isRangeEmpty
   , Range (..)
   , rangeKeys
+  , keyRange
   , prefixRange
   , RangeResult (..)
   -- * Futures
@@ -98,30 +98,29 @@ initDB cluster = do
     fdbExcept $ FDB.futureGetDatabase futureDB
 
 withDatabase :: Maybe FilePath -> (Either Error FDB.Database -> IO a) -> IO a
-withDatabase fp f =
-  withCluster fp $ \case
+withDatabase clusterFile f =
+  withCluster clusterFile $ \case
     Left err -> f $ Left err
     Right cluster -> bracket (initDB cluster)
                              (either (const (return ())) FDB.databaseDestroy)
                              f
 
 -- | Handles correctly starting up the network connection to the DB.
--- Calls `fdb_select_api_version` with the latest API version,
--- runs `fdb_run_network` on a separate thread,
--- then runs the user-provided action. Finally, on shutdown, calls
--- `fdb_stop_network`, waits for `fdb_run_network` to return, then returns.
--- Once this action has finished, it is safe for the program to exit.
--- Can only be called once per program!
+-- Can only be called once per process!
 withFoundationDB :: Int
-                 -- ^ Desired API version.
+                 -- ^ Desired API version. See 'currentAPIVersion' for the
+                 -- latest version installed on your system.
+                 -> Maybe FilePath
+                 -- ^ Path to your @fdb.cluster@ file. If 'Nothing', uses
+                 -- default location.
+                 -> (Either Error FDB.Database -> IO a)
                  -> IO a
-                 -> IO a
-withFoundationDB version m = do
+withFoundationDB version clusterFile m = do
   done <- newEmptyMVar
   fdbThrowing $ FDB.selectAPIVersion version
   fdbThrowing FDB.setupNetwork
   start done
-  finally m (stop done)
+  finally (withDatabase clusterFile m) (stop done)
   where
     start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
     stop done = FDB.stopNetwork >> takeMVar done
@@ -133,6 +132,7 @@ startFoundationDBGlobalLock = unsafePerformIO $ newEmptyMVar
 -- | Starts up FoundationDB. You must call 'stopFoundationDB' before your
 -- program terminates. It's recommended that you use 'withFoundationDB' instead,
 -- since it handles cleanup. This function is only intended to be used in GHCi.
+-- Can only be called once per process!
 startFoundationDB :: Int
                   -- ^ Desired API version.
                   -> Maybe FilePath
