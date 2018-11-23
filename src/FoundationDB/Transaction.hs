@@ -529,15 +529,19 @@ getReadVersion = do
 -- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
 -- transaction. Most applications won't need this.
 getVersionstamp
-  :: Transaction (FutureIO (Either Error (Versionstamp 'Complete)))
+  :: Transaction (FutureIO (Either Error TransactionVersionstamp))
 getVersionstamp = do
   t <- asks cTransaction
   f <- liftIO $ FDB.transactionGetVersionstamp t
   liftIO $ allocFutureIO f $ FDB.futureGetKey f >>= \case
     Left  err -> return $ Left (CError $ fromJust $ toError err)
-    Right bs  -> case decodeVersionstamp bs of
+    Right bs  -> case decodeTransactionVersionstamp bs of
       Nothing ->
-        return $ Left $ Error $ ParseError "Failed to parse versionstamp"
+        return $
+        Left $
+        Error $
+        ParseError $ "Failed to parse versionstamp: "
+                     ++ (show $ BS.unpack bs)
       Just vs -> return $ Right vs
 
 -- | Set one of the transaction options from the underlying C API.

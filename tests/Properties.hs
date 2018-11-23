@@ -17,6 +17,7 @@ import Test.Hspec
 import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps)
 import Properties.FoundationDB.Layer.Directory (directorySpecs)
 import Properties.FoundationDB.Layer.Subspace (subspaceSpecs)
+import Properties.FoundationDB.Transaction
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
@@ -37,85 +38,9 @@ main = do
     Just _ -> withFoundationDB currentAPIVersion mdbPath $ \case
       Left e -> error $ "error starting DB: " ++ show e
       Right db -> do
+        let cleanupAfter tests = hspec $ after_ (cleanup db prefix) tests
         hspec encodeDecodeSpecs
         hspec encodeDecodeProps
         hspec subspaceSpecs
-        hspec $ after_ (cleanup db prefix) $ do
-          describe "set and get" $ do
-
-            it "should round trip" $ do
-              let k = prefix <> "foo"
-              runTransaction db $ set k "bar"
-              v <- runTransaction db $ do f <- get k
-                                          await f
-              v `shouldBe` Just "bar"
-
-            it "returns Nothing after clearing" $ do
-              let k = prefix <> "cleartest"
-              runTransaction db $ set k "test"
-              runTransaction db $ clear k
-              v <- runTransaction db $ get k >>= await
-              v `shouldBe` Nothing
-
-            it "round trips when both commands are in one transaction" $ do
-              let k = prefix <> "onetrans"
-              v <- runTransaction db $ do set k "x"
-                                          get k >>= await
-              putStrLn "finished transaction"
-              v `shouldBe` Just "x"
-
-          describe "transaction cancellation" $
-            it "should not commit cancelled transactions" $ do
-              let k = prefix <> "neverCommitted"
-              runTransaction db (set k "test" >> cancel)
-                `shouldThrow` (== CError TransactionCanceled)
-              v <- runTransaction db $ get k >>= await
-              v `shouldBe` Nothing
-
-          describe "versionstamped tuple key" $
-            it "can set and get keys containing version stamps" $ do
-              let k = encodeTupleElems
-                      [IntElem 2, IncompleteVSElem (IncompleteVersionstamp 2)]
-              let kLower = encodeTupleElems [IntElem 2]
-              runTransaction db (atomicOp SetVersionstampedKey k "hi")
-              (finalK, v, vsFuture) <- runTransaction db $ do
-                finalK <- getKey (FirstGreaterThan kLower) >>= await
-                v <- get finalK >>= await
-                vsFuture <- getVersionstamp
-                return (finalK, v, vsFuture)
-              let matches (Right [IntElem 2, CompleteVSElem _]) = True
-                  matches _ = False
-              vs <- awaitIO vsFuture
-              vs `shouldSatisfy` isRight
-              decodeTupleElems finalK `shouldSatisfy` matches
-              v `shouldBe` Just "hi"
-              runTransaction db (clear finalK)
-
-          describe "Read versions" $
-            it "trivial get followed by set gives error" $ do
-              res <- runTransaction' db $ do
-                       v <- getReadVersion >>= await
-                       setReadVersion v
-              res `shouldBe` Left (CError ReadVersionAlreadySet)
-
-          rangeSpec db
-
-        let dirSpecPrfx = "fdb-haskell-dir"
-        hspec $ after_ (cleanup db dirSpecPrfx) $ directorySpecs db dirSpecPrfx
-
-rangeSpec :: Database -> SpecWith ()
-rangeSpec db = do
-  let kvs = [(prefix <> BS.singleton k,"a") | k <- ['a'..'z']]
-  describe "unlimited range" $
-    it "Should return entire range" $ do
-      forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-      let unlim = Range (FirstGreaterOrEq (prefix <> "a"))
-                        (FirstGreaterOrEq (prefix <> "z\x00"))
-                        Nothing
-                        False
-      result <- runTransaction db $ getEntireRange unlim
-      result `shouldBe` kvs
-
-isRight :: Either a b -> Bool
-isRight (Left _) = False
-isRight _ = True
+        cleanupAfter $ transactionProps prefix db
+        cleanupAfter $ directorySpecs db "fdb-haskell-dir-prefix"

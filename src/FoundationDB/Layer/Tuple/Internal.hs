@@ -230,7 +230,8 @@ encodeElem _ (TupleElem xs) = do
   putWord8 nestedCode
   mapM_ (encodeElem True) xs
   putWord8 0x00
-encodeElem _ (CompleteVSElem (CompleteVersionstamp tv tb uv)) = do
+encodeElem _ (CompleteVSElem (CompleteVersionstamp tvs uv)) = do
+  let (TransactionVersionstamp tv tb) = tvs
   putWord8 versionstampCode
   putWord64be tv
   putWord16be tb
@@ -460,6 +461,7 @@ decodeVersionstamp = do
   tv <- getWord64be
   bo <- getWord16be
   uv <- getWord16be
+  let tvs = TransactionVersionstamp tv bo
   if tv == maxBound && bo == maxBound
     then return $ IncompleteVSElem $ IncompleteVersionstamp uv
-    else return $ CompleteVSElem $ CompleteVersionstamp tv bo uv
+    else return $ CompleteVSElem $ CompleteVersionstamp tvs uv

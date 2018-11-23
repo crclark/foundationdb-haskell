@@ -163,4 +163,5 @@ test-suite tests
   extra-libraries:     fdb_c
   other-modules:       Properties.FoundationDB.Layer.Tuple,
                        Properties.FoundationDB.Layer.Directory,
-                       Properties.FoundationDB.Layer.Subspace
+                       Properties.FoundationDB.Layer.Subspace,
+                       Properties.FoundationDB.Transaction

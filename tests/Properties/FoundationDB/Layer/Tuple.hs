@@ -19,8 +19,11 @@ import Test.QuickCheck (forAll)
 import Test.QuickCheck.Arbitrary (Arbitrary(..), genericShrink)
 import Test.QuickCheck.Gen (oneof)
 
+instance Arbitrary TransactionVersionstamp where
+  arbitrary = TransactionVersionstamp <$> arbitrary <*> arbitrary
+
 instance Arbitrary (Versionstamp 'Complete) where
-  arbitrary = CompleteVersionstamp <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = CompleteVersionstamp <$> arbitrary <*> arbitrary
 
 instance Arbitrary (Versionstamp 'Incomplete) where
   arbitrary = IncompleteVersionstamp <$> arbitrary
@@ -137,7 +140,8 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   let uuid = fromJust $ UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"
   let (w1,w2,w3,w4) = UUID.toWords uuid
   encodeDecode [UUIDElem (UUID w1 w2 w3 w4)] exampleUUID "UUID"
-  let vs = CompleteVersionstamp 0xdeadbeefdeadbeef 0xbeef 12
+  let tvs = TransactionVersionstamp 0xdeadbeefdeadbeef 0xbeef
+  let vs = CompleteVersionstamp tvs 12
   encodeDecode [CompleteVSElem vs]
                exampleCompleteVersionstamp
                "complete version stamp"

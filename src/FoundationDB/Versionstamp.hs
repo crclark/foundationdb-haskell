@@ -3,14 +3,14 @@
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module FoundationDB.Versionstamp (
   Versionstamp (..)
   , VersionstampCompleteness (..)
+  , TransactionVersionstamp (..)
   , encodeVersionstamp
   , decodeVersionstamp
+  , decodeTransactionVersionstamp
   , transactionVersion
   , transactionBatchOrder
   , userVersion
@@ -20,12 +20,12 @@ import Data.Word (Word16, Word64)
 
 import FoundationDB.Versionstamp.Internal
 
-transactionVersion :: Versionstamp 'Complete -> Word64
-transactionVersion (CompleteVersionstamp x _ _) = x
+transactionVersion :: TransactionVersionstamp -> Word64
+transactionVersion (TransactionVersionstamp x _) = x
 
-transactionBatchOrder :: Versionstamp 'Complete -> Word16
-transactionBatchOrder (CompleteVersionstamp _ x _) = x
+transactionBatchOrder :: TransactionVersionstamp -> Word16
+transactionBatchOrder (TransactionVersionstamp _ x) = x
 
 userVersion :: Versionstamp a -> Word16
-userVersion (CompleteVersionstamp _ _ x) = x
+userVersion (CompleteVersionstamp _ x) = x
 userVersion (IncompleteVersionstamp x) = x

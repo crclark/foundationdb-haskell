@@ -19,6 +19,7 @@ module FoundationDB (
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
+  , reset
   , withSnapshot
   , setOption
   , setReadVersion
@@ -126,7 +127,7 @@ withFoundationDB version clusterFile m = do
     stop done = FDB.stopNetwork >> takeMVar done
 
 startFoundationDBGlobalLock :: MVar ()
-startFoundationDBGlobalLock = unsafePerformIO $ newEmptyMVar
+startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 {-# NOINLINE startFoundationDBGlobalLock #-}
 
 -- | Starts up FoundationDB. You must call 'stopFoundationDB' before your
