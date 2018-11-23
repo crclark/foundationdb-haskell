@@ -55,11 +55,17 @@ data Error = CError CError | Error FDBHsError
 
 instance Exception Error
 
--- | Errors arising from the foundationdb-haskell library implementation. If you
--- get one of these errors, it's most likely a bug in foundationdb-haskell.
+-- | Errors arising from the foundationdb-haskell library implementation.
 data FDBHsError =
   DirectoryLayerError String
+  -- ^ Errors that can occur when doing directory layer operations. Some of
+  -- these can be indicative of bugs in foundationdb-haskell.
   | ParseError String
+  -- ^ Errors in parsing tuples.
+  | MaxRetriesExceeded Error
+  -- ^ Thrown by foundationdb-haskell's transaction retry logic. Contains the
+  -- underlying error from the C bindings that caused the transaction to be
+  -- retried.
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.

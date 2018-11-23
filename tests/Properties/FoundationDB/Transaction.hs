@@ -4,12 +4,17 @@
 module Properties.FoundationDB.Transaction where
 
 import FoundationDB
+import FoundationDB.Error
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Versionstamp
 
+import Control.Exception
 import Control.Monad
+import Control.Monad.Except ( throwError )
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Builder as BS
+import qualified Data.ByteString.Lazy as BSL
 import Data.ByteString.Char8 ( ByteString )
 import Data.Maybe ( fromJust )
 import Data.Monoid ((<>))
@@ -23,6 +28,7 @@ transactionProps testSS db = do
     versionstamps testSS db
     readVersions testSS db
     ranges testSS db
+    retries testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -107,3 +113,18 @@ ranges testSS db = describe "range ops" $ do
                         False
       result <- runTransaction db $ getEntireRange unlim
       result `shouldBe` kvs
+
+retries :: Subspace -> Database -> SpecWith ()
+retries testSS db = describe "retry logic" $ do
+  it "eventually bails out" $ do
+    res <- runTransaction' db $ do
+      throwError $ CError NotCommitted
+      set (SS.pack testSS [BytesElem "foo"]) "bar"
+    res `shouldBe` Left (Error (MaxRetriesExceeded (CError NotCommitted)))
+  it "doesn't retry unretryable errors" $ do
+    res <- runTransaction' db $ do
+      let bigk = BSL.toStrict $
+                 BS.toLazyByteString $
+                 foldMap BS.int8 $ replicate 10000000 1
+      set bigk "hi"
+    res `shouldBe` Left (CError KeyTooLarge)

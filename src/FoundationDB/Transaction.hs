@@ -431,7 +431,7 @@ runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
 defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False
+defaultConfig = TransactionConfig False False 5
 
 -- | Contains useful options that are not directly exposed by the C API (for
 --   options that are, see 'setOption').
@@ -446,6 +446,9 @@ data TransactionConfig = TransactionConfig {
   -- concurrent transactions, removing the default serializable isolation
   -- guarantee. To enable this feature selectively within a transaction,
   -- see 'withSnapshot'.
+  , maxRetries :: Int
+  -- ^ Max number of times to retry retryable errors. After this many retries,
+  -- 'MaxRetriesExceeded' will be thrown to the caller of 'runTransaction'.
   } deriving (Show, Read, Eq, Ord)
 
 -- | Attempt to commit a transaction against the given database. If an
@@ -464,18 +467,17 @@ runTransactionWithConfig conf db t = do
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
   idem <- asks (idempotent . envConf)
+  retriesRemaining <- asks (maxRetries . envConf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
-  if shouldRetry err
+  if shouldRetry err && retriesRemaining > 0
     then do
-      -- retryable and retryableNotCommitted can only return true for CErrors.
-      let (CError err') = err
-      trans <- asks cTransaction
-      f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
-                           (const $ return ())
-      await f
-      -- await throws any error on the future, so if we reach here, we can retry
-      withRetry t
-    else throwError err
+      onError err
+      -- onError re-throws unretryable errors, so if we reach here, we can retry
+      local (\e -> e {envConf = (envConf e) {maxRetries = retriesRemaining - 1} })
+            (withRetry t)
+    else if retriesRemaining == 0
+            then throwError $ Error $ MaxRetriesExceeded err
+            else throwError err
 
 -- Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
