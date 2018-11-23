@@ -4,13 +4,9 @@
 module Main where
 
 import FoundationDB
+import FoundationDB.Layer.Subspace
 import FoundationDB.Layer.Tuple
-import FoundationDB.Versionstamp
 
-import Control.Monad
-import qualified Data.ByteString.Char8 as BS
-import Data.ByteString.Char8 (ByteString)
-import Data.Monoid ((<>))
 import System.Environment (lookupEnv)
 import Test.Hspec
 
@@ -21,13 +17,13 @@ import Properties.FoundationDB.Transaction
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
-prefix :: ByteString
-prefix = "foundationdb-haskell-test-"
+testSS :: Subspace
+testSS = subspace [ BytesElem "foundationdb-haskell-test-"]
 
-cleanup :: Database -> ByteString -> IO ()
-cleanup db prfx = runTransaction db $ do
-  let begin = prfx
-  let end = prfx <> "\xff"
+cleanup :: Database -> Subspace -> IO ()
+cleanup db ss = runTransaction db $ do
+  let ssRange = subspaceRange ss
+  let (begin,end) = rangeKeys ssRange
   clearRange begin end
 
 main :: IO ()
@@ -38,9 +34,9 @@ main = do
     Just _ -> withFoundationDB currentAPIVersion mdbPath $ \case
       Left e -> error $ "error starting DB: " ++ show e
       Right db -> do
-        let cleanupAfter tests = hspec $ after_ (cleanup db prefix) tests
+        let cleanupAfter tests = hspec $ after_ (cleanup db testSS) tests
         hspec encodeDecodeSpecs
         hspec encodeDecodeProps
         hspec subspaceSpecs
-        cleanupAfter $ transactionProps prefix db
-        cleanupAfter $ directorySpecs db "fdb-haskell-dir-prefix"
+        cleanupAfter $ transactionProps testSS db
+        cleanupAfter $ directorySpecs db testSS

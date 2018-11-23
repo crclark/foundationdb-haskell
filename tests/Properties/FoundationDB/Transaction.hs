@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE GADTs #-}
 
 module Properties.FoundationDB.Transaction where
 
 import FoundationDB
+import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Versionstamp
 
@@ -16,48 +16,48 @@ import Data.Monoid ((<>))
 import Test.Hspec
 
 
-transactionProps :: ByteString -> Database -> SpecWith ()
-transactionProps prefix db = do
-    setting prefix db
-    cancellation prefix db
-    versionstamps prefix db
-    readVersions prefix db
-    ranges prefix db
+transactionProps :: Subspace -> Database -> SpecWith ()
+transactionProps testSS db = do
+    setting testSS db
+    cancellation testSS db
+    versionstamps testSS db
+    readVersions testSS db
+    ranges testSS db
 
-setting :: ByteString -> Database -> SpecWith ()
-setting prefix db = describe "set and get" $ do
+setting :: Subspace -> Database -> SpecWith ()
+setting testSS db = describe "set and get" $ do
 
   it "should round trip" $ do
-    let k = prefix <> "foo"
+    let k = SS.pack testSS [BytesElem "foo"]
     runTransaction db $ set k "bar"
     v <- runTransaction db $ get k >>= await
     v `shouldBe` Just "bar"
 
   it "returns Nothing after clearing" $ do
-    let k = prefix <> "cleartest"
+    let k = SS.pack testSS [BytesElem "cleartest"]
     runTransaction db $ set k "test"
     runTransaction db $ clear k
     v <- runTransaction db $ get k >>= await
     v `shouldBe` Nothing
 
   it "reads our writes by default" $ do
-    let k = prefix <> "onetrans"
+    let k = SS.pack testSS [BytesElem "onetrans"]
     v <- runTransaction db $ do set k "x"
                                 get k >>= await
     putStrLn "finished transaction"
     v `shouldBe` Just "x"
 
-cancellation :: ByteString -> Database -> SpecWith ()
-cancellation prefix db = describe "transaction cancellation" $ do
+cancellation :: Subspace -> Database -> SpecWith ()
+cancellation testSS db = describe "transaction cancellation" $ do
   it "should not commit cancelled transactions" $ do
-    let k = prefix <> "neverCommitted"
+    let k = SS.pack testSS [BytesElem "neverCommitted"]
     runTransaction db (set k "test" >> cancel)
       `shouldThrow` (== CError TransactionCanceled)
     v <- runTransaction db $ get k >>= await
     v `shouldBe` Nothing
   it "should not commit writes before a reset" $ do
-    let k = prefix <> "neverCommitted"
-    let k' = prefix <> "afterReset"
+    let k = SS.pack testSS [BytesElem "neverCommitted"]
+    let k' = SS.pack testSS [BytesElem "afterReset"]
     runTransaction db (set k "test" >> reset >> set k' "test2")
     (v,v') <- runTransaction db ((,) <$> (get k >>= await) <*> (get k' >>= await))
     v `shouldBe` Nothing
@@ -67,12 +67,12 @@ isRight :: Either a b -> Bool
 isRight (Left _) = False
 isRight (Right _) = True
 
-versionstamps :: ByteString -> Database -> SpecWith ()
-versionstamps prefix db = describe "versionstamped tuple key" $
+versionstamps :: Subspace -> Database -> SpecWith ()
+versionstamps testSS db = describe "versionstamped tuple key" $
   it "versionstamped tuple contains transaction's versionstamp" $ do
-    let k = encodeTupleElems
-            [BytesElem prefix, IncompleteVSElem (IncompleteVersionstamp 2)]
-    let kLower = encodeTupleElems [BytesElem prefix]
+    let k = SS.pack testSS
+            [BytesElem "vs", IncompleteVSElem (IncompleteVersionstamp 2)]
+    let kLower = SS.pack testSS [BytesElem "vs"]
     vsFuture <- runTransaction db $ do
       atomicOp SetVersionstampedKey k "hi"
       getVersionstamp
@@ -83,26 +83,26 @@ versionstamps prefix db = describe "versionstamped tuple key" $
       return (finalK, v)
     vs `shouldSatisfy` isRight
     let Right v = vs
-    let (Right [_, CompleteVSElem (CompleteVersionstamp v' _)]) = decodeTupleElems finalK
+    let (Right [_, CompleteVSElem (CompleteVersionstamp v' _)]) = SS.unpack testSS finalK
     v `shouldBe` v'
-    runTransaction db (clearRange kLower (kLower <> "\xff"))
 
-readVersions :: ByteString -> Database -> SpecWith ()
-readVersions prefix db = describe "Read versions" $
+readVersions :: Subspace -> Database -> SpecWith ()
+readVersions _testSS db = describe "Read versions" $
   it "trivial get followed by set gives error" $ do
     res <- runTransaction' db $ do
              v <- getReadVersion >>= await
              setReadVersion v
     res `shouldBe` Left (CError ReadVersionAlreadySet)
 
-ranges :: ByteString -> Database -> SpecWith ()
-ranges prefix db = describe "range ops" $ do
-  let kvs = [(prefix <> BS.singleton k,"a") | k <- ['a'..'z']]
+ranges :: Subspace -> Database -> SpecWith ()
+ranges testSS db = describe "range ops" $ do
+  let kvs = [ (SS.pack testSS [BytesElem $ BS.singleton k], "a")
+            | k <- ['a'..'z']]
   describe "unlimited range" $
     it "Should return entire range" $ do
       forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-      let unlim = Range (FirstGreaterOrEq (prefix <> "a"))
-                        (FirstGreaterOrEq (prefix <> "z\x00"))
+      let unlim = Range (FirstGreaterOrEq (SS.pack testSS [BytesElem "a"]))
+                        (FirstGreaterOrEq (SS.pack testSS [BytesElem "z\x00"]))
                         Nothing
                         False
       result <- runTransaction db $ getEntireRange unlim

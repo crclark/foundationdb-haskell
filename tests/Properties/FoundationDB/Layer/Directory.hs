@@ -4,12 +4,25 @@ module Properties.FoundationDB.Layer.Directory where
 
 import FoundationDB.Layer.Directory.Internal
 import FoundationDB
-import FoundationDB.Layer.Subspace
+import FoundationDB.Layer.Subspace as SS
+import FoundationDB.Layer.Tuple
 
 import Control.Monad (void)
 import Data.ByteString (ByteString)
+import Data.Monoid
 
 import Test.Hspec
+
+directorySpecs :: Database -> Subspace -> SpecWith ()
+directorySpecs db testSS = do
+  let dl = newDirectoryLayer (SS.extend testSS [IntElem 1])
+                             (SS.extend testSS [IntElem 2])
+                             False
+  describeCreateOrOpen db dl
+  describeRemoveFromParent db dl
+  describeMove db dl
+  describeRemove db dl
+  describeList db dl
 
 describeCreateOrOpen :: Database -> DirectoryLayer -> SpecWith ()
 describeCreateOrOpen db dl = describe "createOrOpen" $
@@ -76,13 +89,3 @@ describeList db dl = describe "list" $
       list dl ["abc"]
     res `shouldBe` ["def","foo"]
 
-directorySpecs :: Database -> ByteString -> SpecWith ()
-directorySpecs db prefix = do
-  let dl = newDirectoryLayer (Subspace prefix)
-                             (Subspace "")
-                             False
-  describeCreateOrOpen db dl
-  describeRemoveFromParent db dl
-  describeMove db dl
-  describeRemove db dl
-  describeList db dl

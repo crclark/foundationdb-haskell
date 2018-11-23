@@ -5,7 +5,6 @@
 
 module FoundationDB.Versionstamp.Internal where
 
-import Control.Monad (guard)
 import Data.ByteString (ByteString)
 import Data.Word (Word16, Word64)
 import Data.Serialize.Get
