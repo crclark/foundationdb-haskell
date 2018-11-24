@@ -240,9 +240,9 @@ addWriteConflictKey :: ByteString -> Transaction ()
 addWriteConflictKey k =
   addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
-offset :: FDB.KeySelector -> Int -> FDB.KeySelector
-offset (FDB.WithOffset n ks) m = FDB.WithOffset (n + m) ks
-offset ks                    n = FDB.WithOffset n ks
+offset :: Int -> FDB.KeySelector -> FDB.KeySelector
+offset m (FDB.WithOffset n ks) = FDB.WithOffset (n + m) ks
+offset n ks                    = FDB.WithOffset n ks
 
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do

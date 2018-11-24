@@ -147,6 +147,12 @@ ranges testSS db = describe "range ops" $ do
       let range' = range {rangeEnd = end}
       result <- runTransaction db $ getEntireRange range'
       result `shouldBe` kvs
+    it "returns offset range when using offset" $ do
+      putKeys
+      let begin = offset 2 $ rangeBegin range
+      let range' = range {rangeBegin = begin}
+      result <- runTransaction db $ getEntireRange range'
+      result `shouldBe` drop 2 kvs
   describe "isRangeEmpty" $
     it "isRangeEmpty returns expected results" $ do
       (rr, empty1) <- runTransaction db $ do
