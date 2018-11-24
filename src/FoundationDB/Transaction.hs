@@ -41,6 +41,7 @@ module FoundationDB.Transaction (
   , Range(..)
   , rangeKeys
   , keyRange
+  , keyRangeInclusive
   , prefixRange
   , RangeResult(..)
   -- * Futures
@@ -262,9 +263,11 @@ getKeyAddresses k = do
 -- | Specifies a range of keys to be iterated over by 'getRange'.
 data Range = Range {
   rangeBegin :: FDB.KeySelector
-  -- ^ The beginning of the range, including this key.
+  -- ^ The beginning of the range, including the key specified by this
+  -- 'KeySelector'.
   , rangeEnd :: FDB.KeySelector
-  -- ^ The end of the range, not including this key.
+  -- ^ The end of the range, not including the key specified by this
+  -- 'KeySelector'.
   , rangeLimit :: Maybe Int
   -- ^ If the range contains more than @n@ items, return only @Just n@.
   -- If @Nothing@ is provided, returns the entire range.
@@ -272,11 +275,15 @@ data Range = Range {
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
 
--- | @keyRange begin end@ is the range of all keys between @begin@ and @end@,
--- inclusive.
+-- | @keyRange begin end@ is the range of keys @[begin, end)@.
 keyRange :: ByteString -> ByteString -> Range
 keyRange begin end =
   Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterOrEq end) Nothing False
+
+-- | @keyRange begin end@ is the range of keys @[begin, end]@.
+keyRangeInclusive :: ByteString -> ByteString -> Range
+keyRangeInclusive begin end =
+  Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterThan end) Nothing False
 
 -- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
@@ -543,7 +550,7 @@ getVersionstamp = do
         Left $
         Error $
         ParseError $ "Failed to parse versionstamp: "
-                     ++ (show $ BS.unpack bs)
+                     ++ show (BS.unpack bs)
       Just vs -> return $ Right vs
 
 -- | Set one of the transaction options from the underlying C API.

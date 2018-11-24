@@ -40,6 +40,7 @@ module FoundationDB (
   , Range (..)
   , rangeKeys
   , keyRange
+  , keyRangeInclusive
   , prefixRange
   , RangeResult (..)
   -- * Futures

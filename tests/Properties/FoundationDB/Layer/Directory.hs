@@ -8,8 +8,6 @@ import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 
 import Control.Monad (void)
-import Data.ByteString (ByteString)
-import Data.Monoid
 
 import Test.Hspec
 

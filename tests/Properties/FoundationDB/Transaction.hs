@@ -9,15 +9,11 @@ import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Versionstamp
 
-import Control.Exception
 import Control.Monad
 import Control.Monad.Except ( throwError )
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Lazy as BSL
-import Data.ByteString.Char8 ( ByteString )
-import Data.Maybe ( fromJust )
-import Data.Monoid ((<>))
 import Test.Hspec
 
 
@@ -83,10 +79,8 @@ versionstamps testSS db = describe "versionstamped tuple key" $
       atomicOp SetVersionstampedKey k "hi"
       getVersionstamp
     vs <- join <$> awaitIO vsFuture
-    (finalK, v) <- runTransaction db $ do
-      finalK <- getKey (FirstGreaterThan kLower) >>= await
-      v <- get finalK >>= await
-      return (finalK, v)
+    finalK <- runTransaction db $
+      getKey (FirstGreaterThan kLower) >>= await
     vs `shouldSatisfy` isRight
     let Right v = vs
     let (Right [_, CompleteVSElem (CompleteVersionstamp v' _)]) = SS.unpack testSS finalK
@@ -102,29 +96,80 @@ readVersions _testSS db = describe "Read versions" $
 
 ranges :: Subspace -> Database -> SpecWith ()
 ranges testSS db = describe "range ops" $ do
-  let kvs = [ (SS.pack testSS [BytesElem $ BS.singleton k], "a")
+  let rangeSS = SS.extend testSS [BytesElem "rangetest"]
+  let kvs = [ (SS.pack rangeSS [BytesElem $ BS.singleton k], "a")
             | k <- ['a'..'z']]
-  describe "unlimited range" $
+  let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
+  let range = Range (FirstGreaterOrEq (SS.pack rangeSS [BytesElem "a"]))
+                    (FirstGreaterOrEq (SS.pack rangeSS [BytesElem "z\x00"]))
+                    Nothing
+                    False
+  describe "getEntireRange" $
     it "Should return entire range" $ do
-      forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-      let unlim = Range (FirstGreaterOrEq (SS.pack testSS [BytesElem "a"]))
-                        (FirstGreaterOrEq (SS.pack testSS [BytesElem "z\x00"]))
-                        Nothing
-                        False
-      result <- runTransaction db $ getEntireRange unlim
+      putKeys
+      result <- runTransaction db $ getEntireRange range
       result `shouldBe` kvs
+  describe "Range selector" $ do
+    it "returns reversed range when Reverse=True" $ do
+      putKeys
+      result <- runTransaction db $ getEntireRange $ range { rangeReverse = True }
+      result `shouldBe` reverse kvs
+    it "respects rangeLimit" $ do
+      putKeys
+      result <- runTransaction db $ getEntireRange range {rangeLimit = Just 5}
+      result `shouldBe` take 5 kvs
+    it "respects rangeLimit with reverse" $ do
+      putKeys
+      result <- runTransaction db $ getEntireRange range { rangeLimit = Just 5
+                                                         , rangeReverse = True}
+      result `shouldBe` take 5 (reverse kvs)
+    it "excludes last key when using keyRange" $ do
+      putKeys
+      let begin = SS.pack rangeSS [BytesElem "a"]
+      let end = SS.pack rangeSS [BytesElem "z"]
+      result <- runTransaction db $ getEntireRange (keyRange begin end)
+      result `shouldBe` init kvs
+    it "includes last key when using keyRangeInclusive" $ do
+      putKeys
+      let begin = SS.pack rangeSS [BytesElem "a"]
+      let end = SS.pack rangeSS [BytesElem "z"]
+      result <- runTransaction db $ getEntireRange (keyRangeInclusive begin end)
+      result `shouldBe` kvs
+    it "excludes first key when using FirstGreaterThan" $ do
+      putKeys
+      let begin = FirstGreaterThan $ SS.pack rangeSS [BytesElem "a"]
+      let range' = range {rangeBegin = begin}
+      result <- runTransaction db $ getEntireRange range'
+      result `shouldBe` tail kvs
+    it "can get inclusive end key by using FirstGreaterThan" $ do
+      putKeys
+      let end = FirstGreaterThan $ SS.pack rangeSS [BytesElem "z"]
+      let range' = range {rangeEnd = end}
+      result <- runTransaction db $ getEntireRange range'
+      result `shouldBe` kvs
+  describe "isRangeEmpty" $
+    it "isRangeEmpty returns expected results" $ do
+      (rr, empty1) <- runTransaction db $ do
+        empty1 <- isRangeEmpty range
+        rr <- getEntireRange range
+        return (rr, empty1)
+      rr `shouldBe` []
+      empty1 `shouldBe` True
+      putKeys
+      empty2 <- runTransaction db $ isRangeEmpty range
+      empty2 `shouldBe` False
 
 retries :: Subspace -> Database -> SpecWith ()
 retries testSS db = describe "retry logic" $ do
   it "eventually bails out" $ do
     res <- runTransaction' db $ do
-      throwError $ CError NotCommitted
+      void $ throwError $ CError NotCommitted
       set (SS.pack testSS [BytesElem "foo"]) "bar"
     res `shouldBe` Left (Error (MaxRetriesExceeded (CError NotCommitted)))
   it "doesn't retry unretryable errors" $ do
     res <- runTransaction' db $ do
       let bigk = BSL.toStrict $
                  BS.toLazyByteString $
-                 foldMap BS.int8 $ replicate 10000000 1
+                 foldMap BS.int8 $ replicate (10^6 :: Int) 1
       set bigk "hi"
     res `shouldBe` Left (CError KeyTooLarge)
