@@ -170,6 +170,7 @@ retries testSS db = describe "retry logic" $ do
     res <- runTransaction' db $ do
       let bigk = BSL.toStrict $
                  BS.toLazyByteString $
-                 foldMap BS.int8 $ replicate (10^6 :: Int) 1
+                 foldMap BS.int8 $
+                 replicate (10^(6 :: Int)) 1
       set bigk "hi"
     res `shouldBe` Left (CError KeyTooLarge)

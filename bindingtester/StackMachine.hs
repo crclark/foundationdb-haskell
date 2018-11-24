@@ -50,7 +50,7 @@ pythonShow = concatMap toStr . BS.unpack
 
 data StackItem =
   StackItem Elem Int
-  | StackVersionstampFuture (FutureIO (Either Error (Versionstamp 'Complete))) Int
+  | StackVersionstampFuture (FutureIO (Either Error TransactionVersionstamp)) Int
   deriving Show
 
 pattern StackBytes :: ByteString -> StackItem
@@ -153,7 +153,7 @@ withAnonTransaction i a = do
   st <- State.get
   anonE <- State.lift $
           runExceptT $
-          createTransactionEnv (db st) (TransactionConfig False False)
+          createTransactionEnv (db st) defaultConfig
   case anonE of
     Left err -> error (show err)
     Right anon -> do
@@ -370,7 +370,7 @@ step _ NewTransaction = do
   st <- State.get
   envE <- State.lift $
           runExceptT $
-          createTransactionEnv (db st) (TransactionConfig False False)
+          createTransactionEnv (db st) defaultConfig
   case envE of
     Left err -> error (show err)
     Right env -> do
@@ -386,7 +386,7 @@ step i UseTransaction = pop >>= \case
     st <- State.get
     envE <- State.lift $
             runExceptT $
-            createTransactionEnv (db st) (TransactionConfig False False)
+            createTransactionEnv (db st) defaultConfig
     case envE of
       Left err -> error (show err)
       Right env -> do
@@ -554,7 +554,7 @@ step i WaitFuture = do
       case res of
         Left err -> error $ show err
         Right (Left err) -> error $ show err
-        Right (Right vs) -> push $ StackItem (BytesElem (encodeVersionstamp vs)) i
+        Right (Right vs) -> push $ StackItem (BytesElem (encodeTransactionVersionstamp vs)) i
     Just y -> push y
 
 step i TuplePack = undefined i
@@ -585,10 +585,10 @@ step i (SnapshotOp op) = do
   -- as to whether separate threads will ever operate on the same
   -- transaction, so this might not be safe.
   st <- State.get
-  updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False True})
+  updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False True 5})
                                 (transactionName st)
   step i op
-  updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False False})
+  updateTransactions $ M.adjust (\env -> env {envConf = defaultConfig})
                                 (transactionName st)
 
 step i (DatabaseOp op) = withAnonTransaction i (step i op) >> finishDBOp i op

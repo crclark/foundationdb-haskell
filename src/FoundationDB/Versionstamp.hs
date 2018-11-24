@@ -9,6 +9,7 @@ module FoundationDB.Versionstamp (
   , VersionstampCompleteness (..)
   , TransactionVersionstamp (..)
   , encodeVersionstamp
+  , encodeTransactionVersionstamp
   , decodeVersionstamp
   , decodeTransactionVersionstamp
   , transactionVersion

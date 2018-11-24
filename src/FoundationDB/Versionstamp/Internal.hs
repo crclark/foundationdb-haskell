@@ -41,10 +41,17 @@ deriving instance Ord (Versionstamp a)
 data TransactionVersionstamp = TransactionVersionstamp Word64 Word16
   deriving (Show, Eq, Ord)
 
-putVersionstamp :: Putter (Versionstamp a)
-putVersionstamp (CompleteVersionstamp (TransactionVersionstamp tv tb) uv) = do
+putTransactionVersionstamp :: Putter TransactionVersionstamp
+putTransactionVersionstamp (TransactionVersionstamp tv tb) = do
   putWord64be tv
   putWord16be tb
+
+encodeTransactionVersionstamp :: TransactionVersionstamp -> ByteString
+encodeTransactionVersionstamp = runPut . putTransactionVersionstamp
+
+putVersionstamp :: Putter (Versionstamp a)
+putVersionstamp (CompleteVersionstamp tvs uv) = do
+  putTransactionVersionstamp tvs
   putWord16be uv
 putVersionstamp (IncompleteVersionstamp uv) = do
   putWord64be maxBound
