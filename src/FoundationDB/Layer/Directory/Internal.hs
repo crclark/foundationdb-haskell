@@ -53,7 +53,6 @@ type Path = [Text]
 -- | Represents a single directory.
 data Directory = Directory
   { directorySubspace :: Subspace
-  , directoryDL :: DirectoryLayer
   , directoryPath :: Path
   , directoryLayer :: ByteString
   } deriving (Show, Eq, Ord)
@@ -61,11 +60,6 @@ data Directory = Directory
 -- | Gets the subspace of a directory.
 dirSubspace :: Directory -> Subspace
 dirSubspace = directorySubspace
-
--- | Returns a 'DirectoryLayer' representing the directory hierarchy rooted
--- at the given directory.
-dirDirectoryLayer :: Directory -> DirectoryLayer
-dirDirectoryLayer = directoryDL
 
 -- | Gets the path of a directory.
 dirPath :: Directory -> Path
@@ -465,12 +459,12 @@ contentsOfNodeSubspace
   -> Path
   -> ByteString
   -> Transaction Directory
-contentsOfNodeSubspace dl@DirectoryLayer {..} node queryPath layer = do
+contentsOfNodeSubspace DirectoryLayer {..} node queryPath layer = do
   -- TODO: need a type class of things that can be converted to keys to avoid
   -- @pack node []@
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
     [Tuple.BytesElem prefixBytes] -> do
       let newPath = dlPath <> queryPath
-      return $ Directory (Subspace prefixBytes) dl newPath layer
+      return $ Directory (Subspace prefixBytes) newPath layer
     _ -> throwDirError "unexpected contents for node prefix value"

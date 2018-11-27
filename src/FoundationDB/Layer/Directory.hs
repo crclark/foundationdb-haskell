@@ -10,7 +10,6 @@ module FoundationDB.Layer.Directory (
   , Directory
   , Path
   , dirSubspace
-  , dirDirectoryLayer
   , dirPath
   , dirLayer
   , open
