@@ -321,20 +321,11 @@ subdirNameNodes
   -> Transaction [(Text, Subspace)]
 subdirNameNodes dl@DirectoryLayer {..} node = do
   let sd = extend node [Tuple.IntElem _SUBDIRS]
-  rr  <- getRange (subspaceRange sd) >>= await
-  kvs <- go rr
+  kvs <- getEntireRange (subspaceRange sd)
   let unpackKV (k, v) = case unpack sd k of
         Right [Tuple.TextElem t] -> return (t, nodeWithPrefix dl v)
         _ -> throwDirError "failed to unpack node name in subdirNameNodes"
   mapM unpackKV kvs
-
-  -- TODO: don't use list or mapM above
- where
-  go (RangeDone xs     ) = return xs
-  go (RangeMore xs more) = do
-    rr  <- await more
-    xs' <- go rr
-    return (xs ++ xs')
 
 subdirNames :: DirectoryLayer -> Subspace -> Transaction [Text]
 subdirNames dl node = fmap (map fst) (subdirNameNodes dl node)

@@ -7,7 +7,8 @@ import FoundationDB
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 
-import Control.Monad (void)
+import Control.Monad (forM_, void)
+import qualified Data.Text as T
 
 import Test.Hspec
 
@@ -79,11 +80,17 @@ describeRemove db dl = describe "remove" $
     stillExists `shouldBe` False
 
 describeList :: Database -> DirectoryLayer -> SpecWith ()
-describeList db dl = describe "list" $
+describeList db dl = describe "list" $ do
   it "lists only immediate nodes, not grandchildren" $ do
     res <- runTransaction db $ do
       void $ createOrOpen' dl ["abc", "def", "ghi"] "" Nothing
       void $ createOrOpen' dl ["abc", "foo", "bar"] "" Nothing
       list dl ["abc"]
     res `shouldBe` ["def","foo"]
+  it "can list a larger number of subdirectories" $ do
+    let subdirs = [T.pack [a] | a <- ['A'..'z']]
+    forM_ subdirs $ \subdir -> runTransaction db $
+      void $ createOrOpen' dl ["subdirs", subdir] "" Nothing
+    res <- runTransaction db $ list dl ["subdirs"]
+    res `shouldBe` subdirs
 

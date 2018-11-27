@@ -365,7 +365,9 @@ getRange' Range {..} mode = do
           Just n  -> take n kvs
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
 
-
+-- TODO: test this and document it further. It appears that this can stop
+-- prematurely. It may be the user's responsibility to call it again when using
+-- StreamingModeIterator. Should we default to a different streaming mode?
 getRange :: Range -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator
 
