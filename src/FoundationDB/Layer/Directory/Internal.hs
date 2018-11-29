@@ -9,13 +9,13 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (isJust)
 import Data.Monoid
-import Data.List (intercalate)
 import Data.Serialize.Get (runGet, getWord32le)
 import Data.Serialize.Put (runPut, putWord32le)
 import Data.Text (Text)
 import Data.Word (Word32)
 
 import FoundationDB
+import FoundationDB.Error
 import FoundationDB.Layer.Directory.Internal.Error
 import FoundationDB.Layer.Directory.Internal.HCA
 import FoundationDB.Layer.Directory.Internal.Node
@@ -31,7 +31,7 @@ minorVersion = 0
 microVersion = 0
 
 throwing :: String -> Either a b -> Transaction b
-throwing s = either (const $ throwDirError s) return
+throwing s = either (const $ throwDirInternalError s) return
 
 -- | Represents a directory tree. A value of this type must be supplied to all
 -- functions in this module.
@@ -128,7 +128,7 @@ open'
   -> Maybe ByteString
      -- ^ optional custom prefix
   -> Transaction (Maybe Directory)
-open' _  []   _     _       = throwDirError "Can't open root directory"
+open' _  []   _     _       = throwDirUserError CannotOpenRoot
 -- TODO: prefix won't be used until we add partition support
 open' dl path layer _prefix = do
   checkVersion dl
@@ -137,15 +137,13 @@ open' dl path layer _prefix = do
     Just node -> do
       existingLayer <- getFoundNodeLayer node
       when (layer /= existingLayer)
-           (throwDirError "directory created with incompatible layer")
+           (throwDirUserError $ LayerMismatch layer existingLayer)
       Just
         <$> contentsOfNodeSubspace dl
                                    (nodeNodeSS node)
                                    (nodePath node)
                                    existingLayer
 
--- TODO: this can fail in various ways. Some of the failure modes can be user
--- bugs -- might be better to return a sum type.
 -- | Opens a directory at the given path, with optional custom prefix and layer.
 createOrOpen'
   :: DirectoryLayer
@@ -155,7 +153,7 @@ createOrOpen'
   -> Maybe ByteString
           -- ^ optional custom prefix
   -> Transaction Directory
-createOrOpen' _ [] _ _ = throwDirError "Can't open root directory"
+createOrOpen' _ [] _ _ = throwDirUserError CannotOpenRoot
 createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
   tryOpen <- open' dl path layer prefix
   case tryOpen of
@@ -166,18 +164,16 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
           newDirPrefix  <- allocate allocator contentSS
           isPrefixEmpty <- isRangeEmpty (subspaceRange newDirPrefix)
           unless isPrefixEmpty
-               (throwDirError "Failed to alloc new dir: prefix not empty.")
+               (throwDirInternalError
+                 "Failed to alloc new dir: prefix not empty.")
           isFree <- isPrefixFree dl (pack newDirPrefix [])
           unless isFree
-            (throwDirError
-            $ "A manually allocated prefix conflicts with the one chosen by the allocator: "
-            ++ show newDirPrefix
-            )
+            (throwDirUserError (ManualPrefixConflict $ rawPrefix newDirPrefix))
           return (pack newDirPrefix [])
         Just prefixBytes -> do
           isFree <- isPrefixFree dl prefixBytes
           unless isFree
-               (throwDirError "The requested prefix is already in use.")
+               (throwDirUserError PrefixInUse)
           return prefixBytes
       parentNode <- if length path > 1
         then do
@@ -253,12 +249,12 @@ move dl oldPath newPath = do
           let ve =
                 unpack (nodeSS dl) (rawPrefix $ nodeNodeSS oldNode)
           case ve of
-            Left e -> throwDirError $ "move failure: " ++ e
+            Left e -> throwDirInternalError $ "move failure: " ++ e
             Right (Tuple.BytesElem v : _) -> do
               set              k  v
               removeFromParent dl oldPath
               return Nothing
-            _ -> throwDirError "move unpack failure"
+            x -> throwDirInternalError $ "move unpack failure: " ++ show x
 
 -- | Remove a directory path, its contents, and all subdirectories.
 -- Returns 'True' if removal succeeds. Fails for nonexistent paths and the root
@@ -289,14 +285,15 @@ removeRecursive dl@DirectoryLayer {..} node = do
   forM_ nodes (removeRecursive dl)
   let p = unpack nodeSS (pack node [])
   case p of
-    Left  e                        -> throwDirError $ "removeRecursive: " ++ e
+    Left  e                        -> throwDirInternalError
+                                        $ "removeRecursive: " ++ e
     Right (Tuple.BytesElem p' : _) -> case rangeKeys <$> prefixRange p' of
       Just (start, end) -> clearRange start end
       Nothing ->
-        throwDirError
+        throwDirInternalError
           $  "removeRecursive: couldn't make prefix range:"
           ++ show p'
-    Right _ -> throwDirError "node unpacked to non-bytes tuple element"
+    Right _ -> throwDirInternalError "node unpacked to non-bytes tuple element"
   uncurry clearRange (rangeKeys (subspaceRange node))
 
 -- | Internal helper function that removes a path from its parent. Does not
@@ -305,7 +302,7 @@ removeFromParent :: DirectoryLayer -> Path -> Transaction ()
 removeFromParent _  []   = return ()
 removeFromParent dl path =
   find dl (init path) >>= \case
-    Nothing -> throwDirError $ "parent not found for " ++ show path
+    Nothing -> throwDirInternalError $ "parent not found for " ++ show path
     Just (FoundNode sub _ _) ->
       clear (pack sub [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
 
@@ -319,7 +316,7 @@ subdirNameNodes dl@DirectoryLayer {..} node = do
   kvs <- getEntireRange (subspaceRange sd)
   let unpackKV (k, v) = case unpack sd k of
         Right [Tuple.TextElem t] -> return (t, nodeWithPrefix dl v)
-        _ -> throwDirError "failed to unpack node name in subdirNameNodes"
+        _ -> throwDirInternalError "failed to unpack node name in subdirNameNodes"
   mapM unpackKV kvs
 
 subdirNames :: DirectoryLayer -> Subspace -> Transaction [Text]
@@ -349,13 +346,13 @@ nodeContainingKey dl@DirectoryLayer {..} k
   processKV (k', _) = do
     let unpacked = unpack nodeSS k'
     case unpacked of
-      Left  _ -> throwDirError "Failed to unpack in nodeContainingKey"
+      Left  _ -> throwDirInternalError "Failed to unpack in nodeContainingKey"
       Right (Tuple.BytesElem prevPrefix : _) -> if BS.isPrefixOf prevPrefix k
         then return (Just $ nodeWithPrefix dl prevPrefix)
         else return Nothing
       --TODO: there are two cases where we fail this way. Is this correct?
       -- Is this case actually possible?
-      Right _ -> throwDirError "node unpacked to non-bytes element"
+      Right _ -> throwDirInternalError "node unpacked to non-bytes element"
 
 
 isPrefixFree :: DirectoryLayer -> ByteString -> Transaction Bool
@@ -384,19 +381,12 @@ checkVersion dl@DirectoryLayer {..} = do
         throwing "Couldn't parse directory version!" $ runGet
           ((,,) <$> getWord32le <*> getWord32le <*> getWord32le)
           verBytes
-      when (major > majorVersion) $ throwDirError $ dirVersionError major
-                                                                    minor
-                                                                    micro
+      when (major > majorVersion)
+        $ throwDirUserError
+        $ VersionError major minor micro
       when (minor > minorVersion)
-        $  throwDirError
-        $  dirVersionError major minor micro
-        ++ ". Read-only access not supported."
- where
-  dirVersionError major minor micro =
-    "Can't open directory of version "
-      ++ intercalate "." (map show [major, minor, micro])
-      ++ " using directory layer code version "
-      ++ intercalate "." (map show [majorVersion, minorVersion, microVersion])
+        $  throwDirUserError
+        $  VersionError major minor micro
 
 initializeDirectory :: DirectoryLayer -> Transaction ()
 initializeDirectory DirectoryLayer {..} = do
@@ -468,4 +458,4 @@ contentsOfNodeSubspace DirectoryLayer {..} node queryPath layer = do
     [Tuple.BytesElem prefixBytes] -> do
       let newPath = dlPath <> queryPath
       return $ Directory (Subspace prefixBytes) newPath layer
-    _ -> throwDirError "unexpected contents for node prefix value"
+    _ -> throwDirInternalError "unexpected contents for node prefix value"
