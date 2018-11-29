@@ -57,7 +57,8 @@ data Directory = Directory
   , directoryLayer :: ByteString
   } deriving (Show, Eq, Ord)
 
--- | Gets the subspace of a directory.
+-- | Gets the content subspace of a directory, which can be used to store
+-- tuple-based keys.
 dirSubspace :: Directory -> Subspace
 dirSubspace = directorySubspace
 

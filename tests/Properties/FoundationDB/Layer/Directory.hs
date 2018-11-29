@@ -70,7 +70,7 @@ describeMove db dl = describe "move" $ do
     res `shouldBe` Just DestinationAlreadyExists
 
 describeRemove :: Database -> DirectoryLayer -> SpecWith ()
-describeRemove db dl = describe "remove" $
+describeRemove db dl = describe "remove" $ do
   it "removes existing paths" $ do
     stillExists <- runTransaction db $ do
       let path = ["abc"]
@@ -78,6 +78,15 @@ describeRemove db dl = describe "remove" $
       void $ remove dl path
       exists dl path
     stillExists `shouldBe` False
+  it "also removes contents" $ do
+    let path = ["foo", "bar"]
+    dir <- runTransaction db $ createOrOpen' dl path "" Nothing
+    let k = SS.pack (dirSubspace dir) [IntElem 1]
+    runTransaction db $ set k "hi"
+    success <- runTransaction db $ remove dl path
+    success `shouldBe` True
+    res <- runTransaction db $ get k >>= await
+    res `shouldBe` Nothing
 
 describeList :: Database -> DirectoryLayer -> SpecWith ()
 describeList db dl = describe "list" $ do
