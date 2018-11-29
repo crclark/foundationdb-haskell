@@ -435,14 +435,15 @@ contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
   -- @pack node []@
   -- TODO: do combinators like throwing already exist in some lib?
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
-  --TODO: not total
-  let (Tuple.BytesElem prefix) = head p
-  let newPath                  = dlPath <> queryPath
-  let newDL = newDirectoryLayer
-        (subspace [Tuple.BytesElem (prefix <> "\xfe")])
-        contentSS
-        False
-  return (DirPartition newDL { dlPath = newPath } dl)
+  case p of
+    [Tuple.BytesElem prefix] -> do
+      let newPath                  = dlPath <> queryPath
+      let newDL = newDirectoryLayer
+            (subspace [Tuple.BytesElem (prefix <> "\xfe")])
+            contentSS
+            False
+      return (DirPartition newDL { dlPath = newPath } dl)
+    _ -> throwDirInternalError "unexpected parse in contentsOfNodePartition"
 
 contentsOfNodeSubspace
   :: DirectoryLayer
