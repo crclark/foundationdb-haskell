@@ -381,12 +381,24 @@ transactionGet t k isSnapshotRead = B.useAsCStringLen k $ \(kstr,klen) ->
   {`Transaction', id `Ptr CUChar', `Int', `Bool', `Int', `Bool'}
   -> `Future a' outFuture #}
 
+-- | Specifies a key in the database. See the official
+-- <https://apple.github.io/foundationdb/developer-guide.html#key-selectors docs>
+-- for more information. These can be supplied to 'getKey' or used to build a
+-- 'Range'.
 data KeySelector =
   LastLessThan B.ByteString
+  -- ^ Selects the lexicographically greatest key less than the specified key.
   | LastLessOrEq B.ByteString
+  -- ^ Selects the lexicographically greatest less than or equal to the
+  -- specified key.
   | FirstGreaterThan B.ByteString
+  -- ^ Selects the lexicographically least key greater than the specified key.
   | FirstGreaterOrEq B.ByteString
+  -- ^ Selects the lexicographically least key greater than or equal to the
+  -- specified key.
   | WithOffset Int KeySelector
+  -- ^ offsets a key selector. Using 'offset' is preferred, since it handles
+  -- normalization to prevent nested 'WithOffset's.
   deriving (Show, Eq, Ord)
 
 keySelectorBytes :: KeySelector -> B.ByteString

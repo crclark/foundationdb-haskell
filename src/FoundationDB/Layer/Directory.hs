@@ -6,11 +6,11 @@
 -- partitions. They will be added in the future.
 module FoundationDB.Layer.Directory (
   DirectoryLayer
+  , defaultDirLayer
   , newDirectoryLayer
   , Directory
   , Path
   , dirSubspace
-  , dirDirectoryLayer
   , dirPath
   , dirLayer
   , open

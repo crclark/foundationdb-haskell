@@ -5,7 +5,9 @@ module FoundationDB.Error where
 import Control.Exception
 import Control.Monad.Error.Class (MonadError(..), liftEither)
 import Control.Monad.IO.Class (MonadIO(..))
+import Data.ByteString (ByteString)
 import Data.Maybe (fromJust)
+import Data.Word (Word32)
 
 import qualified FoundationDB.Internal.Bindings as FDB
 
@@ -55,11 +57,40 @@ data Error = CError CError | Error FDBHsError
 
 instance Exception Error
 
--- | Errors arising from the foundationdb-haskell library implementation. If you
--- get one of these errors, it's most likely a bug in foundationdb-haskell.
+data DirLayerUserError =
+  CannotOpenRoot
+  -- ^ Thrown if the user attempts to open the root directory.
+  | PrefixInUse
+  -- ^ Thrown if the user specifies a manual prefix that is already in use.
+  | ManualPrefixConflict ByteString
+  -- ^ Thrown if a prefix manually specified by the user previously conflicts
+  --   with a prefix chosen by the automatic allocator. Includes the conflicting
+  --   prefix.
+  | LayerMismatch ByteString ByteString
+  -- ^ The @layer@ bytestring provided to @open'@ does not match the layer
+  --   already present. The mismatched layers are included in this constructor.
+  | VersionError Word32 Word32 Word32
+  -- ^ Thrown if the directory layer structure already in FoundationDB is a
+  --   newer major version than that provided by this library. This would mean
+  --   that the directory layer was originally created by a newer version of one
+  --   of the FoundationDB client libraries. The major, minor, micro version
+  --   of the directory layer are provided to this constructor.
+
+  deriving (Show, Eq, Ord)
+
+-- | Errors arising from the foundationdb-haskell library implementation.
 data FDBHsError =
-  DirectoryLayerError String
+  DirLayerUserError DirLayerUserError
+  -- ^ Errors that can occur from user error when using the directory layer.
+  | DirectoryLayerInternalError String
+  -- ^ Errors that can occur when doing directory layer operations.
+  -- These can be indicative of bugs in foundationdb-haskell.
   | ParseError String
+  -- ^ Errors in parsing tuples.
+  | MaxRetriesExceeded Error
+  -- ^ Thrown by foundationdb-haskell's transaction retry logic. Contains the
+  -- underlying error from the C bindings that caused the transaction to be
+  -- retried.
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.

@@ -7,8 +7,8 @@ import Data.Monoid
 import FoundationDB
 import FoundationDB.Layer.Tuple
 
--- | Represents a subspace of keys. sub-subspaces can be created with the Monoid
--- instance: @mySubsubpace = mySubspace <> subspace someTuple@.
+-- | Represents a subspace of 'Tuple' keys. A subspace is just a common prefix
+-- for a set of tuples.
 newtype Subspace = Subspace {rawPrefix :: ByteString}
   deriving (Show, Eq, Ord)
 

@@ -19,6 +19,7 @@ module FoundationDB (
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
+  , reset
   , withSnapshot
   , setOption
   , setReadVersion
@@ -39,6 +40,7 @@ module FoundationDB (
   , Range (..)
   , rangeKeys
   , keyRange
+  , keyRangeInclusive
   , prefixRange
   , RangeResult (..)
   -- * Futures
@@ -75,9 +77,6 @@ import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 
 
-
--- TODO: withFoundationDB $ withDatabase is ugly.
-
 initCluster :: FilePath -> IO (Either Error FDB.Cluster)
 initCluster fp = do
   futureCluster <- FDB.createCluster fp
@@ -105,6 +104,8 @@ withDatabase clusterFile f =
                              (either (const (return ())) FDB.databaseDestroy)
                              f
 
+-- TODO: check that we support the desired API version and bail out otherwise.
+
 -- | Handles correctly starting up the network connection to the DB.
 -- Can only be called once per process!
 withFoundationDB :: Int
@@ -126,7 +127,7 @@ withFoundationDB version clusterFile m = do
     stop done = FDB.stopNetwork >> takeMVar done
 
 startFoundationDBGlobalLock :: MVar ()
-startFoundationDBGlobalLock = unsafePerformIO $ newEmptyMVar
+startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 {-# NOINLINE startFoundationDBGlobalLock #-}
 
 -- | Starts up FoundationDB. You must call 'stopFoundationDB' before your

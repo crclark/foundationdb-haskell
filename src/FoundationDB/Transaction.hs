@@ -41,6 +41,7 @@ module FoundationDB.Transaction (
   , Range(..)
   , rangeKeys
   , keyRange
+  , keyRangeInclusive
   , prefixRange
   , RangeResult(..)
   -- * Futures
@@ -239,9 +240,9 @@ addWriteConflictKey :: ByteString -> Transaction ()
 addWriteConflictKey k =
   addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
-offset :: FDB.KeySelector -> Int -> FDB.KeySelector
-offset (FDB.WithOffset n ks) m = FDB.WithOffset (n + m) ks
-offset ks                    n = FDB.WithOffset n ks
+offset :: Int -> FDB.KeySelector -> FDB.KeySelector
+offset m (FDB.WithOffset n ks) = FDB.WithOffset (n + m) ks
+offset n ks                    = FDB.WithOffset n ks
 
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
@@ -262,9 +263,11 @@ getKeyAddresses k = do
 -- | Specifies a range of keys to be iterated over by 'getRange'.
 data Range = Range {
   rangeBegin :: FDB.KeySelector
-  -- ^ The beginning of the range, including this key.
+  -- ^ The beginning of the range, including the key specified by this
+  -- 'KeySelector'.
   , rangeEnd :: FDB.KeySelector
-  -- ^ The end of the range, not including this key.
+  -- ^ The end of the range, not including the key specified by this
+  -- 'KeySelector'.
   , rangeLimit :: Maybe Int
   -- ^ If the range contains more than @n@ items, return only @Just n@.
   -- If @Nothing@ is provided, returns the entire range.
@@ -272,11 +275,15 @@ data Range = Range {
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
 
--- | @keyRange begin end@ is the range of all keys between @begin@ and @end@,
--- inclusive.
+-- | @keyRange begin end@ is the range of keys @[begin, end)@.
 keyRange :: ByteString -> ByteString -> Range
 keyRange begin end =
   Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterOrEq end) Nothing False
+
+-- | @keyRange begin end@ is the range of keys @[begin, end]@.
+keyRangeInclusive :: ByteString -> ByteString -> Range
+keyRangeInclusive begin end =
+  Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterThan end) Nothing False
 
 -- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
@@ -358,7 +365,9 @@ getRange' Range {..} mode = do
           Just n  -> take n kvs
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
 
-
+-- TODO: test this and document it further. It appears that this can stop
+-- prematurely. It may be the user's responsibility to call it again when using
+-- StreamingModeIterator. Should we default to a different streaming mode?
 getRange :: Range -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator
 
@@ -431,7 +440,7 @@ runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
 defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False
+defaultConfig = TransactionConfig False False 5
 
 -- | Contains useful options that are not directly exposed by the C API (for
 --   options that are, see 'setOption').
@@ -446,6 +455,9 @@ data TransactionConfig = TransactionConfig {
   -- concurrent transactions, removing the default serializable isolation
   -- guarantee. To enable this feature selectively within a transaction,
   -- see 'withSnapshot'.
+  , maxRetries :: Int
+  -- ^ Max number of times to retry retryable errors. After this many retries,
+  -- 'MaxRetriesExceeded' will be thrown to the caller of 'runTransaction'.
   } deriving (Show, Read, Eq, Ord)
 
 -- | Attempt to commit a transaction against the given database. If an
@@ -464,18 +476,17 @@ runTransactionWithConfig conf db t = do
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
   idem <- asks (idempotent . envConf)
+  retriesRemaining <- asks (maxRetries . envConf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
-  if shouldRetry err
+  if shouldRetry err && retriesRemaining > 0
     then do
-      -- retryable and retryableNotCommitted can only return true for CErrors.
-      let (CError err') = err
-      trans <- asks cTransaction
-      f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err'))
-                           (const $ return ())
-      await f
-      -- await throws any error on the future, so if we reach here, we can retry
-      withRetry t
-    else throwError err
+      onError err
+      -- onError re-throws unretryable errors, so if we reach here, we can retry
+      local (\e -> e {envConf = (envConf e) {maxRetries = retriesRemaining - 1} })
+            (withRetry t)
+    else if retriesRemaining == 0
+            then throwError $ Error $ MaxRetriesExceeded err
+            else throwError err
 
 -- Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
@@ -529,15 +540,19 @@ getReadVersion = do
 -- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
 -- transaction. Most applications won't need this.
 getVersionstamp
-  :: Transaction (FutureIO (Either Error (Versionstamp 'Complete)))
+  :: Transaction (FutureIO (Either Error TransactionVersionstamp))
 getVersionstamp = do
   t <- asks cTransaction
   f <- liftIO $ FDB.transactionGetVersionstamp t
   liftIO $ allocFutureIO f $ FDB.futureGetKey f >>= \case
     Left  err -> return $ Left (CError $ fromJust $ toError err)
-    Right bs  -> case decodeVersionstamp bs of
+    Right bs  -> case decodeTransactionVersionstamp bs of
       Nothing ->
-        return $ Left $ Error $ ParseError "Failed to parse versionstamp"
+        return $
+        Left $
+        Error $
+        ParseError $ "Failed to parse versionstamp: "
+                     ++ show (BS.unpack bs)
       Just vs -> return $ Right vs
 
 -- | Set one of the transaction options from the underlying C API.

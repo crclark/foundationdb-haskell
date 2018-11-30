@@ -73,7 +73,7 @@ findStartAndWindow hca@HCA{..} windowAdvanced start = do
         parseCount Nothing = return 0
         parseCount (Just bs) =
           case runGet getWord64le bs of
-            Left _ -> throwDirError "failed to parse count"
+            Left _ -> throwDirInternalError $ "failed to parse count: " ++ show bs
             Right n -> return $ fromIntegral n
 
 findSubspaceLoop :: HCA
@@ -93,8 +93,8 @@ findSubspaceLoop hca@HCA{..} s start window = do
   currentStart <- case latestCounter of
                     Just (k,_) -> case unpack counters k of
                                     Right (IntElem x:_) -> return x
-                                    _ -> throwDirError "bad counter format"
-                    _ -> throwDirError "failed to find latestCounter"
+                                    _ -> throwDirInternalError $ "bad counter format: " ++ show k
+                    _ -> throwDirInternalError "failed to find latestCounter"
   if currentStart > start
     then return Nothing
     else await candidateValueF >>= \case
