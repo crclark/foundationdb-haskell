@@ -22,7 +22,7 @@ import FoundationDB.Layer.Directory.Internal.Node
 import FoundationDB.Layer.Subspace
 import qualified FoundationDB.Layer.Tuple as Tuple
 
-_SUBDIRS :: Int
+_SUBDIRS :: Integer
 _SUBDIRS = 0
 
 majorVersion, minorVersion, microVersion :: Word32

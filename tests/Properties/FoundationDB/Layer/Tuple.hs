@@ -8,6 +8,7 @@ module Properties.FoundationDB.Layer.Tuple where
 import FoundationDB.Layer.Tuple.Internal
 import FoundationDB.Versionstamp
 
+import Control.Monad (forM_)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromJust)
@@ -90,7 +91,7 @@ exampleZero :: ByteString
 exampleZero = BS.pack [20]
 
 exampleLargeInt :: ByteString
-exampleLargeInt = BS.pack [24, 7, 91, 205, 21]
+exampleLargeInt = "\x1c\x7f\xff\xff\xff\xff\xff\xff\xff"
 
 exampleFloat :: ByteString
 exampleFloat = " \xbf\xc0\x00\x00"
@@ -123,6 +124,48 @@ encodeDecode elems encoded desc = do
   it ("decodes " ++ desc) $
     decodeTupleElems encoded `shouldBe` Right elems
 
+describeIntegerTypeCodes :: SpecWith ()
+describeIntegerTypeCodes = do
+  let codes = [0x0c..0x1c]
+  let byteLengths = [-8..8]
+  forM_ (zip codes byteLengths) go
+
+  where
+    go (code, 0) = do
+      let encoded = encodeTupleElems [IntElem 0]
+      describe "Encoding 0" $
+        it ("Uses expected code " ++ show code)
+           (BS.unpack encoded `shouldBe` [code])
+
+    go (code, byteLength) = do
+      let sign = fromIntegral $ signum byteLength
+      let numBits = 8 * abs byteLength - 1
+      let num = sign * 2^numBits - 1 :: Integer
+      let encoded = encodeTupleElems [IntElem num]
+      describe ("Encoding "
+                ++ (if sign > 0 then "positive " else "negative ")
+                ++ show (abs byteLength)
+                ++ "-byte int: "
+                ++ show sign
+                ++ " * 2^"
+                ++ show numBits
+                ++ " - 1"
+                ++ " = "
+                ++ show num) $ do
+        it ("Uses expected code " ++ show code)
+           (BS.head encoded `shouldBe` code)
+        it "Uses correct number of bytes" $
+          BS.length encoded `shouldBe` abs byteLength + 1
+
+issue12 :: SpecWith ()
+issue12 = describe "Max 8-byte encoded ints" $ do
+  it "encodes 2^64 - 1 correctly" $
+    encodeTupleElems [IntElem $ 2^64 - 1]
+      `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
+  it "encodes - 2^64 - 1 correctly" $
+    encodeTupleElems [IntElem $ negate $ 2^64 - 1]
+      `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
+
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
@@ -132,7 +175,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [IntElem 1] examplePosInt "postive int"
   encodeDecode [IntElem (-5)] exampleNegInt "negative int"
   encodeDecode [IntElem 0] exampleZero "zero"
-  encodeDecode [IntElem 123456789] exampleLargeInt "large int"
+  encodeDecode [IntElem (2 ^ (63 :: Int) - 1)] exampleLargeInt "large int"
   encodeDecode [FloatElem 1.5] exampleFloat "float"
   encodeDecode [DoubleElem 1.5] exampleDouble "double"
   encodeDecode [BoolElem True] exampleTrue "True"
@@ -153,6 +196,8 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   -- no encodeDecode for incomplete version stamps because the encoding adds
   -- two bytes at the end that the C FFI bindings remove. The Python code
   -- doesn't roundtrip either.
+  describeIntegerTypeCodes
+  issue12
 
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $

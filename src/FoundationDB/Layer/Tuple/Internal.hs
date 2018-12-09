@@ -56,10 +56,16 @@ data UUID = UUID Word32 Word32 Word32 Word32
 -- enforces this restriction.
 data Elem =
   NoneElem
+  -- ^ Corresponds to null or nil types in other language bindings.
+  | TupleElem [Elem]
+  -- ^ Nested tuples.
   | BytesElem ByteString
   | TextElem T.Text
-  | TupleElem [Elem]
-  | IntElem Int
+  | IntElem Integer
+  -- ^ Variable-length integer encodings. For values that fit within a 64-bit
+  -- signed integer, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#integer standard integer>
+  -- encoding is used. For larger values, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#positive-arbitrary-precision-integer provisional spec>
+  -- for Java and Python values is used.
   | FloatElem Float
   | DoubleElem Double
   | BoolElem Bool
@@ -72,12 +78,14 @@ deriving instance Ord Elem
 deriving instance Eq Elem
 deriving instance Generic Elem
 
-sizeLimits :: Array Int Int
-sizeLimits = A.listArray (0,7) [shiftL 1 (i*8) - 1 | i <- [0..7]]
+sizeLimits :: Array Int Integer
+sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
 
+-- TODO: dep on search algo lib is overkill for searching 9-elem array.
 -- | Returns smallest size limit greater than input.
-bisectSize :: Int -> Int
-bisectSize n = fromMaybe 8 $ searchFromTo (\x -> (sizeLimits A.! x) > n) 0 7
+bisectSize :: Integer -> Int
+bisectSize n =
+  fromMaybe 8 $ searchFromTo (\x -> (sizeLimits A.! x) > fromIntegral n) 0 8
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integral a => a -> Int
@@ -161,12 +169,12 @@ encodeBytes bs = mapM_ f (BS.unpack bs) >> putWord8 0x00
         f x = putWord8 x
 
 -- @truncatedInt n v@ returns the last n bytes of v, encoded big endian.
-truncatedInt :: Int -> Int -> ByteString
+truncatedInt :: Int -> Integer -> ByteString
 truncatedInt n v = BS.drop (8-n) (Put.runPut (Put.putWord64be $ fromIntegral v))
 
-encodePosInt :: Int -> PutTuple ()
+encodePosInt :: Integer -> PutTuple ()
 encodePosInt v =
-  if v >= sizeLimits A.! 7
+  if fromIntegral v > sizeLimits A.! snd (A.bounds sizeLimits)
     then do let l = fromIntegral (bitLen v + 7 `div` 8)
             putWord8 posEndCode
             putWord8 l
@@ -176,9 +184,9 @@ encodePosInt v =
             putWord8 (zeroCode + fromIntegral n)
             putByteString $ truncatedInt n v
 
-encodeNegInt :: Int -> PutTuple ()
+encodeNegInt :: Integer -> PutTuple ()
 encodeNegInt v =
-  if negate v >= sizeLimits A.! 7
+  if fromIntegral (negate v) > sizeLimits A.! snd (A.bounds sizeLimits)
     then do let l = fromIntegral (bitLen v + 7 `div` 8)
             let v' = fromIntegral $ v + (1 `shiftL` fromIntegral (8*l)) - 1
             putWord8 negStartCode
@@ -379,9 +387,9 @@ decodeLargeNegInt = do
   (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
   go 0 n 0
 
-  where go i n x | i == n = return $ IntElem x
-                 | otherwise = do d <- fromIntegral <$> getWord8
-                                  go (i+1) n (d + (x `shiftL` 8))
+  where go !i !n !x | i == n = return $ IntElem x
+                    | otherwise = do d <- fromIntegral <$> getWord8
+                                     go (i+1) n (d + (x `shiftL` 8))
 
 decodeLargePosInt :: Get Elem
 decodeLargePosInt = do
@@ -389,9 +397,9 @@ decodeLargePosInt = do
   (n :: Int) <- fromIntegral <$> getWord8
   go 0 n 0
 
-  where go i n x | i == n = return $ IntElem x
-                 | otherwise = do d <- fromIntegral <$> getWord8
-                                  go (i+1) n (d + (x `shiftL` 8))
+  where go !i !n !x | i == n = return $ IntElem x
+                    | otherwise = do d <- fromIntegral <$> getWord8
+                                     go (i+1) n (d + (x `shiftL` 8))
 
 decodeIntElem :: Get Elem
 decodeIntElem =
