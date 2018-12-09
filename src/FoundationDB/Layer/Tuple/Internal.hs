@@ -85,7 +85,7 @@ sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
 -- | Returns smallest size limit greater than input.
 bisectSize :: Integer -> Int
 bisectSize n =
-  fromMaybe 9 $ searchFromTo (\x -> (sizeLimits A.! x) > fromIntegral n) 0 8
+  fromMaybe 8 $ searchFromTo (\x -> (sizeLimits A.! x) > fromIntegral n) 0 8
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integral a => a -> Int
@@ -174,7 +174,7 @@ truncatedInt n v = BS.drop (8-n) (Put.runPut (Put.putWord64be $ fromIntegral v))
 
 encodePosInt :: Integer -> PutTuple ()
 encodePosInt v =
-  if fromIntegral v >= sizeLimits A.! snd (A.bounds sizeLimits)
+  if fromIntegral v > sizeLimits A.! snd (A.bounds sizeLimits)
     then do let l = fromIntegral (bitLen v + 7 `div` 8)
             putWord8 posEndCode
             putWord8 l
@@ -186,7 +186,7 @@ encodePosInt v =
 
 encodeNegInt :: Integer -> PutTuple ()
 encodeNegInt v =
-  if fromIntegral (negate v) >= sizeLimits A.! snd (A.bounds sizeLimits)
+  if fromIntegral (negate v) > sizeLimits A.! snd (A.bounds sizeLimits)
     then do let l = fromIntegral (bitLen v + 7 `div` 8)
             let v' = fromIntegral $ v + (1 `shiftL` fromIntegral (8*l)) - 1
             putWord8 negStartCode

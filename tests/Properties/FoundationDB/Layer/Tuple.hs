@@ -157,6 +157,15 @@ describeIntegerTypeCodes = do
         it "Uses correct number of bytes" $
           BS.length encoded `shouldBe` abs byteLength + 1
 
+issue12 :: SpecWith ()
+issue12 = describe "Max 8-byte encoded ints" $ do
+  it "encodes 2^64 - 1 correctly" $
+    encodeTupleElems [IntElem $ 2^64 - 1]
+      `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
+  it "encodes - 2^64 - 1 correctly" $
+    encodeTupleElems [IntElem $ negate $ 2^64 - 1]
+      `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
+
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
@@ -188,6 +197,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   -- two bytes at the end that the C FFI bindings remove. The Python code
   -- doesn't roundtrip either.
   describeIntegerTypeCodes
+  issue12
 
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $
