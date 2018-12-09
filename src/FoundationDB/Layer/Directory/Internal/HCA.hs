@@ -63,12 +63,13 @@ findStartAndWindow hca@HCA{..} windowAdvanced start = do
     else findStartAndWindow hca True (start + window)
 
   where getCount = do
+          let start' = fromIntegral start
           when windowAdvanced $ do
-            clearRange (pack counters []) (pack counters [IntElem start])
+            clearRange (pack counters []) (pack counters [IntElem start'])
             setOption nextWriteNoWriteConflictRange
-            clearRange (pack recent []) (pack recent [IntElem start])
-          atomicOp Add (pack counters [IntElem start]) oneBytes
-          withSnapshot $ get (pack counters [IntElem start])
+            clearRange (pack recent []) (pack recent [IntElem start'])
+          atomicOp Add (pack counters [IntElem start']) oneBytes
+          withSnapshot $ get (pack counters [IntElem start'])
 
         parseCount Nothing = return 0
         parseCount (Just bs) =
@@ -83,7 +84,7 @@ findSubspaceLoop :: HCA
                  -> Transaction (Maybe Subspace)
 findSubspaceLoop hca@HCA{..} s start window = do
   candidate <- liftIO $ getStdRandom (randomR (start, start + window))
-  let key = pack recent [IntElem candidate]
+  let key = pack recent [IntElem $ fromIntegral candidate]
   (latestCounter, candidateValueF) <- withAllocLock $ do
     latestCounter <- withSnapshot $ getLast counters
     candidateValueF <- get key
@@ -95,20 +96,20 @@ findSubspaceLoop hca@HCA{..} s start window = do
                                     Right (IntElem x:_) -> return x
                                     _ -> throwDirInternalError $ "bad counter format: " ++ show k
                     _ -> throwDirInternalError "failed to find latestCounter"
-  if currentStart > start
+  if currentStart > fromIntegral start
     then return Nothing
     else await candidateValueF >>= \case
       Just _ -> findSubspaceLoop hca s start window
       Nothing -> do
         addConflictRange key (key <> "0x00") ConflictRangeTypeWrite
-        return $ Just $ extend s [IntElem candidate]
+        return $ Just $ extend s [IntElem $ fromIntegral candidate]
 
 initStart :: HCA -> Transaction Int
 initStart HCA{..} = do
   mkv <- withSnapshot $ getLast counters
   case mkv of
     Just (k,_) -> case unpack counters k of
-      Right (IntElem start: _) -> return start
+      Right (IntElem start: _) -> return $ fromIntegral start
       _                        -> return 0
     Nothing -> return 0
 
