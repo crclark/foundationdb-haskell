@@ -3,6 +3,7 @@ module FoundationDB.Layer.Subspace where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Monoid
+import Data.Sequence(Seq(Empty,(:<|)))
 
 import FoundationDB
 import FoundationDB.Layer.Tuple
@@ -67,7 +68,7 @@ getLast sub = do
                                      }
   kvs <- await rr
   case kvs of
-    RangeDone [] -> return Nothing
-    RangeDone (kv:_) -> return (Just kv)
-    RangeMore (kv:_) _ -> return (Just kv)
-    RangeMore [] _ -> return Nothing --TODO: impossible
+    RangeDone Empty      -> return Nothing
+    RangeDone (kv:<|_)   -> return (Just kv)
+    RangeMore (kv:<|_) _ -> return (Just kv)
+    RangeMore Empty _    -> return Nothing --TODO: impossible

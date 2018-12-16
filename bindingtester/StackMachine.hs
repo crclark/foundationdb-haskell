@@ -18,13 +18,15 @@ import Control.Monad.Trans.Resource
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import Data.List (intercalate)
 import Data.Monoid ((<>))
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Sequence(Seq(Empty,(:<|)))
+import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
+import GHC.Exts(IsList(..))
 import Text.Printf (printf)
 
 import FoundationDB
@@ -41,6 +43,12 @@ import FoundationDB.Versionstamp
 strinc :: ByteString -> ByteString
 strinc = prefixRangeEnd
 
+flatten :: Seq (a,a) -> Seq a
+flatten Empty = Empty
+flatten ((k,v):<|kvs) = k :<| v :<| flatten kvs
+
+type InstructionNum = Integer
+
 -- | attempts to mimic the behavior of Python's print function on byte strings.
 pythonShow :: ByteString -> String
 pythonShow = concatMap toStr . BS.unpack
@@ -49,14 +57,15 @@ pythonShow = concatMap toStr . BS.unpack
                 | otherwise = '\\' : tail (printf "%#0.2x" c)
 
 data StackItem =
-  StackItem Elem Int
-  | StackVersionstampFuture (FutureIO (Either Error TransactionVersionstamp)) Int
+  StackItem Elem InstructionNum
+  | StackVersionstampFuture (FutureIO (Either Error TransactionVersionstamp))
+                            InstructionNum
   deriving Show
 
 pattern StackBytes :: ByteString -> StackItem
 pattern StackBytes x <- StackItem (BytesElem x) _
 
-pattern StackInt :: Int -> StackItem
+pattern StackInt :: Integer -> StackItem
 pattern StackInt x <- StackItem (IntElem x) _
 
 data StackMachine = StackMachine
@@ -74,7 +83,7 @@ data StackMachine = StackMachine
 instance Show StackMachine where
   show StackMachine{..} =
     "StackMachine "
-    ++ intercalate " " [
+    ++ unwords [
       show stack
       , show stackLen
       , show version
@@ -146,7 +155,7 @@ getEnv = do
   m <- liftIO $ readIORef $ transactions st
   return $ m M.! transactionName st
 
-withAnonTransaction :: Int
+withAnonTransaction :: InstructionNum
                     -> StateT StackMachine ResIO ()
                     -> StateT StackMachine ResIO ()
 withAnonTransaction i a = do
@@ -164,22 +173,28 @@ withAnonTransaction i a = do
         State.put st
         return res
 
-errorEmptyStack :: MonadIO m => Int -> Op -> m ()
+errorEmptyStack :: MonadIO m => InstructionNum -> Op -> m ()
 errorEmptyStack i op = error $ "Empty stack for op: " ++ show op
                                ++ "\ninstruction number: " ++ show i
 
 errorUnexpectedState :: (Show a, MonadState StackMachine m, MonadIO m)
-                     => Int -> a -> Op -> m ()
+                     => InstructionNum
+                     -> a
+                     -> Op
+                     -> m ()
 errorUnexpectedState i x op =
   error $ "Bad stack state " ++ show x
           ++ "\nfor op: " ++ show op
           ++ "\ninstruction number: " ++ show i
 
-bubbleError :: (MonadState StackMachine m, MonadIO m) => Int -> Error -> m ()
+bubbleError :: (MonadState StackMachine m, MonadIO m)
+            => InstructionNum
+            -> Error
+            -> m ()
 bubbleError i (CError err) =
   let errCode = getCFDBError $ toCFDBError err
       errTuple = [BytesElem "ERROR", BytesElem (BS.pack (show errCode))]
-      packedErrTuple = encodeTupleElems errTuple
+      packedErrTuple = encodeTupleElems (errTuple :: [Elem])
       in do
         liftIO $ putStrLn $ "### pushing bubbled error " ++ show errTuple
                             ++ " for instruction number " ++ show i
@@ -194,7 +209,8 @@ popKeySelector = popN 4 >>= \case
        , StackInt offst
        , StackBytes prefix] -> let
           orEqual' = orEqual == 1
-          in return $ Just (tupleKeySelector (k, orEqual', offst), prefix)
+          in return $ Just ( tupleKeySelector (k, orEqual', fromIntegral offst)
+                           , prefix)
   _ -> return Nothing
 
 popRangeArgs :: MonadState StackMachine m
@@ -207,9 +223,9 @@ popRangeArgs = popN 5 >>= \case
        , StackInt mode] -> return $ Just (Range {
          rangeBegin = FirstGreaterOrEq begin
          , rangeEnd = FirstGreaterOrEq end
-         , rangeLimit = Just limit
+         , rangeLimit = Just $ fromIntegral limit
          , rangeReverse = rev == 1
-       }, toEnum mode)
+       }, toEnum (fromIntegral mode))
   _ -> return Nothing
 
 popRangeStartsWith :: MonadState StackMachine m
@@ -221,10 +237,10 @@ popRangeStartsWith = popN 4 >>= \case
        , StackInt mode] -> return $ do
          r <- prefixRange prefix
          let r' = r {
-           rangeLimit = Just limit,
+           rangeLimit = Just $ fromIntegral limit,
            rangeReverse = rev == 1
            }
-         return (r', toEnum mode)
+         return (r', toEnum (fromIntegral mode))
   _ -> return Nothing
 
 popRangeSelector :: MonadState StackMachine m
@@ -240,15 +256,19 @@ popRangeSelector = popN 10 >>= \case
        , StackInt rev
        , StackInt mode
        , StackBytes prefix] -> do
-        let beginKS = tupleKeySelector (beginK, beginOrEqual == 1, beginOffset)
-        let endKS = tupleKeySelector (endK, endOrEqual == 1, endOffset)
+        let beginKS = tupleKeySelector ( beginK
+                                       , beginOrEqual == 1
+                                       , fromIntegral beginOffset)
+        let endKS = tupleKeySelector ( endK
+                                     , endOrEqual == 1
+                                     , fromIntegral endOffset)
         let r = Range {
                 rangeBegin = beginKS
                 , rangeEnd = endKS
-                , rangeLimit = Just limit
+                , rangeLimit = Just $ fromIntegral limit
                 , rangeReverse = rev == 1
                 }
-        return $ Just (r, toEnum mode, prefix)
+        return $ Just (r, toEnum $ fromIntegral mode, prefix)
   _ -> return Nothing
 
 popAtomicOp :: MonadState StackMachine m
@@ -276,18 +296,17 @@ popAtomicOp = popN 3 >>= \case
         parse "BYTE_MAX" = Just ByteMax
         parse _ = Nothing
 
-rangeList :: RangeResult -> Transaction [(ByteString, ByteString)]
+rangeList :: RangeResult -> Transaction (Seq (ByteString, ByteString))
 rangeList (RangeDone xs) = return xs
 rangeList (RangeMore xs more) = do
   rr <- await more
   ys <- rangeList rr
-  return $ xs ++ ys
+  return $ xs <> ys
 
 -- | Runs a transaction in the current env, handling transaction errors as
 -- specified by the bindings tester spec. If no error occurs, passes the result
 -- of the transaction to the given handler function.
-bubblingError :: Int
-            -- ^ instruction number
+bubblingError :: InstructionNum
             -> Transaction a
             -> (a -> StateT StackMachine ResIO ())
             -> StateT StackMachine ResIO ()
@@ -298,12 +317,14 @@ bubblingError i t handle = do
     Right x -> handle x
 
 -- | Pushes a @RESULT_NOT_PRESENT@ bytestring for the given instruction number.
-resultNotPresent :: (MonadState StackMachine m) => Int -> m ()
+resultNotPresent :: (MonadState StackMachine m)
+                 => InstructionNum
+                 -> m ()
 resultNotPresent i = push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
 
 -- | Handles pushing @RESULT_NOT_PRESENT@ for @_DATABASE@ operations that don't
 -- return results.
-finishDBOp :: (MonadState StackMachine m) => Int -> Op -> m ()
+finishDBOp :: (MonadState StackMachine m) => InstructionNum -> Op -> m ()
 finishDBOp i Set = resultNotPresent i
 finishDBOp i Clear = resultNotPresent i
 finishDBOp i ClearRange = resultNotPresent i
@@ -312,8 +333,7 @@ finishDBOp i AtomicOp = resultNotPresent i
 finishDBOp _ _ = return ()
 
 -- | Runs a single operation on a stack machine.
-step :: Int
-     -- ^ instruction number
+step :: InstructionNum
      -> Op
      -> StateT StackMachine ResIO ()
 
@@ -328,7 +348,7 @@ step _ EmptyStack = do
   State.put st {stack = [], stackLen = 0}
 
 step i Swap = pop >>= \case
-  Just (StackItem (IntElem n) _) -> swap n
+  Just (StackItem (IntElem n) _) -> swap $ fromIntegral n
   x -> errorUnexpectedState i x Swap
 
 step i Pop = pop >>= \case
@@ -359,7 +379,7 @@ step i LogStack = do
     go _ _ [] _ = error "impossible case in StackMachine"
     go db prfx (StackItem x _:xs) n = do
       liftIO $ runTransaction db $ do
-        let k = prfx <> encodeTupleElems [IntElem n, IntElem i]
+        let k = prfx <> encodeTupleElems [IntElem $ fromIntegral n, IntElem i]
         let v = BS.take 40000 $ encodeTupleElems [x]
         set k v
       go db prfx xs (n-1)
@@ -434,28 +454,25 @@ step i GetKey = popKeySelector >>= \case
 
 step i GetRange = popRangeArgs >>= \case
   Just (range, mode) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten xs
+      let tuple = encodeTupleElems $ toList $ fmap BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
   _ -> errorEmptyStack i GetRange
 
 step i GetRangeStartsWith = popRangeStartsWith >>= \case
   Just (range, mode) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten xs
+      let tuple = encodeTupleElems $ fmap BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
   x -> errorUnexpectedState i x GetRangeStartsWith
 
 step i GetRangeSelector = popRangeSelector >>= \case
   Just (range, mode, prefix) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten $ filter (BS.isPrefixOf prefix . fst) xs
+      let tuple = encodeTupleElems
+                  $ fmap BytesElem
+                  $ flatten
+                  $ Seq.filter (BS.isPrefixOf prefix . fst) xs
       push (StackItem (BytesElem tuple) i)
   x -> errorUnexpectedState i x GetRangeSelector
 
@@ -719,27 +736,27 @@ parseBasicOp t = case t of
   "WAIT_EMPTY" -> Just WaitEmpty
   _ -> Nothing
 
-parseOp :: Int -> ByteString -> Op
+parseOp :: InstructionNum -> ByteString -> Op
 parseOp idx bs = case decodeTupleElems bs of
   Right [TextElem "PUSH", item] -> Push (StackItem item idx)
   Right t@[TextElem op] -> fromMaybe (UnknownOp t) (parseBasicOp op)
   Right t -> UnknownOp t
   Left e -> error $ "Error parsing tuple: " ++ show e
 
-getOps :: Database -> ByteString -> IO [Op]
+getOps :: Database -> ByteString -> IO (Seq Op)
 getOps db prefix = runTransaction db $ do
   let prefixTuple = encodeTupleElems [BytesElem prefix]
   kvs <- getEntireRange $ fromJust $ prefixRange prefixTuple
-  return $ map (\(idx, (_k, v)) -> parseOp idx v) (zip [0..] kvs)
+  return $ fmap (\(idx, (_k, v)) -> parseOp idx v) (Seq.zip (fromList [0..]) kvs)
 
 runMachine :: StackMachine -> ResIO ()
 runMachine st@StackMachine {..} = do
   ops <- liftIO $ getOps db transactionName
-  let numUnk = length (filter isUnknown ops)
+  let numUnk = Seq.length (Seq.filter isUnknown ops)
   liftIO $ putStrLn $ "Got " ++ show numUnk ++ " unknown ops."
   liftIO $ mapM_ (\(i, x) -> putStrLn $ show i ++ " " ++ x)
-                 (zip [(0 :: Int)..] (map debugDisplay ops))
-  State.evalStateT (forM_ (zip [0..] ops) (uncurry step)) st
+                 (zip [(0 :: Int)..] (toList $ fmap debugDisplay ops))
+  State.evalStateT (forM_ (zip [0..] (toList ops)) (uncurry step)) st
 
 runTests :: Int -> ByteString -> Database -> IO ()
 runTests ver prefix db = do

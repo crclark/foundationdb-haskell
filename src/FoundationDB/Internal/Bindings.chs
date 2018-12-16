@@ -295,6 +295,7 @@ futureGetKeyValueArray f = do
   (err, arr, n, more) <- futureGetKeyValueArray_ f
   if isError err
     then return $ Left err
+    -- TODO: possible bug -- when does arr get freed?
     else do kvs <- peekArray n arr >>= mapM packKeyValue
             return $ Right $ (kvs, more)
 
@@ -467,18 +468,10 @@ deriving instance Show FDBStreamingMode
   -> `Future a' outFuture #}
 
 transactionGetRange :: Transaction
-                    -> B.ByteString
-                    -- ^ Begin key
-                    -> Bool
-                    -- ^ Begin key orEqual
-                    -> Int
-                    -- ^ Begin key offset
-                    -> B.ByteString
-                    -- ^ end key
-                    -> Bool
-                    -- ^ end key orEqual
-                    -> Int
-                    -- ^ end key offset
+                    -> KeySelector
+                    -- ^ begin
+                    -> KeySelector
+                    -- ^ end
                     -> Int
                     -- ^ max number of pairs to return
                     -> Int
@@ -493,11 +486,14 @@ transactionGetRange :: Transaction
                     -> Bool
                     -- ^ whether to return pairs in reverse order
                     -> IO (Future [(B.ByteString, B.ByteString)])
-transactionGetRange t bk bOrEqual bOffset
-                      ek eOrEqual eOffset
+transactionGetRange t rangeBegin
+                      rangeEnd
                       pairLimit byteLimit
                       streamMode iteratorI
                       isSnapshotRead isReverse =
+  let (bk, bOrEqual, bOffset) = keySelectorTuple rangeBegin
+      (ek, eOrEqual, eOffset) = keySelectorTuple rangeEnd
+  in
   B.useAsCStringLen bk $ \(bstr, blen) ->
   B.useAsCStringLen ek $ \(estr, elen) ->
   transactionGetRange_ t

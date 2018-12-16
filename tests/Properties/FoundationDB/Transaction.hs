@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Properties.FoundationDB.Transaction where
 
@@ -7,6 +8,7 @@ import FoundationDB
 import FoundationDB.Error
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
+import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 
 import Control.Monad
@@ -14,6 +16,10 @@ import Control.Monad.Except ( throwError )
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Monoid((<>))
+import Data.Sequence(Seq(Empty))
+import qualified Data.Sequence as Seq
+import GHC.Exts(IsList(..))
 import Test.Hspec
 
 
@@ -24,12 +30,13 @@ transactionProps testSS db = do
     versionstamps testSS db
     readVersions testSS db
     ranges testSS db
+    streamingModes testSS db
     retries testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
 
-  it "should round trip" $ do
+  it "should be able to get what we set" $ do
     let k = SS.pack testSS [BytesElem "foo"]
     runTransaction db $ set k "bar"
     v <- runTransaction db $ get k >>= await
@@ -97,8 +104,8 @@ readVersions _testSS db = describe "Read versions" $
 ranges :: Subspace -> Database -> SpecWith ()
 ranges testSS db = describe "range ops" $ do
   let rangeSS = SS.extend testSS [BytesElem "rangetest"]
-  let kvs = [ (SS.pack rangeSS [BytesElem $ BS.singleton k], "a")
-            | k <- ['a'..'z']]
+  let kvs = fromList [ (SS.pack rangeSS [BytesElem $ BS.singleton k], "a")
+                     | k <- ['a'..'z']]
   let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
   let range = Range (FirstGreaterOrEq (SS.pack rangeSS [BytesElem "a"]))
                     (FirstGreaterOrEq (SS.pack rangeSS [BytesElem "z\x00"]))
@@ -113,22 +120,22 @@ ranges testSS db = describe "range ops" $ do
     it "returns reversed range when Reverse=True" $ do
       putKeys
       result <- runTransaction db $ getEntireRange $ range { rangeReverse = True }
-      result `shouldBe` reverse kvs
+      result `shouldBe` Seq.reverse kvs
     it "respects rangeLimit" $ do
       putKeys
       result <- runTransaction db $ getEntireRange range {rangeLimit = Just 5}
-      result `shouldBe` take 5 kvs
+      result `shouldBe` Seq.take 5 kvs
     it "respects rangeLimit with reverse" $ do
       putKeys
       result <- runTransaction db $ getEntireRange range { rangeLimit = Just 5
                                                          , rangeReverse = True}
-      result `shouldBe` take 5 (reverse kvs)
+      result `shouldBe` Seq.take 5 (Seq.reverse kvs)
     it "excludes last key when using keyRange" $ do
       putKeys
       let begin = SS.pack rangeSS [BytesElem "a"]
       let end = SS.pack rangeSS [BytesElem "z"]
       result <- runTransaction db $ getEntireRange (keyRange begin end)
-      result `shouldBe` init kvs
+      result `shouldBe` Seq.take (Seq.length kvs - 1) kvs
     it "includes last key when using keyRangeInclusive" $ do
       putKeys
       let begin = SS.pack rangeSS [BytesElem "a"]
@@ -140,7 +147,7 @@ ranges testSS db = describe "range ops" $ do
       let begin = FirstGreaterThan $ SS.pack rangeSS [BytesElem "a"]
       let range' = range {rangeBegin = begin}
       result <- runTransaction db $ getEntireRange range'
-      result `shouldBe` tail kvs
+      result `shouldBe` Seq.drop 1 kvs
     it "can get inclusive end key by using FirstGreaterThan" $ do
       putKeys
       let end = FirstGreaterThan $ SS.pack rangeSS [BytesElem "z"]
@@ -152,18 +159,43 @@ ranges testSS db = describe "range ops" $ do
       let begin = offset 2 $ rangeBegin range
       let range' = range {rangeBegin = begin}
       result <- runTransaction db $ getEntireRange range'
-      result `shouldBe` drop 2 kvs
+      result `shouldBe` Seq.drop 2 kvs
   describe "isRangeEmpty" $
     it "isRangeEmpty returns expected results" $ do
       (rr, empty1) <- runTransaction db $ do
         empty1 <- isRangeEmpty range
         rr <- getEntireRange range
         return (rr, empty1)
-      rr `shouldBe` []
+      rr `shouldBe` Empty
       empty1 `shouldBe` True
       putKeys
       empty2 <- runTransaction db $ isRangeEmpty range
       empty2 `shouldBe` False
+
+streamingModes :: Subspace -> Database -> SpecWith ()
+streamingModes testSS db = do
+  let normalModes = [minBound .. pred StreamingModeExact]
+                    <> [succ StreamingModeExact .. maxBound]
+  let rangeSS = SS.extend testSS [BytesElem "rangetest2"]
+  let kvs = fromList @(Seq _) [ (SS.pack rangeSS [IntElem k], "a")
+                              | k <- [1..100]]
+  let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
+  let range = subspaceRange rangeSS
+  forM_ normalModes $ \mode -> describe (show mode) $
+    it "Works as expected with getEntireRange'" $ do
+      putKeys
+      rr <- runTransaction db $ getEntireRange' mode range
+      length rr `shouldBe` length kvs
+  describe "StreamingModeExact" $ do
+    it "Throws an exception if range doesn't include limit" $ do
+      putKeys
+      rr <- runTransaction' db $ getEntireRange' StreamingModeExact range
+      rr `shouldBe` Left (CError ExactModeWithoutLimits)
+    it "Succeeds when range includes limit" $ do
+      putKeys
+      rr <- runTransaction db
+            $ getEntireRange' StreamingModeExact range{rangeLimit = Just 10}
+      length rr `shouldBe` 10
 
 retries :: Subspace -> Database -> SpecWith ()
 retries testSS db = describe "retry logic" $ do

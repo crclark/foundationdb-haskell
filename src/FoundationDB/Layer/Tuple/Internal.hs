@@ -261,12 +261,12 @@ encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
 -- two bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
 -- batch order.
-encodeTupleElems :: [Elem] -> ByteString
+encodeTupleElems :: Traversable t => t Elem -> ByteString
 encodeTupleElems = fst . runPutTuple . mapM_ (encodeElem False)
 
 -- | Like 'encodeTupleElems', but prepends a raw bytestring prefix to the
 -- tuple. This is used by the subspace and directory layers.
-encodeTupleElemsWPrefix :: ByteString -> [Elem] -> ByteString
+encodeTupleElemsWPrefix :: Traversable t => ByteString -> t Elem -> ByteString
 encodeTupleElemsWPrefix prefix es =
   fst $ runPutTuple $ do
     putByteString prefix

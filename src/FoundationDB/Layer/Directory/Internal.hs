@@ -4,14 +4,17 @@
 
 module FoundationDB.Layer.Directory.Internal where
 
-import Control.Monad
+import Control.Monad (when, unless)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Foldable (forM_)
 import Data.Maybe (isJust)
 import Data.Monoid
+import Data.Sequence(Seq(Empty,(:<|)))
 import Data.Serialize.Get (runGet, getWord32le)
 import Data.Serialize.Put (runPut, putWord32le)
 import Data.Text (Text)
+import Data.Traversable (mapM)
 import Data.Word (Word32)
 
 import FoundationDB
@@ -197,10 +200,10 @@ exists dl path = isJust <$> find dl path
 
 -- | List the names of the immediate subdirectories of a directory.
 -- Returns an empty list if the directory does not exist.
-list :: DirectoryLayer -> Path -> Transaction [Text]
+list :: DirectoryLayer -> Path -> Transaction (Seq Text)
 list dl path =
   find dl path >>= \case
-    Nothing -> return []
+    Nothing -> return Empty
     Just node -> subdirNames dl (nodeNodeSS node)
 
 data MoveError =
@@ -310,7 +313,7 @@ subdirNameNodes
   :: DirectoryLayer
   -> Subspace
   -- ^ node
-  -> Transaction [(Text, Subspace)]
+  -> Transaction (Seq (Text, Subspace))
 subdirNameNodes dl@DirectoryLayer {..} node = do
   let sd = extend node [Tuple.IntElem _SUBDIRS]
   kvs <- getEntireRange (subspaceRange sd)
@@ -319,11 +322,11 @@ subdirNameNodes dl@DirectoryLayer {..} node = do
         _ -> throwDirInternalError "failed to unpack node name in subdirNameNodes"
   mapM unpackKV kvs
 
-subdirNames :: DirectoryLayer -> Subspace -> Transaction [Text]
-subdirNames dl node = fmap (map fst) (subdirNameNodes dl node)
+subdirNames :: DirectoryLayer -> Subspace -> Transaction (Seq Text)
+subdirNames dl node = fmap (fmap fst) (subdirNameNodes dl node)
 
-subdirNodes :: DirectoryLayer -> Subspace -> Transaction [Subspace]
-subdirNodes dl node = fmap (map snd) (subdirNameNodes dl node)
+subdirNodes :: DirectoryLayer -> Subspace -> Transaction (Seq Subspace)
+subdirNodes dl node = fmap (fmap snd) (subdirNameNodes dl node)
 
 nodeContainingKey
   :: DirectoryLayer -> ByteString -> Transaction (Maybe Subspace)
@@ -340,8 +343,8 @@ nodeContainingKey dl@DirectoryLayer {..} k
       -- TODO: consider dropping [] from RangeDone constructor. Looks like
       -- underlying function is returning RangeMore [x] when there is only one
       -- item in the range.
-      []       -> return Nothing
-      (kv : _) -> processKV kv
+      Empty       -> return Nothing
+      (kv :<| _)  -> processKV kv
  where
   processKV (k', _) = do
     let unpacked = unpack nodeSS k'

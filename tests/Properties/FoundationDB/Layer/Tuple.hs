@@ -160,10 +160,10 @@ describeIntegerTypeCodes = do
 issue12 :: SpecWith ()
 issue12 = describe "Max 8-byte encoded ints" $ do
   it "encodes 2^64 - 1 correctly" $
-    encodeTupleElems [IntElem $ 2^64 - 1]
+    encodeTupleElems [IntElem $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
   it "encodes - 2^64 - 1 correctly" $
-    encodeTupleElems [IntElem $ negate $ 2^64 - 1]
+    encodeTupleElems [IntElem $ negate $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
 
 encodeDecodeSpecs :: SpecWith ()
