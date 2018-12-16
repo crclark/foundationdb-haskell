@@ -155,6 +155,7 @@ test-suite tests
                        , text
                        , uuid
                        , mtl
+                       , containers
   default-language:    Haskell2010
   ghc-options:         -Wall -threaded
   hs-source-dirs:      tests

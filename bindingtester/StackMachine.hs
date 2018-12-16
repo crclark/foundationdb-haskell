@@ -22,8 +22,11 @@ import Data.Monoid ((<>))
 import Data.Maybe (fromJust, fromMaybe)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Sequence(Seq(Empty,(:<|)))
+import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
+import GHC.Exts(IsList(..))
 import Text.Printf (printf)
 
 import FoundationDB
@@ -39,6 +42,10 @@ import FoundationDB.Versionstamp
 
 strinc :: ByteString -> ByteString
 strinc = prefixRangeEnd
+
+flatten :: Seq (a,a) -> Seq a
+flatten Empty = Empty
+flatten ((k,v):<|kvs) = k :<| v :<| flatten kvs
 
 type InstructionNum = Integer
 
@@ -187,7 +194,7 @@ bubbleError :: (MonadState StackMachine m, MonadIO m)
 bubbleError i (CError err) =
   let errCode = getCFDBError $ toCFDBError err
       errTuple = [BytesElem "ERROR", BytesElem (BS.pack (show errCode))]
-      packedErrTuple = encodeTupleElems errTuple
+      packedErrTuple = encodeTupleElems (errTuple :: [Elem])
       in do
         liftIO $ putStrLn $ "### pushing bubbled error " ++ show errTuple
                             ++ " for instruction number " ++ show i
@@ -289,12 +296,12 @@ popAtomicOp = popN 3 >>= \case
         parse "BYTE_MAX" = Just ByteMax
         parse _ = Nothing
 
-rangeList :: RangeResult -> Transaction [(ByteString, ByteString)]
+rangeList :: RangeResult -> Transaction (Seq (ByteString, ByteString))
 rangeList (RangeDone xs) = return xs
 rangeList (RangeMore xs more) = do
   rr <- await more
   ys <- rangeList rr
-  return $ xs ++ ys
+  return $ xs <> ys
 
 -- | Runs a transaction in the current env, handling transaction errors as
 -- specified by the bindings tester spec. If no error occurs, passes the result
@@ -447,28 +454,25 @@ step i GetKey = popKeySelector >>= \case
 
 step i GetRange = popRangeArgs >>= \case
   Just (range, mode) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten xs
+      let tuple = encodeTupleElems $ toList $ fmap BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
   _ -> errorEmptyStack i GetRange
 
 step i GetRangeStartsWith = popRangeStartsWith >>= \case
   Just (range, mode) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten xs
+      let tuple = encodeTupleElems $ fmap BytesElem $ flatten xs
       push (StackItem (BytesElem tuple) i)
   x -> errorUnexpectedState i x GetRangeStartsWith
 
 step i GetRangeSelector = popRangeSelector >>= \case
   Just (range, mode, prefix) -> do
-    let flatten [] = []
-        flatten ((k,v):kvs) = k : v : flatten kvs
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ map BytesElem $ flatten $ filter (BS.isPrefixOf prefix . fst) xs
+      let tuple = encodeTupleElems
+                  $ fmap BytesElem
+                  $ flatten
+                  $ Seq.filter (BS.isPrefixOf prefix . fst) xs
       push (StackItem (BytesElem tuple) i)
   x -> errorUnexpectedState i x GetRangeSelector
 
@@ -739,20 +743,20 @@ parseOp idx bs = case decodeTupleElems bs of
   Right t -> UnknownOp t
   Left e -> error $ "Error parsing tuple: " ++ show e
 
-getOps :: Database -> ByteString -> IO [Op]
+getOps :: Database -> ByteString -> IO (Seq Op)
 getOps db prefix = runTransaction db $ do
   let prefixTuple = encodeTupleElems [BytesElem prefix]
   kvs <- getEntireRange $ fromJust $ prefixRange prefixTuple
-  return $ map (\(idx, (_k, v)) -> parseOp idx v) (zip [0..] kvs)
+  return $ fmap (\(idx, (_k, v)) -> parseOp idx v) (Seq.zip (fromList [0..]) kvs)
 
 runMachine :: StackMachine -> ResIO ()
 runMachine st@StackMachine {..} = do
   ops <- liftIO $ getOps db transactionName
-  let numUnk = length (filter isUnknown ops)
+  let numUnk = Seq.length (Seq.filter isUnknown ops)
   liftIO $ putStrLn $ "Got " ++ show numUnk ++ " unknown ops."
   liftIO $ mapM_ (\(i, x) -> putStrLn $ show i ++ " " ++ x)
-                 (zip [(0 :: Int)..] (map debugDisplay ops))
-  State.evalStateT (forM_ (zip [0..] ops) (uncurry step)) st
+                 (zip [(0 :: Int)..] (toList $ fmap debugDisplay ops))
+  State.evalStateT (forM_ (zip [0..] (toList ops)) (uncurry step)) st
 
 runTests :: Int -> ByteString -> Database -> IO ()
 runTests ver prefix db = do

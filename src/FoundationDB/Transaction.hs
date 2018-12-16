@@ -37,6 +37,7 @@ module FoundationDB.Transaction (
   , getRange'
   , FDB.FDBStreamingMode(..)
   , getEntireRange
+  , getEntireRange'
   , isRangeEmpty
   , Range(..)
   , rangeKeys
@@ -83,6 +84,9 @@ import Control.Monad.Trans.Resource ( allocate
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe, fromJust)
+import Data.Semigroup ((<>))
+import qualified Data.Sequence as Seq
+import Data.Sequence (Seq(Empty, (:|>)))
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr)
 import Foreign.Ptr (castPtr)
 
@@ -303,8 +307,8 @@ rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
 
 -- | Structure for returning the result of 'getRange' in chunks.
 data RangeResult =
-  RangeDone [(ByteString, ByteString)]
-  | RangeMore [(ByteString, ByteString)] (Future RangeResult)
+  RangeDone (Seq (ByteString, ByteString))
+  | RangeMore (Seq (ByteString, ByteString)) (Future RangeResult)
   deriving Show
 
 getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
@@ -328,23 +332,23 @@ getRange' Range {..} mode = do
                                    rangeReverse
   let
     handler bsel esel i lim fut = do
-      --TODO: need to return Vector or Array for efficiency
       (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
+      let kvs' = Seq.fromList kvs
       -- more doesn't take into account our count limit
       let actuallyMore = case lim of
             Nothing -> not (null kvs) && more
-            Just n  -> not (null kvs) && length kvs < n && more
+            Just n  -> not (null kvs) && Seq.length kvs' < n && more
       if actuallyMore
         then do
-          -- last is partial, but access guarded by @more@
-          let lstK = snd $ last kvs
+          -- partial, but access guarded by @more@
+          let (_ :|> (_,lstK)) = kvs'
           let bsel' =
                 if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
           let (beginK', beginOrEqual', beginOffset') =
                 FDB.keySelectorTuple bsel'
           let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
           let (endK', endOrEqual', endOffset') = FDB.keySelectorTuple esel'
-          let lim' = fmap (\x -> x - length kvs) lim
+          let lim' = fmap (\x -> x - Seq.length kvs') lim
           let mk' = FDB.transactionGetRange t
                                             beginK'
                                             beginOrEqual'
@@ -359,10 +363,10 @@ getRange' Range {..} mode = do
                                             isSnapshot
                                             rangeReverse
           res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
-          return $ RangeMore kvs res
+          return $ RangeMore kvs' res
         else return $ RangeDone $ case lim of
-          Nothing -> kvs
-          Just n  -> take n kvs
+          Nothing -> kvs'
+          Just n  -> Seq.take n kvs'
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
 
 -- TODO: test this and document it further. It appears that this can stop
@@ -371,24 +375,28 @@ getRange' Range {..} mode = do
 getRange :: Range -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator
 
--- TODO: slow and leaky! no lists!
-getEntireRange :: Range -> Transaction [(ByteString, ByteString)]
-getEntireRange r = do
-  rr <- getRange' r FDB.StreamingModeWantAll >>= await
+getEntireRange' :: FDB.FDBStreamingMode
+                -> Range
+                -> Transaction (Seq (ByteString, ByteString))
+getEntireRange' mode r = do
+  rr <- getRange' r mode >>= await
   go rr
  where
   go (RangeDone xs    ) = return xs
   go (RangeMore xs fut) = do
     more <- await fut
     ys   <- go more
-    return (xs ++ ys)
+    return (xs <> ys)
+
+getEntireRange :: Range -> Transaction (Seq (ByteString, ByteString))
+getEntireRange = getEntireRange' FDB.StreamingModeWantAll
 
 isRangeEmpty :: Range -> Transaction Bool
 isRangeEmpty r = do
   rr <- getRange r >>= await
   case rr of
-    RangeDone [] -> return True
-    _            -> return False
+    RangeDone Empty -> return True
+    _               -> return False
 
 -- TODO: this is redundant with and inconsistent with those exposed in Options!
 data AtomicOp =

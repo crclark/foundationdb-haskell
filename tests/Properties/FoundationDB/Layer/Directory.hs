@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Properties.FoundationDB.Layer.Directory where
 
@@ -9,6 +10,7 @@ import FoundationDB.Layer.Tuple
 
 import Control.Monad (forM_, void)
 import qualified Data.Text as T
+import GHC.Exts(IsList(..))
 
 import Test.Hspec
 
@@ -97,7 +99,7 @@ describeList db dl = describe "list" $ do
       list dl ["abc"]
     res `shouldBe` ["def","foo"]
   it "can list a larger number of subdirectories" $ do
-    let subdirs = [T.pack [a] | a <- ['A'..'z']]
+    let subdirs = fromList [T.pack [a] | a <- ['A'..'z']]
     forM_ subdirs $ \subdir -> runTransaction db $
       void $ createOrOpen' dl ["subdirs", subdir] "" Nothing
     res <- runTransaction db $ list dl ["subdirs"]
