@@ -16,6 +16,7 @@ import Control.Monad.Except ( throwError )
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Monoid((<>))
 import Data.Sequence(Seq(Empty))
 import qualified Data.Sequence as Seq
 import GHC.Exts(IsList(..))
@@ -35,7 +36,7 @@ transactionProps testSS db = do
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
 
-  it "should round trip" $ do
+  it "should be able to get what we set" $ do
     let k = SS.pack testSS [BytesElem "foo"]
     runTransaction db $ set k "bar"
     v <- runTransaction db $ get k >>= await
@@ -173,18 +174,28 @@ ranges testSS db = describe "range ops" $ do
 
 streamingModes :: Subspace -> Database -> SpecWith ()
 streamingModes testSS db = do
-  let modes = [minBound..maxBound]
+  let normalModes = [minBound .. pred StreamingModeExact]
+                    <> [succ StreamingModeExact .. maxBound]
   let rangeSS = SS.extend testSS [BytesElem "rangetest2"]
   let kvs = fromList @(Seq _) [ (SS.pack rangeSS [IntElem k], "a")
-                              | k <- [1..1000]]
+                              | k <- [1..100]]
   let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
   let range = subspaceRange rangeSS
-  forM_ modes $ \mode -> describe (show mode) $
-    it "Should allow us to fetch entire range" $ do
+  forM_ normalModes $ \mode -> describe (show mode) $
+    it "Works as expected with getEntireRange'" $ do
       putKeys
       rr <- runTransaction db $ getEntireRange' mode range
       length rr `shouldBe` length kvs
-
+  describe "StreamingModeExact" $ do
+    it "Throws an exception if range doesn't include limit" $ do
+      putKeys
+      rr <- runTransaction' db $ getEntireRange' StreamingModeExact range
+      rr `shouldBe` Left (CError ExactModeWithoutLimits)
+    it "Succeeds when range includes limit" $ do
+      putKeys
+      rr <- runTransaction db
+            $ getEntireRange' StreamingModeExact range{rangeLimit = Just 10}
+      length rr `shouldBe` 10
 
 retries :: Subspace -> Database -> SpecWith ()
 retries testSS db = describe "retry logic" $ do

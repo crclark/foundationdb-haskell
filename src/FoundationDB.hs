@@ -36,7 +36,7 @@ module FoundationDB (
   , atomicOp
   , getRange
   , getRange'
-  , FDBStreamingMode
+  , FDBStreamingMode(..)
   , getEntireRange
   , isRangeEmpty
   , Range (..)
