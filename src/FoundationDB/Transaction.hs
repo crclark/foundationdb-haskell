@@ -45,6 +45,7 @@ module FoundationDB.Transaction (
   , keyRangeInclusive
   , prefixRange
   , RangeResult(..)
+  , watch
   -- * Futures
   , Future
   , await
@@ -537,6 +538,21 @@ getVersionstamp = do
         ParseError $ "Failed to parse versionstamp: "
                      ++ show (BS.unpack bs)
       Just vs -> return $ Right vs
+
+-- | Creates a future that will be fulfilled when the value
+-- associated with the given key is changed, relative to the value
+-- it had as of the current transaction's read version, or the last
+-- value to which the key was previously set within the current
+-- transaction. This future is safe to return from the transaction
+-- and await in IO. If the transaction in which it was created
+-- fails to commit, awaiting it will return the same error as
+-- running the transaction did.
+watch :: ByteString -> Transaction (FutureIO ())
+watch k = do
+  t <- asks cTransaction
+  f <- liftIO $ FDB.transactionWatch t k
+  liftIO $ allocFutureIO f $ return ()
+
 
 -- | Set one of the transaction options from the underlying C API.
 setOption :: FDB.TransactionOption -> Transaction ()

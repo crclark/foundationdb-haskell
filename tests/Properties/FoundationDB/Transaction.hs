@@ -11,6 +11,8 @@ import FoundationDB.Layer.Tuple
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Except ( throwError )
 import qualified Data.ByteString.Char8 as BS
@@ -32,6 +34,7 @@ transactionProps testSS db = do
     ranges testSS db
     streamingModes testSS db
     retries testSS db
+    watches testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -212,3 +215,16 @@ retries testSS db = describe "retry logic" $ do
                  replicate (10^(6 :: Int)) 1
       set bigk "hi"
     res `shouldBe` Left (CError KeyTooLarge)
+
+watches :: Subspace -> Database -> SpecWith ()
+watches testSS db = describe "watches" $
+  it "doesn't return until key is set" $ do
+    mvar <- newEmptyMVar
+    let k = SS.pack testSS [BytesElem "watchkey"]
+    w <- runTransaction db $ watch k
+    _ <- forkIO $ awaitIO w >>= putMVar mvar
+    beforeSet <- tryTakeMVar mvar
+    beforeSet `shouldBe` Nothing
+    runTransaction db $ set k "foo"
+    afterSet <- takeMVar mvar
+    afterSet `shouldBe` Right ()

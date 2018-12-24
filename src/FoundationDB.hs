@@ -45,6 +45,7 @@ module FoundationDB (
   , keyRangeInclusive
   , prefixRange
   , RangeResult (..)
+  , watch
   -- * Futures
   , Future
   , await
