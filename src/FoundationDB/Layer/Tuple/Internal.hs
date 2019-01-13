@@ -15,7 +15,7 @@ import FoundationDB.Versionstamp hiding (decodeVersionstamp)
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.State.Strict
+import Control.Monad.State.Strict as State
 import Control.Monad.Trans (lift)
 import Data.Array.Unboxed (Array)
 import qualified Data.Array.Unboxed as A
@@ -24,6 +24,13 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
+import qualified Data.Persist as Persist
+import Data.Persist as Persist ( Persist(..)
+                               , Put
+                               , putLE
+                               , putBE
+                               , evalPut
+                               , runPut)
 import Data.Serialize.Get ( Get
                           , getBytes
                           , getByteString
@@ -34,9 +41,7 @@ import Data.Serialize.Get ( Get
                           , lookAhead
                           , remaining
                           , runGet)
-import qualified Data.Serialize.IEEE754 as Put
 import Data.Serialize.IEEE754 (getFloat32be, getFloat64be)
-import qualified Data.Serialize.Put as Put
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Word (Word8, Word16, Word32, Word64)
@@ -115,7 +120,7 @@ data SerializationState = SerializationState
   } deriving (Show, Eq, Ord)
 
 newtype PutTuple a =
-  PutTuple {unPutTuple :: StateT SerializationState Put.PutM a}
+  PutTuple {unPutTuple :: StateT SerializationState Put a}
   deriving (Functor, Applicative, Monad)
 
 deriving instance MonadState SerializationState PutTuple
@@ -124,43 +129,44 @@ deriving instance MonadState SerializationState PutTuple
 -- stamp, if any.
 runPutTuple :: PutTuple () -> (ByteString, Maybe Int)
 runPutTuple x =
-  let (((), s), bs) = Put.runPutM $
+  let (((), s), bs) = evalPut $
                       runStateT (unPutTuple x) (SerializationState 0 Nothing)
       in case incompleteVersionstampPos s of
         Nothing -> (bs, Nothing)
-        Just i -> (bs <> Put.runPut (Put.putWord16le (fromIntegral i)), Just i)
+        Just i -> (bs <> runPut (putLE (fromIntegral i :: Word16))
+                                , Just i)
 
 incrLength :: Int -> PutTuple ()
 incrLength !i = do
-  s <- get
-  put s {currLength = currLength s + i}
+  s <- State.get
+  State.put s {currLength = currLength s + i}
 
-liftPutM :: Put.PutM a -> PutTuple a
+liftPutM :: Put a -> PutTuple a
 liftPutM x = PutTuple $ lift x
 
 putWord8 :: Word8 -> PutTuple ()
 putWord8 x = do
-  liftPutM (Put.putWord8 x)
+  liftPutM (Persist.put x)
   incrLength 1
 
 putWord16be :: Word16 -> PutTuple ()
 putWord16be x = do
-  liftPutM (Put.putWord16be x)
+  liftPutM (putBE x)
   incrLength 2
 
 putWord32be :: Word32 -> PutTuple ()
 putWord32be x = do
-  liftPutM (Put.putWord32be x)
+  liftPutM (putBE x)
   incrLength 4
 
 putWord64be :: Word64 -> PutTuple ()
 putWord64be x = do
-  liftPutM (Put.putWord64be x)
+  liftPutM (putBE x)
   incrLength 8
 
 putByteString :: ByteString -> PutTuple ()
 putByteString bs = do
-  liftPutM (Put.putByteString bs)
+  liftPutM (Persist.putByteString bs)
   incrLength (BS.length bs)
 
 encodeBytes :: ByteString -> PutTuple ()
@@ -170,7 +176,8 @@ encodeBytes bs = mapM_ f (BS.unpack bs) >> putWord8 0x00
 
 -- @truncatedInt n v@ returns the last n bytes of v, encoded big endian.
 truncatedInt :: Int -> Integer -> ByteString
-truncatedInt n v = BS.drop (8-n) (Put.runPut (Put.putWord64be $ fromIntegral v))
+truncatedInt n v =
+  BS.drop (8-n) (runPut (putBE (fromIntegral v :: Word64)))
 
 encodePosInt :: Integer -> PutTuple ()
 encodePosInt v =
@@ -222,10 +229,11 @@ encodeElem _ (IntElem 0) = putWord8 zeroCode
 encodeElem _ (IntElem n) = if n > 0 then encodePosInt n else encodeNegInt n
 encodeElem _ (FloatElem x) = do
   putWord8 floatCode
-  putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat32be x
+  -- TODO: bug? doesn't look like we are incrementing the bytes counter for this
+  putByteString $ floatAdjust True $ runPut $ putBE x
 encodeElem _ (DoubleElem x) = do
   putWord8 doubleCode
-  putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat64be x
+  putByteString $ floatAdjust True $ runPut $ putBE x
 encodeElem _ (BoolElem True) = putWord8 trueCode
 encodeElem _ (BoolElem False) = putWord8 falseCode
 encodeElem _ (UUIDElem (UUID w x y z)) = do
@@ -246,8 +254,8 @@ encodeElem _ (CompleteVSElem (CompleteVersionstamp tvs uv)) = do
   putWord16be uv
 encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
   putWord8 versionstampCode
-  s <- get
-  put s{incompleteVersionstampPos = Just $ currLength s}
+  s <- State.get
+  State.put s{incompleteVersionstampPos = Just $ currLength s}
   putWord64be maxBound
   putWord16be maxBound
   putWord16be uv

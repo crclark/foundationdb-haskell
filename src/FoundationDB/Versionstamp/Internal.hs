@@ -7,8 +7,13 @@ module FoundationDB.Versionstamp.Internal where
 
 import Data.ByteString (ByteString)
 import Data.Word (Word16, Word64)
-import Data.Serialize.Get
-import Data.Serialize.Put
+import Data.Persist ( Persist(..)
+                    , Put
+                    , putBE
+                    , runPut
+                    , Get
+                    , runGet
+                    , BigEndian(..))
 
 data VersionstampCompleteness = Complete | Incomplete
 
@@ -41,22 +46,22 @@ deriving instance Ord (Versionstamp a)
 data TransactionVersionstamp = TransactionVersionstamp Word64 Word16
   deriving (Show, Eq, Ord)
 
-putTransactionVersionstamp :: Putter TransactionVersionstamp
+putTransactionVersionstamp :: TransactionVersionstamp -> Put ()
 putTransactionVersionstamp (TransactionVersionstamp tv tb) = do
-  putWord64be tv
-  putWord16be tb
+  putBE tv
+  putBE tb
 
 encodeTransactionVersionstamp :: TransactionVersionstamp -> ByteString
 encodeTransactionVersionstamp = runPut . putTransactionVersionstamp
 
-putVersionstamp :: Putter (Versionstamp a)
+putVersionstamp :: Versionstamp a -> Put ()
 putVersionstamp (CompleteVersionstamp tvs uv) = do
   putTransactionVersionstamp tvs
-  putWord16be uv
+  putBE uv
 putVersionstamp (IncompleteVersionstamp uv) = do
-  putWord64be maxBound
-  putWord16be maxBound
-  putWord16be uv
+  putBE (maxBound :: Word64)
+  putBE (maxBound :: Word16)
+  putBE uv
 
 -- | Encodes a versionstamp into a bytestring. You probably don't need this;
 -- see the facilities in "FoundationDB.Layer.Tuple" for a more flexible
@@ -66,11 +71,13 @@ encodeVersionstamp = runPut . putVersionstamp
 
 getTransactionVersionstamp :: Get TransactionVersionstamp
 getTransactionVersionstamp =
-  TransactionVersionstamp <$> getWord64be <*> getWord16be
+  TransactionVersionstamp
+  <$> fmap unBE get
+  <*> fmap unBE get
 
 getVersionstampComplete :: Get (Versionstamp 'Complete)
 getVersionstampComplete =
-  CompleteVersionstamp <$> getTransactionVersionstamp <*> getWord16be
+  CompleteVersionstamp <$> getTransactionVersionstamp <*> fmap unBE get
 
 -- | Decode a versionstamp from a raw bytestring. You probably don't need this;
 -- see the facilities in "FoundationDB.Layer.Tuple" for a more flexible

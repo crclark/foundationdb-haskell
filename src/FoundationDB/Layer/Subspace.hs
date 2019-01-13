@@ -2,7 +2,6 @@ module FoundationDB.Layer.Subspace where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Monoid
 import Data.Sequence(Seq(Empty,(:<|)))
 
 import FoundationDB
