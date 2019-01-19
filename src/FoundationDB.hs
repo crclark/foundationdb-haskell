@@ -16,6 +16,7 @@ module FoundationDB (
   , runTransaction
   , runTransaction'
   , TransactionConfig (..)
+  , defaultConfig
   , runTransactionWithConfig
   , runTransactionWithConfig'
   , cancel
