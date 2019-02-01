@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -11,6 +13,8 @@ import Gauge.Main
 
 mixedTuple :: ByteString
 mixedTuple = "\SOHsome_prefix\NUL\SOHsome_other_prefix\NUL3\NUL\NUL\NUL\NUL\NUL\NUL\NUL\SOH\NUL\STX\NUL\ETX\NAK\f"
+
+type MixedTuple = [ByteString, ByteString, Versionstamp 'Complete, Integer]
 
 main :: IO ()
 main =
@@ -31,7 +35,7 @@ main =
     , bench "Float" (nf encodeTupleElems [Float 12.356])
     , bench "Double" (nf encodeTupleElems [Double 12.356])
     , bench "Bool" (nf encodeTupleElems [Bool True])
-    , bench "UUID" (nf encodeTupleElems [UUID 1 2 3 4])
+    , bench "UUID" (nf encodeTupleElems [UUIDElem $ UUID 1 2 3 4])
     , bench "CompleteVS"
             (nf encodeTupleElems
                 [CompleteVS (CompleteVersionstamp
@@ -65,4 +69,7 @@ main =
                             "\SOHsome_prefix\NUL\SOHsome_other_prefix\NUL")
                             mixedTuple)
     ]
+
+  , bgroup "decodeTuple"
+    [ bench "Mixed" (nf (decodeTuple @ MixedTuple) mixedTuple)]
   ]
