@@ -16,7 +16,7 @@ stack build --flag foundationdb-haskell:with-generate-options
 You can then invoke it on `fdb.options`.
 
 ```
-stack exec generate-options -- --file ~/Downloads/fdb.options > src/FoundationDB/Options.hs
+stack exec generate-options -- --file /usr/include/foundationdb/fdb.options > src/FoundationDB/Options.hs
 ```
 
 ### Running tests
