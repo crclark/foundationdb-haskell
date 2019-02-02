@@ -14,6 +14,7 @@ module FoundationDB.Layer.Tuple.Internal where
 import FoundationDB.Versionstamp hiding (decodeVersionstamp)
 
 import Control.Applicative
+import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans (lift)
@@ -42,6 +43,7 @@ import Data.Word (Word8, Word16, Word32, Word64)
 import GHC.Exts (Int(I#))
 import GHC.Generics (Generic)
 import GHC.Integer.Logarithms (integerLog2#)
+import Data.Tuple (swap)
 
 -- | Elements of tuples. A tuple is represented as a list of these. Note that
 -- a tuple may contain at most one incomplete version stamp. Future versions of
@@ -71,6 +73,8 @@ data Elem =
   -- the 'setVersionstampedKey' atomic operation. See 'encodeTupleElems' for
   -- more information.
   deriving (Show, Eq, Ord, Generic)
+
+instance NFData Elem
 
 sizeLimits :: Array Int Integer
 sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
@@ -117,12 +121,10 @@ deriving instance MonadState SerializationState PutTuple
 -- | returns the serialized tuple and the position of the incomplete version
 -- stamp, if any.
 runPutTuple :: PutTuple () -> (ByteString, Maybe Int)
-runPutTuple x =
-  let (((), s), bs) = Put.runPutM $
-                      runStateT (unPutTuple x) (SerializationState 0 Nothing)
-      in case incompleteVersionstampPos s of
-        Nothing -> (bs, Nothing)
-        Just i -> (bs <> Put.runPut (Put.putWord16le (fromIntegral i)), Just i)
+runPutTuple x = swap $ Put.runPutM $ do
+  ((), s) <- runStateT (unPutTuple x) (SerializationState 0 Nothing)
+  forM_ (incompleteVersionstampPos s) $ \i -> Put.putWord16le (fromIntegral i)
+  return (incompleteVersionstampPos s)
 
 incrLength :: Int -> PutTuple ()
 incrLength !i = do
