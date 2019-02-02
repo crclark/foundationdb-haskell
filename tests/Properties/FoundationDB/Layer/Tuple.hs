@@ -40,15 +40,15 @@ instance Arbitrary T.Text where
 
 instance Arbitrary Elem where
   arbitrary =
-    oneof [ return NoneElem
-          , BytesElem <$> arbitrary
-          , TextElem <$> arbitrary
-          , IntElem <$> arbitrary
-          , FloatElem <$> arbitrary
-          , DoubleElem <$> arbitrary
-          , BoolElem <$> arbitrary
+    oneof [ return None
+          , Bytes <$> arbitrary
+          , Text <$> arbitrary
+          , Int <$> arbitrary
+          , Float <$> arbitrary
+          , Double <$> arbitrary
+          , Bool <$> arbitrary
           , UUIDElem <$> arbitrary
-          , CompleteVSElem <$> arbitrary]
+          , CompleteVS <$> arbitrary]
   shrink = genericShrink
 
 -- The below example byte strings come from the Python library.
@@ -132,7 +132,7 @@ describeIntegerTypeCodes = do
 
   where
     go (code, 0) = do
-      let encoded = encodeTupleElems [IntElem 0]
+      let encoded = encodeTupleElems [Int 0]
       describe "Encoding 0" $
         it ("Uses expected code " ++ show code)
            (BS.unpack encoded `shouldBe` [code])
@@ -141,7 +141,7 @@ describeIntegerTypeCodes = do
       let sign = fromIntegral $ signum byteLength
       let numBits = 8 * abs byteLength - 1
       let num = sign * 2^numBits - 1 :: Integer
-      let encoded = encodeTupleElems [IntElem num]
+      let encoded = encodeTupleElems [Int num]
       describe ("Encoding "
                 ++ (if sign > 0 then "positive " else "negative ")
                 ++ show (abs byteLength)
@@ -160,37 +160,37 @@ describeIntegerTypeCodes = do
 issue12 :: SpecWith ()
 issue12 = describe "Max 8-byte encoded ints" $ do
   it "encodes 2^64 - 1 correctly" $
-    encodeTupleElems [IntElem $ 2^(64 :: Integer) - 1]
+    encodeTupleElems [Int $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
   it "encodes - 2^64 - 1 correctly" $
-    encodeTupleElems [IntElem $ negate $ 2^(64 :: Integer) - 1]
+    encodeTupleElems [Int $ negate $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
 
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
-  encodeDecode [BytesElem "hello"] exampleBytes "bytes"
-  encodeDecode [TextElem "Iñtërnâtiônàližætiøn"] exampleUnicodeString "unicode"
-  encodeDecode [TupleElem [IntElem 1]] exampleNested "nested tuple"
-  encodeDecode [IntElem 1] examplePosInt "postive int"
-  encodeDecode [IntElem (-5)] exampleNegInt "negative int"
-  encodeDecode [IntElem 0] exampleZero "zero"
-  encodeDecode [IntElem (2 ^ (63 :: Int) - 1)] exampleLargeInt "large int"
-  encodeDecode [FloatElem 1.5] exampleFloat "float"
-  encodeDecode [DoubleElem 1.5] exampleDouble "double"
-  encodeDecode [BoolElem True] exampleTrue "True"
-  encodeDecode [BoolElem False] exampleFalse "False"
+  encodeDecode [Bytes "hello"] exampleBytes "bytes"
+  encodeDecode [Text "Iñtërnâtiônàližætiøn"] exampleUnicodeString "unicode"
+  encodeDecode [Tuple [Int 1]] exampleNested "nested tuple"
+  encodeDecode [Int 1] examplePosInt "postive int"
+  encodeDecode [Int (-5)] exampleNegInt "negative int"
+  encodeDecode [Int 0] exampleZero "zero"
+  encodeDecode [Int (2 ^ (63 :: Int) - 1)] exampleLargeInt "large int"
+  encodeDecode [Float 1.5] exampleFloat "float"
+  encodeDecode [Double 1.5] exampleDouble "double"
+  encodeDecode [Bool True] exampleTrue "True"
+  encodeDecode [Bool False] exampleFalse "False"
   let uuid = fromJust $ UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"
   let (w1,w2,w3,w4) = UUID.toWords uuid
   encodeDecode [UUIDElem (UUID w1 w2 w3 w4)] exampleUUID "UUID"
   let tvs = TransactionVersionstamp 0xdeadbeefdeadbeef 0xbeef
   let vs = CompleteVersionstamp tvs 12
-  encodeDecode [CompleteVSElem vs]
+  encodeDecode [CompleteVS vs]
                exampleCompleteVersionstamp
                "complete version stamp"
   let ivs = IncompleteVersionstamp 12
   it "encodes incomplete version stamp" $
-    encodeTupleElems [IncompleteVSElem ivs]
+    encodeTupleElems [IncompleteVS ivs]
     `shouldBe`
     exampleIncompleteVersionstamp
   -- no encodeDecode for incomplete version stamps because the encoding adds

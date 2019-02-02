@@ -63,10 +63,10 @@ data StackItem =
   deriving Show
 
 pattern StackBytes :: ByteString -> StackItem
-pattern StackBytes x <- StackItem (BytesElem x) _
+pattern StackBytes x <- StackItem (Bytes x) _
 
 pattern StackInt :: Integer -> StackItem
-pattern StackInt x <- StackItem (IntElem x) _
+pattern StackInt x <- StackItem (Int x) _
 
 data StackMachine = StackMachine
   { stack :: [StackItem]
@@ -193,12 +193,12 @@ bubbleError :: (MonadState StackMachine m, MonadIO m)
             -> m ()
 bubbleError i (CError err) =
   let errCode = getCFDBError $ toCFDBError err
-      errTuple = [BytesElem "ERROR", BytesElem (BS.pack (show errCode))]
+      errTuple = [Bytes "ERROR", Bytes (BS.pack (show errCode))]
       packedErrTuple = encodeTupleElems (errTuple :: [Elem])
       in do
         liftIO $ putStrLn $ "### pushing bubbled error " ++ show errTuple
                             ++ " for instruction number " ++ show i
-        push (StackItem (BytesElem packedErrTuple) i)
+        push (StackItem (Bytes packedErrTuple) i)
 bubbleError _ _ = error "Internal FDBHaskell error"
 
 popKeySelector :: MonadState StackMachine m
@@ -320,7 +320,7 @@ bubblingError i t handle = do
 resultNotPresent :: (MonadState StackMachine m)
                  => InstructionNum
                  -> m ()
-resultNotPresent i = push (StackItem (BytesElem "RESULT_NOT_PRESENT") i)
+resultNotPresent i = push (StackItem (Bytes "RESULT_NOT_PRESENT") i)
 
 -- | Handles pushing @RESULT_NOT_PRESENT@ for @_DATABASE@ operations that don't
 -- return results.
@@ -348,7 +348,7 @@ step _ EmptyStack = do
   State.put st {stack = [], stackLen = 0}
 
 step i Swap = pop >>= \case
-  Just (StackItem (IntElem n) _) -> swap $ fromIntegral n
+  Just (StackItem (Int n) _) -> swap $ fromIntegral n
   x -> errorUnexpectedState i x Swap
 
 step i Pop = pop >>= \case
@@ -356,19 +356,19 @@ step i Pop = pop >>= \case
   x -> errorUnexpectedState i x Pop
 
 step i Sub = popN 2 >>= \case
-  Just [StackItem (IntElem x) _, StackItem (IntElem y) _] ->
-    push $ StackItem (IntElem (x - y)) i
+  Just [StackItem (Int x) _, StackItem (Int y) _] ->
+    push $ StackItem (Int (x - y)) i
   x -> errorUnexpectedState i x Sub
 
 step i Concat = popN 2 >>= \case
-  Just [StackItem (BytesElem x) _, StackItem (BytesElem y) _] ->
-    push $ StackItem (BytesElem (x <> y)) i
-  Just [StackItem (TextElem x) _, StackItem (TextElem y) _] ->
-    push $ StackItem (TextElem (x <> y)) i
+  Just [StackItem (Bytes x) _, StackItem (Bytes y) _] ->
+    push $ StackItem (Bytes (x <> y)) i
+  Just [StackItem (Text x) _, StackItem (Text y) _] ->
+    push $ StackItem (Text (x <> y)) i
   x -> errorUnexpectedState i x Concat
 
 step i LogStack = do
-  Just (StackItem (BytesElem prfx) _) <- pop
+  Just (StackItem (Bytes prfx) _) <- pop
   st <- State.get
   go (db st) prfx (stack st) (stackLen st)
 
@@ -379,7 +379,7 @@ step i LogStack = do
     go _ _ [] _ = error "impossible case in StackMachine"
     go db prfx (StackItem x _:xs) n = do
       liftIO $ runTransaction db $ do
-        let k = prfx <> encodeTupleElems [IntElem $ fromIntegral n, IntElem i]
+        let k = prfx <> encodeTupleElems [Int $ fromIntegral n, Int i]
         let v = BS.take 40000 $ encodeTupleElems [x]
         set k v
       go db prfx xs (n-1)
@@ -402,7 +402,7 @@ step _ NewTransaction = do
 -- creates a transaction, letting it get GC'ed if one already exists. Kind of
 -- clumsy.
 step i UseTransaction = pop >>= \case
-  Just (StackItem (BytesElem txnName) _) -> do
+  Just (StackItem (Bytes txnName) _) -> do
     st <- State.get
     envE <- State.lift $
             runExceptT $
@@ -419,7 +419,7 @@ step i UseTransaction = pop >>= \case
   x -> errorUnexpectedState i x UseTransaction
 
 step i OnError = pop >>= \case
-  Just (StackItem (IntElem errCode) _) -> do
+  Just (StackItem (Int errCode) _) -> do
     env <- getEnv
     let cErr = CFDBError $ fromIntegral errCode
     case toError cErr of
@@ -434,10 +434,10 @@ step i OnError = pop >>= \case
   x -> errorUnexpectedState i x OnError
 
 step i Get = pop >>= \case
-  Just (StackItem (BytesElem k) _) ->
+  Just (StackItem (Bytes k) _) ->
     bubblingError i (get k >>= await) $ \case
       Nothing -> resultNotPresent i
-      Just v -> push (StackItem (BytesElem v) i)
+      Just v -> push (StackItem (Bytes v) i)
   x -> errorUnexpectedState i x Get
 
 step i GetKey = popKeySelector >>= \case
@@ -446,40 +446,40 @@ step i GetKey = popKeySelector >>= \case
     bubblingError i (get k >>= await) $ \case
       Nothing -> resultNotPresent i
       Just v
-        | BS.isPrefixOf prefix v -> push (StackItem (BytesElem v) i)
-        | v < prefix -> push (StackItem (BytesElem prefix) i)
-        | v > prefix -> push (StackItem (BytesElem (strinc prefix)) i)
+        | BS.isPrefixOf prefix v -> push (StackItem (Bytes v) i)
+        | v < prefix -> push (StackItem (Bytes prefix) i)
+        | v > prefix -> push (StackItem (Bytes (strinc prefix)) i)
         | otherwise -> error "impossible case for GetKey"
   _ -> errorEmptyStack i GetKey
 
 step i GetRange = popRangeArgs >>= \case
   Just (range, mode) -> do
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ toList $ fmap BytesElem $ flatten xs
-      push (StackItem (BytesElem tuple) i)
+      let tuple = encodeTupleElems $ toList $ fmap Bytes $ flatten xs
+      push (StackItem (Bytes tuple) i)
   _ -> errorEmptyStack i GetRange
 
 step i GetRangeStartsWith = popRangeStartsWith >>= \case
   Just (range, mode) -> do
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
-      let tuple = encodeTupleElems $ fmap BytesElem $ flatten xs
-      push (StackItem (BytesElem tuple) i)
+      let tuple = encodeTupleElems $ fmap Bytes $ flatten xs
+      push (StackItem (Bytes tuple) i)
   x -> errorUnexpectedState i x GetRangeStartsWith
 
 step i GetRangeSelector = popRangeSelector >>= \case
   Just (range, mode, prefix) -> do
     bubblingError i (getRange' range mode >>= await >>= rangeList) $ \xs -> do
       let tuple = encodeTupleElems
-                  $ fmap BytesElem
+                  $ fmap Bytes
                   $ flatten
                   $ Seq.filter (BS.isPrefixOf prefix . fst) xs
-      push (StackItem (BytesElem tuple) i)
+      push (StackItem (Bytes tuple) i)
   x -> errorUnexpectedState i x GetRangeSelector
 
 step i GetReadVersion =
   bubblingError i (getReadVersion >>= await) $ \ver -> do
     setLastVersion ver
-    push (StackItem (BytesElem "GOT_READ_VERSION") i)
+    push (StackItem (Bytes "GOT_READ_VERSION") i)
 
 step i GetVersionstamp =
   bubblingError i getVersionstamp $ \futVs ->
@@ -524,26 +524,26 @@ step i ReadConflictRange = popN 2 >>= \case
   Just [ StackBytes begin
        , StackBytes end] -> do
     bubblingError i (addConflictRange begin end ConflictRangeTypeRead) return
-    push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
+    push (StackItem (Bytes "SET_CONFLICT_RANGE") i)
   x -> errorUnexpectedState i x ReadConflictRange
 
 step i WriteConflictRange = popN 2 >>= \case
   Just [ StackBytes begin
        , StackBytes end] -> do
     bubblingError i (addConflictRange begin end ConflictRangeTypeWrite) return
-    push (StackItem (BytesElem "SET_CONFLICT_RANGE") i)
+    push (StackItem (Bytes "SET_CONFLICT_RANGE") i)
   x -> errorUnexpectedState i x WriteConflictRange
 
 step i ReadConflictKey = pop >>= \case
   Just (StackBytes k) -> do
     bubblingError i (addReadConflictKey k) return
-    push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
+    push (StackItem (Bytes "SET_CONFLICT_KEY") i)
   x -> errorUnexpectedState i x ReadConflictKey
 
 step i WriteConflictKey = pop >>= \case
   Just (StackBytes k) -> do
     bubblingError i (addWriteConflictKey k) return
-    push (StackItem (BytesElem "SET_CONFLICT_KEY") i)
+    push (StackItem (Bytes "SET_CONFLICT_KEY") i)
   x -> errorUnexpectedState i x WriteConflictKey
 
 step i DisableWriteConflict =
@@ -560,7 +560,7 @@ step i Cancel =
 
 step i GetCommittedVersion =
   bubblingError i getCommittedVersion $ \_ ->
-    push (StackItem (BytesElem "GOT_COMMITTED_VERSION") i)
+    push (StackItem (Bytes "GOT_COMMITTED_VERSION") i)
 
 step i WaitFuture = do
   x <- pop
@@ -571,7 +571,7 @@ step i WaitFuture = do
       case res of
         Left err -> error $ show err
         Right (Left err) -> error $ show err
-        Right (Right vs) -> push $ StackItem (BytesElem (encodeTransactionVersionstamp vs)) i
+        Right (Right vs) -> push $ StackItem (Bytes (encodeTransactionVersionstamp vs)) i
     Just y -> push y
 
 step i TuplePack = undefined i
@@ -738,14 +738,14 @@ parseBasicOp t = case t of
 
 parseOp :: InstructionNum -> ByteString -> Op
 parseOp idx bs = case decodeTupleElems bs of
-  Right [TextElem "PUSH", item] -> Push (StackItem item idx)
-  Right t@[TextElem op] -> fromMaybe (UnknownOp t) (parseBasicOp op)
+  Right [Text "PUSH", item] -> Push (StackItem item idx)
+  Right t@[Text op] -> fromMaybe (UnknownOp t) (parseBasicOp op)
   Right t -> UnknownOp t
   Left e -> error $ "Error parsing tuple: " ++ show e
 
 getOps :: Database -> ByteString -> IO (Seq Op)
 getOps db prefix = runTransaction db $ do
-  let prefixTuple = encodeTupleElems [BytesElem prefix]
+  let prefixTuple = encodeTupleElems [Bytes prefix]
   kvs <- getEntireRange $ fromJust $ prefixRange prefixTuple
   return $ fmap (\(idx, (_k, v)) -> parseOp idx v) (Seq.zip (fromList [0..]) kvs)
 
@@ -762,5 +762,5 @@ runTests :: Int -> ByteString -> Database -> IO ()
 runTests ver prefix db = do
   putStrLn $ "Starting stack machine using prefix " ++ show prefix
   transMap <- newIORef M.empty
-  let machine = StackMachine [] 0 ver prefix transMap db (encodeTupleElems [BytesElem prefix])
+  let machine = StackMachine [] 0 ver prefix transMap db (encodeTupleElems [Bytes prefix])
   runResourceT $ runMachine machine

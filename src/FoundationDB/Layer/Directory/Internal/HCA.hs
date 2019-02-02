@@ -31,8 +31,8 @@ data HCA = HCA {counters :: Subspace,
 
 newHCA :: Subspace -> HCA
 newHCA s = HCA
-  { counters = extend s [IntElem 0]
-  ,  recent  = extend s [IntElem 1]
+  { counters = extend s [Int 0]
+  ,  recent  = extend s [Int 1]
   }
 
 windowSize :: Int -> Int
@@ -65,11 +65,11 @@ findStartAndWindow hca@HCA{..} windowAdvanced start = do
   where getCount = do
           let start' = fromIntegral start
           when windowAdvanced $ do
-            clearRange (pack counters []) (pack counters [IntElem start'])
+            clearRange (pack counters []) (pack counters [Int start'])
             setOption nextWriteNoWriteConflictRange
-            clearRange (pack recent []) (pack recent [IntElem start'])
-          atomicOp Add (pack counters [IntElem start']) oneBytes
-          withSnapshot $ get (pack counters [IntElem start'])
+            clearRange (pack recent []) (pack recent [Int start'])
+          atomicOp Add (pack counters [Int start']) oneBytes
+          withSnapshot $ get (pack counters [Int start'])
 
         parseCount Nothing = return 0
         parseCount (Just bs) =
@@ -84,7 +84,7 @@ findSubspaceLoop :: HCA
                  -> Transaction (Maybe Subspace)
 findSubspaceLoop hca@HCA{..} s start window = do
   candidate <- liftIO $ getStdRandom (randomR (start, start + window))
-  let key = pack recent [IntElem $ fromIntegral candidate]
+  let key = pack recent [Int $ fromIntegral candidate]
   (latestCounter, candidateValueF) <- withAllocLock $ do
     latestCounter <- withSnapshot $ getLast counters
     candidateValueF <- get key
@@ -93,7 +93,7 @@ findSubspaceLoop hca@HCA{..} s start window = do
     return (latestCounter, candidateValueF)
   currentStart <- case latestCounter of
                     Just (k,_) -> case unpack counters k of
-                                    Right (IntElem x:_) -> return x
+                                    Right (Int x:_) -> return x
                                     _ -> throwDirInternalError $ "bad counter format: " ++ show k
                     _ -> throwDirInternalError "failed to find latestCounter"
   if currentStart > fromIntegral start
@@ -102,14 +102,14 @@ findSubspaceLoop hca@HCA{..} s start window = do
       Just _ -> findSubspaceLoop hca s start window
       Nothing -> do
         addConflictRange key (key <> "0x00") ConflictRangeTypeWrite
-        return $ Just $ extend s [IntElem $ fromIntegral candidate]
+        return $ Just $ extend s [Int $ fromIntegral candidate]
 
 initStart :: HCA -> Transaction Int
 initStart HCA{..} = do
   mkv <- withSnapshot $ getLast counters
   case mkv of
     Just (k,_) -> case unpack counters k of
-      Right (IntElem start: _) -> return $ fromIntegral start
+      Right (Int start: _) -> return $ fromIntegral start
       _                        -> return 0
     Nothing -> return 0
 

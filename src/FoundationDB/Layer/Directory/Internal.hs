@@ -89,8 +89,8 @@ newDirectoryLayer
   -- ^ allow manual prefixes
   -> DirectoryLayer
 newDirectoryLayer nodeSS contentSS allowManualPrefixes =
-  let rootNode  = extend nodeSS [Tuple.BytesElem (subspaceKey nodeSS)]
-      allocator = newHCA (extend rootNode [Tuple.BytesElem "hca"])
+  let rootNode  = extend nodeSS [Tuple.Bytes (subspaceKey nodeSS)]
+      allocator = newHCA (extend rootNode [Tuple.Bytes "hca"])
       dlPath    = []
   in  DirectoryLayer {..}
 
@@ -187,9 +187,9 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
       --TODO: null check of parentNode here in Go code
       let node = nodeWithPrefix dl prefixToUse
       set
-        (pack parentNode [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
+        (pack parentNode [Tuple.Int _SUBDIRS, Tuple.Text (last path)])
         prefixToUse
-      set (pack node [Tuple.BytesElem "layer"]) layer
+      set (pack node [Tuple.Bytes "layer"]) layer
       contentsOfNodeSubspace dl node path layer
 
 -- | Returns 'True' iff the given path exists.
@@ -248,12 +248,12 @@ move dl oldPath newPath = do
         (Just oldNode, Nothing, Just parentNode) -> do
           let k = pack
                 (nodeNodeSS parentNode)
-                [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last newPath)]
+                [Tuple.Int _SUBDIRS, Tuple.Text (last newPath)]
           let ve =
                 unpack (nodeSS dl) (rawPrefix $ nodeNodeSS oldNode)
           case ve of
             Left e -> throwDirInternalError $ "move failure: " ++ e
-            Right (Tuple.BytesElem v : _) -> do
+            Right (Tuple.Bytes v : _) -> do
               set              k  v
               removeFromParent dl oldPath
               return Nothing
@@ -290,7 +290,7 @@ removeRecursive dl@DirectoryLayer {..} node = do
   case p of
     Left  e                        -> throwDirInternalError
                                         $ "removeRecursive: " ++ e
-    Right (Tuple.BytesElem p' : _) -> case rangeKeys <$> prefixRange p' of
+    Right (Tuple.Bytes p' : _) -> case rangeKeys <$> prefixRange p' of
       Just (start, end) -> clearRange start end
       Nothing ->
         throwDirInternalError
@@ -307,7 +307,7 @@ removeFromParent dl path =
   find dl (init path) >>= \case
     Nothing -> throwDirInternalError $ "parent not found for " ++ show path
     Just (FoundNode sub _ _) ->
-      clear (pack sub [Tuple.IntElem _SUBDIRS, Tuple.TextElem (last path)])
+      clear (pack sub [Tuple.Int _SUBDIRS, Tuple.Text (last path)])
 
 subdirNameNodes
   :: DirectoryLayer
@@ -315,10 +315,10 @@ subdirNameNodes
   -- ^ node
   -> Transaction (Seq (Text, Subspace))
 subdirNameNodes dl@DirectoryLayer {..} node = do
-  let sd = extend node [Tuple.IntElem _SUBDIRS]
+  let sd = extend node [Tuple.Int _SUBDIRS]
   kvs <- getEntireRange (subspaceRange sd)
   let unpackKV (k, v) = case unpack sd k of
-        Right [Tuple.TextElem t] -> return (t, nodeWithPrefix dl v)
+        Right [Tuple.Text t] -> return (t, nodeWithPrefix dl v)
         _ -> throwDirInternalError "failed to unpack node name in subdirNameNodes"
   mapM unpackKV kvs
 
@@ -335,7 +335,7 @@ nodeContainingKey dl@DirectoryLayer {..} k
   | otherwise = do
     let r = Range
           (rangeBegin $ subspaceRange nodeSS)
-          (FirstGreaterOrEq (pack nodeSS [Tuple.BytesElem k] <> "\x00"))
+          (FirstGreaterOrEq (pack nodeSS [Tuple.Bytes k] <> "\x00"))
           (Just 1)
           True
     rr <- getEntireRange r
@@ -350,7 +350,7 @@ nodeContainingKey dl@DirectoryLayer {..} k
     let unpacked = unpack nodeSS k'
     case unpacked of
       Left  _ -> throwDirInternalError "Failed to unpack in nodeContainingKey"
-      Right (Tuple.BytesElem prevPrefix : _) -> if BS.isPrefixOf prevPrefix k
+      Right (Tuple.Bytes prevPrefix : _) -> if BS.isPrefixOf prevPrefix k
         then return (Just $ nodeWithPrefix dl prevPrefix)
         else return Nothing
       --TODO: there are two cases where we fail this way. Is this correct?
@@ -369,14 +369,14 @@ isPrefixFree dl@DirectoryLayer {..} prefix
         Nothing -> return False
         Just r  -> do
           let (bk, ek) = rangeKeys r
-          let r' = keyRange (pack nodeSS [Tuple.BytesElem bk])
-                            (pack nodeSS [Tuple.BytesElem ek])
+          let r' = keyRange (pack nodeSS [Tuple.Bytes bk])
+                            (pack nodeSS [Tuple.Bytes ek])
           isRangeEmpty r'
 
 
 checkVersion :: DirectoryLayer -> Transaction ()
 checkVersion dl@DirectoryLayer {..} = do
-  mver <- get (pack rootNode [Tuple.BytesElem "version"]) >>= await
+  mver <- get (pack rootNode [Tuple.Bytes "version"]) >>= await
   case mver of
     Nothing       -> initializeDirectory dl
     Just verBytes -> do
@@ -397,11 +397,11 @@ initializeDirectory DirectoryLayer {..} = do
         putWord32le majorVersion
         putWord32le minorVersion
         putWord32le microVersion
-  set (pack rootNode [Tuple.BytesElem "version"]) verBytes
+  set (pack rootNode [Tuple.Bytes "version"]) verBytes
 
 nodeWithPrefix :: DirectoryLayer -> ByteString -> Subspace
 nodeWithPrefix DirectoryLayer {..} prefix =
-  extend nodeSS [Tuple.BytesElem prefix]
+  extend nodeSS [Tuple.Bytes prefix]
 
 -- | Returns the longest prefix of @path@ that doesn't exist. If the entire
 -- path exists, returns it.
@@ -417,7 +417,7 @@ find dl@DirectoryLayer {..} queryPath = go baseNode (zip [0 ..] queryPath)
   go n []            = return (Just n)
   go n ((i, p) : ps) = do
     let nodePrefixKey = pack (nodeNodeSS n)
-                             [Tuple.IntElem _SUBDIRS, Tuple.TextElem p]
+                             [Tuple.Int _SUBDIRS, Tuple.Text p]
     get nodePrefixKey >>= await >>= \case
       Nothing -> return Nothing
       Just prefix -> do
@@ -439,10 +439,10 @@ contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
   -- TODO: do combinators like throwing already exist in some lib?
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
-    [Tuple.BytesElem prefix] -> do
+    [Tuple.Bytes prefix] -> do
       let newPath                  = dlPath <> queryPath
       let newDL = newDirectoryLayer
-            (subspace [Tuple.BytesElem (prefix <> "\xfe")])
+            (subspace [Tuple.Bytes (prefix <> "\xfe")])
             contentSS
             False
       return (DirPartition newDL { dlPath = newPath } dl)
@@ -459,7 +459,7 @@ contentsOfNodeSubspace DirectoryLayer {..} node queryPath layer = do
   -- @pack node []@
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
-    [Tuple.BytesElem prefixBytes] -> do
+    [Tuple.Bytes prefixBytes] -> do
       let newPath = dlPath <> queryPath
       return $ Directory (Subspace prefixBytes) newPath layer
     _ -> throwDirInternalError "unexpected contents for node prefix value"

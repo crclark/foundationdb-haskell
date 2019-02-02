@@ -18,7 +18,7 @@ import Properties.FoundationDB.Transaction
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
 testSS :: Subspace
-testSS = subspace [ BytesElem "foundationdb-haskell-test-"]
+testSS = subspace [ Bytes "foundationdb-haskell-test-"]
 
 cleanup :: Database -> Subspace -> IO ()
 cleanup db ss = runTransaction db $ do

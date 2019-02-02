@@ -55,23 +55,23 @@ data UUID = UUID Word32 Word32 Word32 Word32
 -- this library may introduce a more strongly typed tuple representation that
 -- enforces this restriction.
 data Elem =
-  NoneElem
+  None
   -- ^ Corresponds to null or nil types in other language bindings.
-  | TupleElem [Elem]
+  | Tuple [Elem]
   -- ^ Nested tuples.
-  | BytesElem ByteString
-  | TextElem T.Text
-  | IntElem Integer
+  | Bytes ByteString
+  | Text T.Text
+  | Int Integer
   -- ^ Variable-length integer encodings. For values that fit within a 64-bit
   -- signed integer, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#integer standard integer>
   -- encoding is used. For larger values, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#positive-arbitrary-precision-integer provisional spec>
   -- for Java and Python values is used.
-  | FloatElem Float
-  | DoubleElem Double
-  | BoolElem Bool
+  | Float Float
+  | Double Double
+  | Bool Bool
   | UUIDElem UUID
-  | CompleteVSElem (Versionstamp 'Complete)
-  | IncompleteVSElem (Versionstamp 'Incomplete)
+  | CompleteVS (Versionstamp 'Complete)
+  | IncompleteVS (Versionstamp 'Incomplete)
 
 deriving instance Show Elem
 deriving instance Ord Elem
@@ -210,41 +210,41 @@ encodeElem :: Bool
            -> Elem
            -- ^ elem to encode
            -> PutTuple ()
-encodeElem True NoneElem =
+encodeElem True None =
   putWord8 nullCode >> putWord8 0xff
-encodeElem False NoneElem =
+encodeElem False None =
   putWord8 nullCode
-encodeElem _ (BytesElem bs) =
+encodeElem _ (Bytes bs) =
   putWord8 bytesCode >> encodeBytes bs
-encodeElem _ (TextElem t) =
+encodeElem _ (Text t) =
   putWord8 stringCode >> encodeBytes (encodeUtf8 t)
-encodeElem _ (IntElem 0) = putWord8 zeroCode
-encodeElem _ (IntElem n) = if n > 0 then encodePosInt n else encodeNegInt n
-encodeElem _ (FloatElem x) = do
+encodeElem _ (Int 0) = putWord8 zeroCode
+encodeElem _ (Int n) = if n > 0 then encodePosInt n else encodeNegInt n
+encodeElem _ (Float x) = do
   putWord8 floatCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat32be x
-encodeElem _ (DoubleElem x) = do
+encodeElem _ (Double x) = do
   putWord8 doubleCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat64be x
-encodeElem _ (BoolElem True) = putWord8 trueCode
-encodeElem _ (BoolElem False) = putWord8 falseCode
+encodeElem _ (Bool True) = putWord8 trueCode
+encodeElem _ (Bool False) = putWord8 falseCode
 encodeElem _ (UUIDElem (UUID w x y z)) = do
   putWord8 uuidCode
   putWord32be w
   putWord32be x
   putWord32be y
   putWord32be z
-encodeElem _ (TupleElem xs) = do
+encodeElem _ (Tuple xs) = do
   putWord8 nestedCode
   mapM_ (encodeElem True) xs
   putWord8 0x00
-encodeElem _ (CompleteVSElem (CompleteVersionstamp tvs uv)) = do
+encodeElem _ (CompleteVS (CompleteVersionstamp tvs uv)) = do
   let (TransactionVersionstamp tv tb) = tvs
   putWord8 versionstampCode
   putWord64be tv
   putWord16be tb
   putWord16be uv
-encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
+encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
   putWord8 versionstampCode
   s <- get
   put s{incompleteVersionstampPos = Just $ currLength s}
@@ -309,7 +309,7 @@ decodeNoneElem :: Bool -> Get Elem
 decodeNoneElem nested = do
   expectCode nullCode
   when nested (expectCode 0xff)
-  return NoneElem
+  return None
 
 bytesTerminator :: Get ()
 bytesTerminator = do
@@ -351,13 +351,13 @@ decodeBytesElem :: Get Elem
 decodeBytesElem = do
   expectCode bytesCode
   bs <- getBytesUntil bytesTerminator
-  return $ BytesElem $ decodeBytes bs
+  return $ Bytes $ decodeBytes bs
 
 decodeTextElem :: Get Elem
 decodeTextElem = do
   expectCode stringCode
   bs <- getBytesUntil bytesTerminator
-  return $ TextElem $ decodeUtf8 $ decodeBytes bs
+  return $ Text $ decodeUtf8 $ decodeBytes bs
 
 decodeSmallPosInt :: Get Elem
 decodeSmallPosInt = do
@@ -368,7 +368,7 @@ decodeSmallPosInt = do
   let subres = runGet getWord64be bs
   case subres of
     Left e -> fail e
-    Right x -> return $ IntElem $ fromIntegral x
+    Right x -> return $ Int $ fromIntegral x
 
 decodeSmallNegInt :: Get Elem
 decodeSmallNegInt = do
@@ -379,7 +379,7 @@ decodeSmallNegInt = do
   let subres = runGet getWord64be bs
   case subres of
     Left e -> fail e
-    Right x -> return $ IntElem $ fromIntegral x - sizeLimits A.! n
+    Right x -> return $ Int $ fromIntegral x - sizeLimits A.! n
 
 decodeLargeNegInt :: Get Elem
 decodeLargeNegInt = do
@@ -387,7 +387,7 @@ decodeLargeNegInt = do
   (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
   go 0 n 0
 
-  where go !i !n !x | i == n = return $ IntElem x
+  where go !i !n !x | i == n = return $ Int x
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
@@ -397,7 +397,7 @@ decodeLargePosInt = do
   (n :: Int) <- fromIntegral <$> getWord8
   go 0 n 0
 
-  where go !i !n !x | i == n = return $ IntElem x
+  where go !i !n !x | i == n = return $ Int x
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
@@ -415,7 +415,7 @@ decodeFloatElem = do
   let subres = runGet getFloat32be fBytes
   case subres of
     Left e -> fail e
-    Right x -> return $ FloatElem x
+    Right x -> return $ Float x
 
 decodeDoubleElem :: Get Elem
 decodeDoubleElem = do
@@ -424,13 +424,13 @@ decodeDoubleElem = do
   let subres = runGet getFloat64be fBytes
   case subres of
     Left e -> fail e
-    Right x -> return $ DoubleElem x
+    Right x -> return $ Double x
 
 decodeBoolElem :: Get Elem
 decodeBoolElem = do
   c <- getWord8
   guard (c == falseCode || c == trueCode)
-  return (BoolElem (c == trueCode))
+  return (Bool (c == trueCode))
 
 decodeUUIDElem :: Get Elem
 decodeUUIDElem = do
@@ -445,7 +445,7 @@ decodeTupleElem = do
   expectCode nestedCode
   ts <- loop
   _ <- getWord8 -- 0x00 terminator
-  return (TupleElem ts)
+  return (Tuple ts)
 
   where
     loop = do
@@ -471,5 +471,5 @@ decodeVersionstamp = do
   uv <- getWord16be
   let tvs = TransactionVersionstamp tv bo
   if tv == maxBound && bo == maxBound
-    then return $ IncompleteVSElem $ IncompleteVersionstamp uv
-    else return $ CompleteVSElem $ CompleteVersionstamp tvs uv
+    then return $ IncompleteVS $ IncompleteVersionstamp uv
+    else return $ CompleteVS $ CompleteVersionstamp tvs uv
