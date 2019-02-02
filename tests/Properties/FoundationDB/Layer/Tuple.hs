@@ -29,9 +29,6 @@ instance Arbitrary (Versionstamp 'Complete) where
 instance Arbitrary (Versionstamp 'Incomplete) where
   arbitrary = IncompleteVersionstamp <$> arbitrary
 
-instance Arbitrary UUID where
-  arbitrary = UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-
 instance Arbitrary ByteString where
   arbitrary = BS.pack <$> arbitrary
 
@@ -47,7 +44,7 @@ instance Arbitrary Elem where
           , Float <$> arbitrary
           , Double <$> arbitrary
           , Bool <$> arbitrary
-          , UUIDElem <$> arbitrary
+          , UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
           , CompleteVS <$> arbitrary]
   shrink = genericShrink
 
@@ -182,7 +179,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [Bool False] exampleFalse "False"
   let uuid = fromJust $ UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"
   let (w1,w2,w3,w4) = UUID.toWords uuid
-  encodeDecode [UUIDElem (UUID w1 w2 w3 w4)] exampleUUID "UUID"
+  encodeDecode [UUID w1 w2 w3 w4] exampleUUID "UUID"
   let tvs = TransactionVersionstamp 0xdeadbeefdeadbeef 0xbeef
   let vs = CompleteVersionstamp tvs 12
   encodeDecode [CompleteVS vs]

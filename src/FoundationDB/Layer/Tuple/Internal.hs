@@ -45,11 +45,6 @@ import GHC.Generics (Generic)
 import GHC.Integer.Logarithms (integerLog2#)
 import Numeric.Search.Range (searchFromTo)
 
--- | Crude UUID type to avoid dependency on UUID library. Interconvertible with
--- @toWords@ and @fromWords@ in 'Data.UUID'.
-data UUID = UUID Word32 Word32 Word32 Word32
-  deriving (Show, Eq, Ord)
-
 -- | Elements of tuples. A tuple is represented as a list of these. Note that
 -- a tuple may contain at most one incomplete version stamp. Future versions of
 -- this library may introduce a more strongly typed tuple representation that
@@ -69,7 +64,9 @@ data Elem =
   | Float Float
   | Double Double
   | Bool Bool
-  | UUIDElem UUID
+  | UUID Word32 Word32 Word32 Word32
+  -- ^ Crude UUID to avoid dependency on UUID library. Interconvertible with
+  -- @toWords@ and @fromWords@ in 'Data.UUID'.
   | CompleteVS (Versionstamp 'Complete)
   | IncompleteVS (Versionstamp 'Incomplete)
   -- ^ This constructor is to be used in conjunction with 'encodeTupleElems' and
@@ -227,7 +224,7 @@ encodeElem _ (Double x) = do
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat64be x
 encodeElem _ (Bool True) = putWord8 trueCode
 encodeElem _ (Bool False) = putWord8 falseCode
-encodeElem _ (UUIDElem (UUID w x y z)) = do
+encodeElem _ (UUID w x y z) = do
   putWord8 uuidCode
   putWord32be w
   putWord32be x
@@ -457,16 +454,17 @@ decodeBoolElem = do
 decodeUUIDElem :: Get Elem
 decodeUUIDElem = do
   expectCode uuidCode
-  UUIDElem <$> (UUID <$> getWord32be
-                     <*> getWord32be
-                     <*> getWord32be
-                     <*> getWord32be)
+  UUID <$> getWord32be
+       <*> getWord32be
+       <*> getWord32be
+       <*> getWord32be
 
 decodeTupleElem :: Get Elem
 decodeTupleElem = do
   expectCode nestedCode
   ts <- loop
-  _ <- getWord8 -- 0x00 terminator
+  terminator <- getWord8
+  guard (terminator == 0)
   return (Tuple ts)
 
   where
