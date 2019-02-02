@@ -306,6 +306,9 @@ decodeTupleElemsWPrefix prefix bs = flip runGet bs $ do
   guard (gotPrefix == prefix)
   many (decodeElem False)
 
+-- TODO: this could be sped up by parsing the code up front and switching based
+-- on it, rather than trying and backtracking on it repeatedly. ~30% of time
+-- is spent on `expectCode` in the benchmarks.
 decodeElem :: Bool -> Get Elem
 decodeElem nested =
   decodeNoneElem nested
