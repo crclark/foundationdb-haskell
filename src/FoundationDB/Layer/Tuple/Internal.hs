@@ -72,11 +72,10 @@ data Elem =
   | UUIDElem UUID
   | CompleteVS (Versionstamp 'Complete)
   | IncompleteVS (Versionstamp 'Incomplete)
-
-deriving instance Show Elem
-deriving instance Ord Elem
-deriving instance Eq Elem
-deriving instance Generic Elem
+  -- ^ This constructor is to be used in conjunction with 'encodeTupleElems' and
+  -- the 'setVersionstampedKey' atomic operation. See 'encodeTupleElems' for
+  -- more information.
+  deriving (Show, Eq, Ord, Generic)
 
 sizeLimits :: Array Int Integer
 sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
@@ -255,12 +254,32 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
 -- tuple.
 --
--- Note that this encodes to the format expected by FoundationDB as input, which
+-- Note: this encodes to the format expected by FoundationDB as input, which
 -- is slightly different from the format returned by FoundationDB as output. The
 -- difference is that if the encoded bytes include an incomplete version stamp,
 -- two bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
--- batch order.
+-- batch order when this function is used in conjunction with
+-- 'setVersionstampedKey':
+--
+-- @
+-- do let k = pack mySubspace [IncompleteVSElem 123]
+--    atomicOp SetVersionstampedKey k "my_value"
+-- @
+--
+-- Because FoundationDB uses two bytes at the end of the key for this, only
+-- one 'IncompleteVS' can be used per key.
+--
+-- This also means that @(decodeTupleElems . encodeTupleElems)@ gives
+-- strange results when an 'IncompleteVS' is present in the input, because the
+-- two extra bytes are interpreted as being part of the tuple.
+--
+-- >>> decodeTupleElems $ encodeTupleElems [IncompleteVS (IncompleteVersionstamp 1)]
+-- Right [IncompleteVS (IncompleteVersionstamp 1),Bytes ""]
+--
+-- For this reason, 'decodeTupleElems' should only be called on keys that have
+-- been returned from the database, because 'setVersionstampedKey' drops
+-- the last two bytes when it writes the key to the database.
 encodeTupleElems :: Traversable t => t Elem -> ByteString
 encodeTupleElems = fst . runPutTuple . mapM_ (encodeElem False)
 
@@ -272,6 +291,9 @@ encodeTupleElemsWPrefix prefix es =
     putByteString prefix
     mapM_ (encodeElem False) es
 
+-- | Decodes a tuple, or returns a parse error. This function will never return
+-- 'IncompleteVS' tuple elements. See the note on 'encodeTupleElems' for more
+-- information.
 decodeTupleElems :: ByteString -> Either String [Elem]
 decodeTupleElems = runGet $ many (decodeElem False)
 
@@ -470,6 +492,4 @@ decodeVersionstamp = do
   bo <- getWord16be
   uv <- getWord16be
   let tvs = TransactionVersionstamp tv bo
-  if tv == maxBound && bo == maxBound
-    then return $ IncompleteVS $ IncompleteVersionstamp uv
-    else return $ CompleteVS $ CompleteVersionstamp tvs uv
+  return $ CompleteVS $ CompleteVersionstamp tvs uv
