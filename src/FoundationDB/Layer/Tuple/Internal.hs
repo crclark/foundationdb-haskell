@@ -22,7 +22,6 @@ import qualified Data.Array.Unboxed as A
 import Data.Bits
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Serialize.Get ( Get
                           , getBytes
@@ -43,7 +42,6 @@ import Data.Word (Word8, Word16, Word32, Word64)
 import GHC.Exts (Int(I#))
 import GHC.Generics (Generic)
 import GHC.Integer.Logarithms (integerLog2#)
-import Numeric.Search.Range (searchFromTo)
 
 -- | Elements of tuples. A tuple is represented as a list of these. Note that
 -- a tuple may contain at most one incomplete version stamp. Future versions of
@@ -77,11 +75,11 @@ data Elem =
 sizeLimits :: Array Int Integer
 sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
 
--- TODO: dep on search algo lib is overkill for searching 9-elem array.
 -- | Returns smallest size limit greater than input.
 bisectSize :: Integer -> Int
-bisectSize n =
-  fromMaybe 8 $ searchFromTo (\x -> (sizeLimits A.! x) > fromIntegral n) 0 8
+bisectSize n = go 0
+  where go 8 = 8
+        go !i = if fromIntegral n < (sizeLimits A.! i) then i else go (i+1)
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integral a => a -> Int
