@@ -30,7 +30,7 @@ import GHC.Exts(IsList(..))
 import Text.Printf (printf)
 
 import FoundationDB
-import FoundationDB.Error
+import FoundationDB.Error.Internal
 import FoundationDB.Transaction
 import FoundationDB.Layer.Tuple
 import FoundationDB.Internal.Bindings ( getCFDBError
@@ -272,7 +272,7 @@ popRangeSelector = popN 10 >>= \case
   _ -> return Nothing
 
 popAtomicOp :: MonadState StackMachine m
-            => m (Maybe (AtomicOp, ByteString, ByteString))
+            => m (Maybe (ByteString -> Opts.MutationType, ByteString, ByteString))
 popAtomicOp = popN 3 >>= \case
   Just [ StackBytes opBytes
        , StackBytes k
@@ -281,19 +281,19 @@ popAtomicOp = popN 3 >>= \case
         Nothing -> error $ "unknown op: " ++ show opBytes
   _ -> return Nothing
 
-  where parse "ADD" = Just Add
-        parse "AND" = Just And
-        parse "BIT_AND" = Just BitAnd
-        parse "OR" = Just Or
-        parse "BIT_OR" = Just BitOr
-        parse "XOR" = Just Xor
-        parse "BIT_XOR" = Just BitXor
-        parse "MAX" = Just Max
-        parse "MIN" = Just Min
-        parse "SET_VERSIONSTAMPED_KEY" = Just SetVersionstampedKey
-        parse "SET_VERSIONSTAMPED_VALUE" = Just SetVersionstampedValue
-        parse "BYTE_MIN" = Just ByteMin
-        parse "BYTE_MAX" = Just ByteMax
+  where parse "ADD" = Just Opts.add
+        parse "AND" = Just Opts.and
+        parse "BIT_AND" = Just Opts.bitAnd
+        parse "OR" = Just Opts.or
+        parse "BIT_OR" = Just Opts.bitOr
+        parse "XOR" = Just Opts.xor
+        parse "BIT_XOR" = Just Opts.bitXor
+        parse "MAX" = Just Opts.max
+        parse "MIN" = Just Opts.min
+        parse "SET_VERSIONSTAMPED_KEY" = Just Opts.setVersionstampedKey
+        parse "SET_VERSIONSTAMPED_VALUE" = Just Opts.setVersionstampedValue
+        parse "BYTE_MIN" = Just Opts.byteMin
+        parse "BYTE_MAX" = Just Opts.byteMax
         parse _ = Nothing
 
 rangeList :: RangeResult -> Transaction (Seq (ByteString, ByteString))
@@ -517,8 +517,8 @@ step i ClearRangeStartsWith = pop >>= \case
 
 step i AtomicOp = popAtomicOp >>= \case
   Just (op, k, v) ->
-    bubblingError i (atomicOp op k v) return
-  x@Nothing -> errorUnexpectedState i x AtomicOp
+    bubblingError i (atomicOp k (op v)) return
+  Nothing -> errorUnexpectedState i ("Nothing" :: String) AtomicOp
 
 step i ReadConflictRange = popN 2 >>= \case
   Just [ StackBytes begin

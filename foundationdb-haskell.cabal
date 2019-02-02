@@ -59,6 +59,7 @@ library
   -- Modules exported by the library.
   exposed-modules:   FoundationDB
                      , FoundationDB.Error
+                     , FoundationDB.Error.Internal
                      , FoundationDB.Internal.Bindings
                      , FoundationDB.Layer.Directory
                      , FoundationDB.Layer.Directory.Internal

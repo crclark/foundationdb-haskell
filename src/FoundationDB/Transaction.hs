@@ -57,8 +57,6 @@ module FoundationDB.Transaction (
                    , FirstGreaterThan
                    , FirstGreaterOrEq)
   , offset
-  -- * Atomic operations
-  , AtomicOp(..)
   -- * Advanced Usage
   -- $advanced
   , TransactionEnv (envConf)
@@ -91,7 +89,7 @@ import Data.Sequence (Seq(Empty, (:|>)))
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr)
 import Foreign.Ptr (castPtr)
 
-import FoundationDB.Error
+import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as FDB
 import FoundationDB.Versionstamp
@@ -380,43 +378,10 @@ isRangeEmpty r = do
     RangeDone Empty -> return True
     _               -> return False
 
--- TODO: this is redundant with and inconsistent with those exposed in Options!
-data AtomicOp =
-  Add
-  | And
-  | BitAnd
-  | Or
-  | BitOr
-  | Xor
-  | BitXor
-  | Max
-  | Min
-  | SetVersionstampedKey
-  | SetVersionstampedValue
-  | ByteMin
-  | ByteMax
-  deriving (Enum, Eq, Ord, Show, Read)
-
-toFDBMutationType :: AtomicOp -> FDB.FDBMutationType
-toFDBMutationType Add                  = FDB.MutationTypeAdd
-toFDBMutationType And                  = FDB.MutationTypeAnd
-toFDBMutationType BitAnd               = FDB.MutationTypeBitAnd
-toFDBMutationType Or                   = FDB.MutationTypeOr
-toFDBMutationType BitOr                = FDB.MutationTypeBitOr
-toFDBMutationType Xor                  = FDB.MutationTypeXor
-toFDBMutationType BitXor               = FDB.MutationTypeBitXor
-toFDBMutationType Max                  = FDB.MutationTypeMax
-toFDBMutationType Min                  = FDB.MutationTypeMin
-toFDBMutationType SetVersionstampedKey = FDB.MutationTypeSetVersionstampedKey
-toFDBMutationType SetVersionstampedValue =
-  FDB.MutationTypeSetVersionstampedValue
-toFDBMutationType ByteMin = FDB.MutationTypeByteMin
-toFDBMutationType ByteMax = FDB.MutationTypeByteMax
-
-atomicOp :: AtomicOp -> ByteString -> ByteString -> Transaction ()
-atomicOp op k x = do
+atomicOp :: ByteString -> FDB.MutationType -> Transaction ()
+atomicOp k op = do
   t <- asks cTransaction
-  liftIO $ FDB.transactionAtomicOp t k x (toFDBMutationType op)
+  liftIO $ FDB.transactionAtomicOp t k op
 
 -- | Attempts to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the

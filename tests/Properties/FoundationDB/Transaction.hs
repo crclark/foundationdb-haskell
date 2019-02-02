@@ -8,6 +8,7 @@ import FoundationDB
 import FoundationDB.Error
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
+import FoundationDB.Options
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 
@@ -86,7 +87,7 @@ versionstamps testSS db = describe "versionstamped tuple key" $
             [Bytes "vs", IncompleteVS (IncompleteVersionstamp 2)]
     let kLower = SS.pack testSS [Bytes "vs"]
     vsFuture <- runTransaction db $ do
-      atomicOp SetVersionstampedKey k "hi"
+      atomicOp k (setVersionstampedKey "hi")
       getVersionstamp
     vs <- join <$> awaitIO vsFuture
     finalK <- runTransaction db $

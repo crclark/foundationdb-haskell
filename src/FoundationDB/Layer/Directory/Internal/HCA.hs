@@ -68,7 +68,7 @@ findStartAndWindow hca@HCA{..} windowAdvanced start = do
             clearRange (pack counters []) (pack counters [Int start'])
             setOption nextWriteNoWriteConflictRange
             clearRange (pack recent []) (pack recent [Int start'])
-          atomicOp Add (pack counters [Int start']) oneBytes
+          atomicOp (pack counters [Int start']) (add oneBytes)
           withSnapshot $ get (pack counters [Int start'])
 
         parseCount Nothing = return 0
