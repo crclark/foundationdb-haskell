@@ -19,7 +19,7 @@ data FoundNode = FoundNode
 
 getFoundNodeLayer :: FoundNode -> Transaction ByteString
 getFoundNodeLayer n@(FoundNode ss _ _) = do
-  fv <- get (pack ss [BytesElem "layer"]) >>= await
+  fv <- get (pack ss [Bytes "layer"]) >>= await
   case fv of
     Nothing -> throwDirInternalError
                  $ "Failed to get node layer for node " ++ show n

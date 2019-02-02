@@ -14,6 +14,7 @@ module FoundationDB.Layer.Tuple.Internal where
 import FoundationDB.Versionstamp hiding (decodeVersionstamp)
 
 import Control.Applicative
+import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans (lift)
@@ -22,7 +23,6 @@ import qualified Data.Array.Unboxed as A
 import Data.Bits
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Serialize.Get ( Get
                           , getBytes
@@ -43,49 +43,47 @@ import Data.Word (Word8, Word16, Word32, Word64)
 import GHC.Exts (Int(I#))
 import GHC.Generics (Generic)
 import GHC.Integer.Logarithms (integerLog2#)
-import Numeric.Search.Range (searchFromTo)
-
--- | Crude UUID type to avoid dependency on UUID library. Interconvertible with
--- @toWords@ and @fromWords@ in 'Data.UUID'.
-data UUID = UUID Word32 Word32 Word32 Word32
-  deriving (Show, Eq, Ord)
+import Data.Tuple (swap)
 
 -- | Elements of tuples. A tuple is represented as a list of these. Note that
 -- a tuple may contain at most one incomplete version stamp. Future versions of
 -- this library may introduce a more strongly typed tuple representation that
 -- enforces this restriction.
 data Elem =
-  NoneElem
+  None
   -- ^ Corresponds to null or nil types in other language bindings.
-  | TupleElem [Elem]
+  | Tuple [Elem]
   -- ^ Nested tuples.
-  | BytesElem ByteString
-  | TextElem T.Text
-  | IntElem Integer
+  | Bytes ByteString
+  | Text T.Text
+  | Int Integer
   -- ^ Variable-length integer encodings. For values that fit within a 64-bit
   -- signed integer, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#integer standard integer>
   -- encoding is used. For larger values, the <https://github.com/apple/foundationdb/blob/master/design/tuple.md#positive-arbitrary-precision-integer provisional spec>
   -- for Java and Python values is used.
-  | FloatElem Float
-  | DoubleElem Double
-  | BoolElem Bool
-  | UUIDElem UUID
-  | CompleteVSElem (Versionstamp 'Complete)
-  | IncompleteVSElem (Versionstamp 'Incomplete)
+  | Float Float
+  | Double Double
+  | Bool Bool
+  | UUID Word32 Word32 Word32 Word32
+  -- ^ Crude UUID to avoid dependency on UUID library. Interconvertible with
+  -- @toWords@ and @fromWords@ in 'Data.UUID'.
+  | CompleteVS (Versionstamp 'Complete)
+  | IncompleteVS (Versionstamp 'Incomplete)
+  -- ^ This constructor is to be used in conjunction with 'encodeTupleElems' and
+  -- the 'setVersionstampedKey' atomic operation. See 'encodeTupleElems' for
+  -- more information.
+  deriving (Show, Eq, Ord, Generic)
 
-deriving instance Show Elem
-deriving instance Ord Elem
-deriving instance Eq Elem
-deriving instance Generic Elem
+instance NFData Elem
 
 sizeLimits :: Array Int Integer
 sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
 
--- TODO: dep on search algo lib is overkill for searching 9-elem array.
 -- | Returns smallest size limit greater than input.
 bisectSize :: Integer -> Int
-bisectSize n =
-  fromMaybe 8 $ searchFromTo (\x -> (sizeLimits A.! x) > fromIntegral n) 0 8
+bisectSize n = go 0
+  where go 8 = 8
+        go !i = if fromIntegral n < (sizeLimits A.! i) then i else go (i+1)
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integral a => a -> Int
@@ -123,12 +121,10 @@ deriving instance MonadState SerializationState PutTuple
 -- | returns the serialized tuple and the position of the incomplete version
 -- stamp, if any.
 runPutTuple :: PutTuple () -> (ByteString, Maybe Int)
-runPutTuple x =
-  let (((), s), bs) = Put.runPutM $
-                      runStateT (unPutTuple x) (SerializationState 0 Nothing)
-      in case incompleteVersionstampPos s of
-        Nothing -> (bs, Nothing)
-        Just i -> (bs <> Put.runPut (Put.putWord16le (fromIntegral i)), Just i)
+runPutTuple x = swap $ Put.runPutM $ do
+  ((), s) <- runStateT (unPutTuple x) (SerializationState 0 Nothing)
+  forM_ (incompleteVersionstampPos s) $ \i -> Put.putWord16le (fromIntegral i)
+  return (incompleteVersionstampPos s)
 
 incrLength :: Int -> PutTuple ()
 incrLength !i = do
@@ -210,41 +206,41 @@ encodeElem :: Bool
            -> Elem
            -- ^ elem to encode
            -> PutTuple ()
-encodeElem True NoneElem =
+encodeElem True None =
   putWord8 nullCode >> putWord8 0xff
-encodeElem False NoneElem =
+encodeElem False None =
   putWord8 nullCode
-encodeElem _ (BytesElem bs) =
+encodeElem _ (Bytes bs) =
   putWord8 bytesCode >> encodeBytes bs
-encodeElem _ (TextElem t) =
+encodeElem _ (Text t) =
   putWord8 stringCode >> encodeBytes (encodeUtf8 t)
-encodeElem _ (IntElem 0) = putWord8 zeroCode
-encodeElem _ (IntElem n) = if n > 0 then encodePosInt n else encodeNegInt n
-encodeElem _ (FloatElem x) = do
+encodeElem _ (Int 0) = putWord8 zeroCode
+encodeElem _ (Int n) = if n > 0 then encodePosInt n else encodeNegInt n
+encodeElem _ (Float x) = do
   putWord8 floatCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat32be x
-encodeElem _ (DoubleElem x) = do
+encodeElem _ (Double x) = do
   putWord8 doubleCode
   putByteString $ floatAdjust True $ Put.runPut $ Put.putFloat64be x
-encodeElem _ (BoolElem True) = putWord8 trueCode
-encodeElem _ (BoolElem False) = putWord8 falseCode
-encodeElem _ (UUIDElem (UUID w x y z)) = do
+encodeElem _ (Bool True) = putWord8 trueCode
+encodeElem _ (Bool False) = putWord8 falseCode
+encodeElem _ (UUID w x y z) = do
   putWord8 uuidCode
   putWord32be w
   putWord32be x
   putWord32be y
   putWord32be z
-encodeElem _ (TupleElem xs) = do
+encodeElem _ (Tuple xs) = do
   putWord8 nestedCode
   mapM_ (encodeElem True) xs
   putWord8 0x00
-encodeElem _ (CompleteVSElem (CompleteVersionstamp tvs uv)) = do
+encodeElem _ (CompleteVS (CompleteVersionstamp tvs uv)) = do
   let (TransactionVersionstamp tv tb) = tvs
   putWord8 versionstampCode
   putWord64be tv
   putWord16be tb
   putWord16be uv
-encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
+encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
   putWord8 versionstampCode
   s <- get
   put s{incompleteVersionstampPos = Just $ currLength s}
@@ -255,12 +251,32 @@ encodeElem _ (IncompleteVSElem (IncompleteVersionstamp uv)) = do
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
 -- tuple.
 --
--- Note that this encodes to the format expected by FoundationDB as input, which
+-- Note: this encodes to the format expected by FoundationDB as input, which
 -- is slightly different from the format returned by FoundationDB as output. The
 -- difference is that if the encoded bytes include an incomplete version stamp,
 -- two bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
--- batch order.
+-- batch order when this function is used in conjunction with
+-- 'setVersionstampedKey':
+--
+-- @
+-- do let k = pack mySubspace [IncompleteVSElem 123]
+--    atomicOp SetVersionstampedKey k "my_value"
+-- @
+--
+-- Because FoundationDB uses two bytes at the end of the key for this, only
+-- one 'IncompleteVS' can be used per key.
+--
+-- This also means that @(decodeTupleElems . encodeTupleElems)@ gives
+-- strange results when an 'IncompleteVS' is present in the input, because the
+-- two extra bytes are interpreted as being part of the tuple.
+--
+-- >>> decodeTupleElems $ encodeTupleElems [IncompleteVS (IncompleteVersionstamp 1)]
+-- Right [IncompleteVS (IncompleteVersionstamp 1),Bytes ""]
+--
+-- For this reason, 'decodeTupleElems' should only be called on keys that have
+-- been returned from the database, because 'setVersionstampedKey' drops
+-- the last two bytes when it writes the key to the database.
 encodeTupleElems :: Traversable t => t Elem -> ByteString
 encodeTupleElems = fst . runPutTuple . mapM_ (encodeElem False)
 
@@ -272,6 +288,9 @@ encodeTupleElemsWPrefix prefix es =
     putByteString prefix
     mapM_ (encodeElem False) es
 
+-- | Decodes a tuple, or returns a parse error. This function will never return
+-- 'IncompleteVS' tuple elements. See the note on 'encodeTupleElems' for more
+-- information.
 decodeTupleElems :: ByteString -> Either String [Elem]
 decodeTupleElems = runGet $ many (decodeElem False)
 
@@ -287,6 +306,9 @@ decodeTupleElemsWPrefix prefix bs = flip runGet bs $ do
   guard (gotPrefix == prefix)
   many (decodeElem False)
 
+-- TODO: this could be sped up by parsing the code up front and switching based
+-- on it, rather than trying and backtracking on it repeatedly. ~30% of time
+-- is spent on `expectCode` in the benchmarks.
 decodeElem :: Bool -> Get Elem
 decodeElem nested =
   decodeNoneElem nested
@@ -309,7 +331,7 @@ decodeNoneElem :: Bool -> Get Elem
 decodeNoneElem nested = do
   expectCode nullCode
   when nested (expectCode 0xff)
-  return NoneElem
+  return None
 
 bytesTerminator :: Get ()
 bytesTerminator = do
@@ -351,13 +373,13 @@ decodeBytesElem :: Get Elem
 decodeBytesElem = do
   expectCode bytesCode
   bs <- getBytesUntil bytesTerminator
-  return $ BytesElem $ decodeBytes bs
+  return $ Bytes $ decodeBytes bs
 
 decodeTextElem :: Get Elem
 decodeTextElem = do
   expectCode stringCode
   bs <- getBytesUntil bytesTerminator
-  return $ TextElem $ decodeUtf8 $ decodeBytes bs
+  return $ Text $ decodeUtf8 $ decodeBytes bs
 
 decodeSmallPosInt :: Get Elem
 decodeSmallPosInt = do
@@ -368,7 +390,7 @@ decodeSmallPosInt = do
   let subres = runGet getWord64be bs
   case subres of
     Left e -> fail e
-    Right x -> return $ IntElem $ fromIntegral x
+    Right x -> return $ Int $ fromIntegral x
 
 decodeSmallNegInt :: Get Elem
 decodeSmallNegInt = do
@@ -379,7 +401,7 @@ decodeSmallNegInt = do
   let subres = runGet getWord64be bs
   case subres of
     Left e -> fail e
-    Right x -> return $ IntElem $ fromIntegral x - sizeLimits A.! n
+    Right x -> return $ Int $ fromIntegral x - sizeLimits A.! n
 
 decodeLargeNegInt :: Get Elem
 decodeLargeNegInt = do
@@ -387,7 +409,7 @@ decodeLargeNegInt = do
   (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
   go 0 n 0
 
-  where go !i !n !x | i == n = return $ IntElem x
+  where go !i !n !x | i == n = return $ Int x
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
@@ -397,7 +419,7 @@ decodeLargePosInt = do
   (n :: Int) <- fromIntegral <$> getWord8
   go 0 n 0
 
-  where go !i !n !x | i == n = return $ IntElem x
+  where go !i !n !x | i == n = return $ Int x
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
@@ -415,7 +437,7 @@ decodeFloatElem = do
   let subres = runGet getFloat32be fBytes
   case subres of
     Left e -> fail e
-    Right x -> return $ FloatElem x
+    Right x -> return $ Float x
 
 decodeDoubleElem :: Get Elem
 decodeDoubleElem = do
@@ -424,28 +446,29 @@ decodeDoubleElem = do
   let subres = runGet getFloat64be fBytes
   case subres of
     Left e -> fail e
-    Right x -> return $ DoubleElem x
+    Right x -> return $ Double x
 
 decodeBoolElem :: Get Elem
 decodeBoolElem = do
   c <- getWord8
   guard (c == falseCode || c == trueCode)
-  return (BoolElem (c == trueCode))
+  return (Bool (c == trueCode))
 
 decodeUUIDElem :: Get Elem
 decodeUUIDElem = do
   expectCode uuidCode
-  UUIDElem <$> (UUID <$> getWord32be
-                     <*> getWord32be
-                     <*> getWord32be
-                     <*> getWord32be)
+  UUID <$> getWord32be
+       <*> getWord32be
+       <*> getWord32be
+       <*> getWord32be
 
 decodeTupleElem :: Get Elem
 decodeTupleElem = do
   expectCode nestedCode
   ts <- loop
-  _ <- getWord8 -- 0x00 terminator
-  return (TupleElem ts)
+  terminator <- getWord8
+  guard (terminator == 0)
+  return (Tuple ts)
 
   where
     loop = do
@@ -470,6 +493,4 @@ decodeVersionstamp = do
   bo <- getWord16be
   uv <- getWord16be
   let tvs = TransactionVersionstamp tv bo
-  if tv == maxBound && bo == maxBound
-    then return $ IncompleteVSElem $ IncompleteVersionstamp uv
-    else return $ CompleteVSElem $ CompleteVersionstamp tvs uv
+  return $ CompleteVS $ CompleteVersionstamp tvs uv

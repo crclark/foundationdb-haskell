@@ -1,6 +1,5 @@
 module FoundationDB.Layer.Tuple (
-  UUID (..)
-  , Elem (..)
+  Elem (..)
   , encodeTupleElems
   , encodeTupleElemsWPrefix
   , decodeTupleElems

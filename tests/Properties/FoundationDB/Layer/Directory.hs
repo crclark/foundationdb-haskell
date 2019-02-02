@@ -16,8 +16,8 @@ import Test.Hspec
 
 directorySpecs :: Database -> Subspace -> SpecWith ()
 directorySpecs db testSS = do
-  let dl = newDirectoryLayer (SS.extend testSS [IntElem 1])
-                             (SS.extend testSS [IntElem 2])
+  let dl = newDirectoryLayer (SS.extend testSS [Int 1])
+                             (SS.extend testSS [Int 2])
                              False
   describeCreateOrOpen db dl
   describeRemoveFromParent db dl
@@ -83,7 +83,7 @@ describeRemove db dl = describe "remove" $ do
   it "also removes contents" $ do
     let path = ["foo", "bar"]
     dir <- runTransaction db $ createOrOpen' dl path "" Nothing
-    let k = SS.pack (dirSubspace dir) [IntElem 1]
+    let k = SS.pack (dirSubspace dir) [Int 1]
     runTransaction db $ set k "hi"
     success <- runTransaction db $ remove dl path
     success `shouldBe` True

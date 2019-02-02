@@ -1,14 +1,18 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module FoundationDB.Versionstamp.Internal where
 
+import Control.DeepSeq (NFData(..))
 import Data.ByteString (ByteString)
 import Data.Word (Word16, Word64)
 import Data.Serialize.Get
 import Data.Serialize.Put
+import GHC.Generics (Generic)
 
 data VersionstampCompleteness = Complete | Incomplete
 
@@ -35,11 +39,15 @@ deriving instance Eq (Versionstamp a)
 
 deriving instance Ord (Versionstamp a)
 
+instance NFData (Versionstamp a) where
+  rnf (CompleteVersionstamp tv w) = rnf tv `seq` w `seq` ()
+  rnf (IncompleteVersionstamp w) = w `seq` ()
+
 -- | A 'TransactionVersionstamp' consists of a monotonically-increasing
 -- 8-byte transaction version and a 2-byte transaction batch order. Each
 -- transaction has an associated 'TransactionVersionstamp'.
 data TransactionVersionstamp = TransactionVersionstamp Word64 Word16
-  deriving (Show, Eq, Ord)
+  deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 putTransactionVersionstamp :: Putter TransactionVersionstamp
 putTransactionVersionstamp (TransactionVersionstamp tv tb) = do
