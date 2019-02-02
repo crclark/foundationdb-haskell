@@ -141,6 +141,9 @@ data Future a = forall b. Future
 instance Show (Future a) where
   show (Future c _) = show $ "Future " ++ show c
 
+instance Functor Future where
+  fmap f (Future cf e) = Future cf (fmap f e)
+
 -- | A future that can only be awaited after its transaction has committed.
 -- That is, in contrast to 'Future', this __must__ be returned from
 -- 'runTransaction' before it can safely be awaited. Use 'awaitIO' to await it.
@@ -160,6 +163,9 @@ data FutureIO a = forall b. FutureIO
 
 instance Show (FutureIO a) where
   show (FutureIO p _ _) = show $ "FutureIO " ++ show p
+
+instance Functor FutureIO where
+  fmap f (FutureIO cf p e) = FutureIO cf p (fmap f e)
 
 allocFutureIO :: FDB.Future b -> IO a -> IO (FutureIO a)
 allocFutureIO (FDB.Future f) e = do
