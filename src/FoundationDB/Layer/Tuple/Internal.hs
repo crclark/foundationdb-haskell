@@ -257,10 +257,10 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 -- two bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
 -- batch order when this function is used in conjunction with
--- 'setVersionstampedKey':
+-- 'SetVersionstampedKey':
 --
 -- @
--- do let k = pack mySubspace [IncompleteVSElem 123]
+-- do let k = pack mySubspace [IncompleteVS (IncompleteVersionstamp 123)]
 --    atomicOp SetVersionstampedKey k "my_value"
 -- @
 --
