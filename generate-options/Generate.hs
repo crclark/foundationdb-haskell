@@ -141,6 +141,17 @@ generateOptionType o@FdbOptionType{..} =
   ++ "\n\n"
   ++ concatMap (generateOption o) options
 
+deprecatedPragmas :: [FdbOption] -> [Decl ()]
+deprecatedPragmas opts =
+  map (\FdbOption{..} ->
+        DeprPragmaDecl () [( [name (lowerCamelCase optionName)]
+                           , "Deprecated in FDB C API")]) $
+  filter ((== "Deprecated") . optionDescription) opts
+
+generateDeprecatedPragmas :: [FdbOptionType] -> String
+generateDeprecatedPragmas =
+  unlines . map prettyPrint . deprecatedPragmas . concatMap options
+
 -- TODO: figure out a better way to do comments so we don't need to do any
 -- manual string concatenation.
 generateOptionsModule :: [FdbOptionType] -> String
@@ -152,4 +163,5 @@ generateOptionsModule tys =
   ++ "-- from FoundationDB's documentation in @fdb.options@.\n"
   ++ "module FoundationDB.Options where\n"
   ++ "import Data.ByteString.Char8 (ByteString)\n\n"
+  ++ generateDeprecatedPragmas tys
   ++ unlines (map generateOptionType tys)
