@@ -24,7 +24,7 @@ lowerCamelCase :: String -> String
 lowerCamelCase [] = []
 lowerCamelCase str =
   let (x:xs) = splitBy (== '_') str
-      in (map toLower x) ++ (concatMap capitalize xs)
+      in map toLower x ++ concatMap capitalize xs
 
 ty :: String -> Type ()
 ty str = TyCon () (UnQual () (Ident () str))
@@ -48,6 +48,9 @@ bytesOptName o = optName o "Bytes"
 flagOptName :: FdbOptionType -> String
 flagOptName o = optName o "Flag"
 
+inst :: String -> InstRule ()
+inst qn = IRule () Nothing Nothing (IHCon () (UnQual () (Ident () qn)))
+
 optionDataDecl :: FdbOptionType -> Decl ()
 optionDataDecl o@FdbOptionType{..} =
   DataDecl ()
@@ -58,7 +61,7 @@ optionDataDecl o@FdbOptionType{..} =
            , con (intOptName o) [ty "Int", ty "Int"]
            , con (bytesOptName o) [ty "Int", ty "ByteString"]
            , con (flagOptName o) [ty "Int"]]
-           []
+           [Deriving () Nothing [inst "Show", inst "Read", inst "Eq", inst "Ord"]]
 
 simpleBind :: String -> [Pat ()] -> Exp () -> Decl ()
 simpleBind fnName pats rhs =
@@ -143,9 +146,10 @@ generateOptionType o@FdbOptionType{..} =
 generateOptionsModule :: [FdbOptionType] -> String
 generateOptionsModule tys =
   "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}\n"
-  ++ "-- NOTE: This file is generated from fdb.options\n"
-  ++ "-- https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options\n"
-  ++ "-- by the generate-options executable in this project.\n\n"
-  ++ "module FoundationDB.Options where\n\n"
+  ++ "-- | NOTE: This file is generated from <https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options>\n"
+  ++ "-- by the generate-options executable in this project.\n"
+  ++ "-- All documentation on the individual options in this namespace comes\n"
+  ++ "-- from FoundationDB's documentation in @fdb.options@.\n"
+  ++ "module FoundationDB.Options where\n"
   ++ "import Data.ByteString.Char8 (ByteString)\n\n"
   ++ unlines (map generateOptionType tys)

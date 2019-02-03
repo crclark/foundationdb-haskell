@@ -261,7 +261,7 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 --
 -- @
 -- do let k = pack mySubspace [IncompleteVS (IncompleteVersionstamp 123)]
---    atomicOp SetVersionstampedKey k "my_value"
+--    atomicOp k (setVersionstampedKey "my_value")
 -- @
 --
 -- Because FoundationDB uses two bytes at the end of the key for this, only

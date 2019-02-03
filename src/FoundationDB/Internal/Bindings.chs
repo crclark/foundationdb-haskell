@@ -60,7 +60,6 @@ module FoundationDB.Internal.Bindings (
   , transactionClear
   , transactionClearRange
   , transactionAtomicOp
-  , FDBMutationType (..)
   , transactionCommit
   , transactionGetCommittedVersion
   , transactionGetVersionstamp
@@ -535,28 +534,28 @@ transactionClearRange t greaterOrEqBound lessThanBound =
   B.useAsCStringLen lessThanBound $ \(maxstr, maxlen) ->
   transactionClearRange_ t (castPtr minstr) minlen (castPtr maxstr) maxlen
 
-{#enum FDBMutationType {underscoreToCase}#}
-
-deriving instance Eq FDBMutationType
-deriving instance Ord FDBMutationType
-deriving instance Show FDBMutationType
-
 {#fun unsafe transaction_atomic_op as transactionAtomicOp_
   {`Transaction'
   , id `Ptr CUChar', `Int'
   , id `Ptr CUChar', `Int'
-  , `FDBMutationType'}
+  , `Int'}
   -> `()'#}
 
 transactionAtomicOp :: Transaction
                     -> B.ByteString
-                    -> B.ByteString
-                    -> FDBMutationType
+                    -- ^ key
+                    -> MutationType
                     -> IO ()
-transactionAtomicOp t k arg mutation =
+transactionAtomicOp t k (MutationTypeBytes i arg) =
   B.useAsCStringLen k $ \(kstr, klen) ->
   B.useAsCStringLen arg $ \(argstr, arglen) ->
-  transactionAtomicOp_ t (castPtr kstr) klen (castPtr argstr) arglen mutation
+  transactionAtomicOp_ t
+                       (castPtr kstr)
+                       klen
+                       (castPtr argstr)
+                       arglen
+                       i
+transactionAtomicOp _ _ _ = error "impossible case in transactionAtomicOp"
 
 {#fun unsafe transaction_commit as ^
   {`Transaction'} -> `Future ()' outFuture #}
