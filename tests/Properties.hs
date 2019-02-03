@@ -7,6 +7,7 @@ import FoundationDB
 import FoundationDB.Layer.Subspace
 import FoundationDB.Layer.Tuple
 
+import System.Environment (lookupEnv)
 import Test.Hspec
 
 import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps)
@@ -26,8 +27,10 @@ cleanup db ss = runTransaction db $ do
   clearRange begin end
 
 main :: IO ()
-main =
-  withFoundationDB defaultOptions $ \ db -> do
+main = do
+  mv <- lookupEnv "FDB_HASKELL_TEST_API_VERSION" :: IO (Maybe String)
+  let version = maybe currentAPIVersion read mv
+  withFoundationDB defaultOptions {apiVersion = version} $ \ db -> do
     let cleanupAfter tests = hspec $ after_ (cleanup db testSS) tests
     hspec encodeDecodeSpecs
     hspec encodeDecodeProps

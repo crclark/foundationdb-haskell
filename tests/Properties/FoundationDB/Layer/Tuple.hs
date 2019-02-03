@@ -112,7 +112,7 @@ exampleCompleteVersionstamp = BS.pack
 
 exampleIncompleteVersionstamp :: ByteString
 exampleIncompleteVersionstamp = BS.pack
-  [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0]
+  [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0, 0 ,0]
 
 encodeDecode :: [Elem] -> ByteString -> String -> SpecWith ()
 encodeDecode elems encoded desc = do

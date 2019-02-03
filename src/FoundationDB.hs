@@ -1,7 +1,5 @@
 -- | WIP interface for constructing and running transactions.
 
-
-
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -81,6 +79,10 @@ import FoundationDB.Options (NetworkOption(..), DatabaseOption(..))
 import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 
+validateVersion :: Int -> IO ()
+validateVersion v =
+  when (v < 520)
+       (throw (Error UnsupportedAPIVersion))
 
 initCluster :: FilePath -> IO FDB.Cluster
 initCluster fp = do
@@ -129,6 +131,7 @@ withFoundationDB :: FoundationDBOptions
                  -> (FDB.Database -> IO a)
                  -> IO a
 withFoundationDB FoundationDBOptions{..} m = do
+  validateVersion apiVersion
   done <- newEmptyMVar
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
   forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
@@ -154,6 +157,7 @@ startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 startFoundationDB :: FoundationDBOptions
                   -> IO FDB.Database
 startFoundationDB FoundationDBOptions{..} = do
+  validateVersion apiVersion
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
   forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
   fdbThrowing' FDB.setupNetwork
