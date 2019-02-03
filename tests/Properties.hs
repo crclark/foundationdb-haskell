@@ -27,12 +27,10 @@ cleanup db ss = runTransaction db $ do
 
 main :: IO ()
 main =
-  withFoundationDB defaultOptions $ \case
-    Left e -> error $ "error starting DB: " ++ show e
-    Right db -> do
-      let cleanupAfter tests = hspec $ after_ (cleanup db testSS) tests
-      hspec encodeDecodeSpecs
-      hspec encodeDecodeProps
-      hspec subspaceSpecs
-      cleanupAfter $ transactionProps testSS db
-      cleanupAfter $ directorySpecs db testSS
+  withFoundationDB defaultOptions $ \ db -> do
+    let cleanupAfter tests = hspec $ after_ (cleanup db testSS) tests
+    hspec encodeDecodeSpecs
+    hspec encodeDecodeProps
+    hspec subspaceSpecs
+    cleanupAfter $ transactionProps testSS db
+    cleanupAfter $ directorySpecs db testSS

@@ -3,7 +3,6 @@
 
 
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -83,32 +82,29 @@ import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 
 
-initCluster :: FilePath -> IO (Either Error FDB.Cluster)
+initCluster :: FilePath -> IO FDB.Cluster
 initCluster fp = do
   futureCluster <- FDB.createCluster fp
-  runExceptT $ do
-    fdbExcept' $ FDB.futureBlockUntilReady futureCluster
-    fdbExcept $ FDB.futureGetCluster futureCluster
+  fdbThrowing' $ FDB.futureBlockUntilReady futureCluster
+  fdbThrowing $ FDB.futureGetCluster futureCluster
 
-withCluster :: Maybe FilePath -> (Either Error FDB.Cluster -> IO a) -> IO a
+withCluster :: Maybe FilePath -> (FDB.Cluster -> IO a) -> IO a
 withCluster mfp =
   bracket (initCluster (fromMaybe "" mfp))
-          (either (const (return ())) FDB.clusterDestroy)
+          FDB.clusterDestroy
 
-initDB :: FDB.Cluster -> IO (Either Error FDB.Database)
+initDB :: FDB.Cluster -> IO FDB.Database
 initDB cluster = do
   futureDB <- FDB.clusterCreateDatabase cluster
-  runExceptT $ do
-    fdbExcept' $ FDB.futureBlockUntilReady futureDB
-    fdbExcept $ FDB.futureGetDatabase futureDB
+  fdbThrowing' $ FDB.futureBlockUntilReady futureDB
+  fdbThrowing $ FDB.futureGetDatabase futureDB
 
-withDatabase :: Maybe FilePath -> (Either Error FDB.Database -> IO a) -> IO a
+withDatabase :: Maybe FilePath -> (FDB.Database -> IO a) -> IO a
 withDatabase clusterFile f =
-  withCluster clusterFile $ \case
-    Left err -> f $ Left err
-    Right cluster -> bracket (initDB cluster)
-                             (either (const (return ())) FDB.databaseDestroy)
-                             f
+  withCluster clusterFile $ \ cluster ->
+    bracket (initDB cluster)
+            FDB.databaseDestroy
+            f
 
 data FoundationDBOptions = FoundationDBOptions
   { apiVersion :: Int
@@ -126,28 +122,25 @@ data FoundationDBOptions = FoundationDBOptions
 defaultOptions :: FoundationDBOptions
 defaultOptions = FoundationDBOptions FDB.currentAPIVersion Nothing [] []
 
--- TODO: check that we support the desired API version and bail out otherwise.
-
 -- | Handles correctly starting up the network connection to the DB.
--- Can only be called once per process!
+-- Can only be called once per process! Throws an 'Error' if any part of
+-- setting up the connection FoundationDB fails.
 withFoundationDB :: FoundationDBOptions
-                 -> (Either Error FDB.Database -> IO a)
+                 -> (FDB.Database -> IO a)
                  -> IO a
 withFoundationDB FoundationDBOptions{..} m = do
   done <- newEmptyMVar
-  fdbThrowing $ FDB.selectAPIVersion apiVersion
-  forM_ networkOptions (fdbThrowing . FDB.networkSetOption)
-  fdbThrowing FDB.setupNetwork
+  fdbThrowing' $ FDB.selectAPIVersion apiVersion
+  forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
+  fdbThrowing' FDB.setupNetwork
   start done
   finally (withDatabase clusterFile run) (stop done)
   where
     start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
     stop done = FDB.stopNetwork >> takeMVar done
-    run mdb = case mdb of
-      Left _ -> m mdb
-      Right db -> do
-        forM_ databaseOptions (fdbThrowing . FDB.databaseSetOption db)
-        m mdb
+    run db = do
+        forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
+        m db
 
 startFoundationDBGlobalLock :: MVar ()
 startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
@@ -156,25 +149,20 @@ startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 -- | Starts up FoundationDB. You must call 'stopFoundationDB' before your
 -- program terminates. It's recommended that you use 'withFoundationDB' instead,
 -- since it handles cleanup. This function is only intended to be used in GHCi.
--- Can only be called once per process!
+-- Can only be called once per process! Throws an 'Error' if any part of
+-- setting up the connection FoundationDB fails.
 startFoundationDB :: FoundationDBOptions
-                  -> IO (Either Error FDB.Database)
+                  -> IO FDB.Database
 startFoundationDB FoundationDBOptions{..} = do
-  fdbThrowing $ FDB.selectAPIVersion apiVersion
-  forM_ networkOptions (fdbThrowing . FDB.networkSetOption)
-  fdbThrowing FDB.setupNetwork
+  fdbThrowing' $ FDB.selectAPIVersion apiVersion
+  forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
+  fdbThrowing' FDB.setupNetwork
   void $ forkFinally FDB.runNetwork
                      (\_ -> putMVar startFoundationDBGlobalLock ())
-  mcluster <- initCluster (fromMaybe "" clusterFile)
-  case mcluster of
-    Left e -> return $ Left e
-    Right c -> do
-      mdb <- initDB c
-      case mdb of
-        Left e -> return $ Left e
-        Right db -> do
-          forM_ databaseOptions (fdbThrowing . FDB.databaseSetOption db)
-          return $ Right db
+  cluster <- initCluster (fromMaybe "" clusterFile)
+  db <- initDB cluster
+  forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
+  return db
 
 stopFoundationDB :: IO ()
 stopFoundationDB = FDB.stopNetwork >> takeMVar startFoundationDBGlobalLock

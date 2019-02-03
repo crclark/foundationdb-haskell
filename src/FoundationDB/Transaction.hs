@@ -238,7 +238,7 @@ addConflictRange
   :: ByteString -> ByteString -> FDB.FDBConflictRangeType -> Transaction ()
 addConflictRange k l ty = do
   t <- asks cTransaction
-  liftIO $ fdbThrowing $ FDB.transactionAddConflictRange t k l ty
+  fdbExcept' $ FDB.transactionAddConflictRange t k l ty
 
 addReadConflictKey :: ByteString -> Transaction ()
 addReadConflictKey k =

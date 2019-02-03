@@ -12,9 +12,8 @@ import FoundationDB
 
 go :: ByteString -> Int -> Maybe FilePath -> IO ()
 go prefix ver mpath =
-  withFoundationDB (FoundationDBOptions ver mpath [] []) $ \case
-    Left err -> error (show err)
-    Right database -> runTests ver prefix database
+  withFoundationDB (FoundationDBOptions ver mpath [] []) $ \ database ->
+    runTests ver prefix database
 
 main :: IO ()
 main = do

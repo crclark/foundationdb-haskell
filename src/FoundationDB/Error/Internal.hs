@@ -45,8 +45,16 @@ fdbExcept' x = do
 liftFDBError :: MonadError Error m => Either FDB.CFDBError a -> m a
 liftFDBError = either (throwError . CError . fromJust . toError) return
 
-fdbThrowing :: IO FDB.CFDBError -> IO ()
+
+fdbThrowing :: IO (FDB.CFDBError, a) -> IO a
 fdbThrowing a = do
+  (e, res) <- a
+  case toError e of
+    Just x -> throwIO $ CError x
+    Nothing -> return res
+
+fdbThrowing' :: IO FDB.CFDBError -> IO ()
+fdbThrowing' a = do
   e <- a
   case toError e of
     Just x -> throwIO $ CError x
