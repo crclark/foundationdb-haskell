@@ -100,6 +100,11 @@ data FDBHsError =
   -- ^ Thrown by foundationdb-haskell's transaction retry logic. Contains the
   -- underlying error from the C bindings that caused the transaction to be
   -- retried.
+  | UnsupportedAPIVersion
+  -- ^ Thrown by foundationdb-haskell on startup if the Haskell code doesn't
+  -- support the desired API version. This can happen even if the underlying C
+  -- library does support the desired version -- we sometimes drop support
+  -- for older versions sooner than the C API.
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.

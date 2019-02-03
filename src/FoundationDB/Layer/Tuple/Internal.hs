@@ -123,7 +123,7 @@ deriving instance MonadState SerializationState PutTuple
 runPutTuple :: PutTuple () -> (ByteString, Maybe Int)
 runPutTuple x = swap $ Put.runPutM $ do
   ((), s) <- runStateT (unPutTuple x) (SerializationState 0 Nothing)
-  forM_ (incompleteVersionstampPos s) $ \i -> Put.putWord16le (fromIntegral i)
+  forM_ (incompleteVersionstampPos s) $ \i -> Put.putWord32le (fromIntegral i)
   return (incompleteVersionstampPos s)
 
 incrLength :: Int -> PutTuple ()
@@ -254,10 +254,10 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 -- Note: this encodes to the format expected by FoundationDB as input, which
 -- is slightly different from the format returned by FoundationDB as output. The
 -- difference is that if the encoded bytes include an incomplete version stamp,
--- two bytes are appended to the end to indicate the index of the incomplete
+-- four bytes are appended to the end to indicate the index of the incomplete
 -- version stamp so that FoundationDB can fill in the transaction version and
 -- batch order when this function is used in conjunction with
--- 'SetVersionstampedKey':
+-- 'setVersionstampedKey' and 'setVersionstampedValue':
 --
 -- @
 -- do let k = pack mySubspace [IncompleteVS (IncompleteVersionstamp 123)]
@@ -272,7 +272,7 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 -- two extra bytes are interpreted as being part of the tuple.
 --
 -- >>> decodeTupleElems $ encodeTupleElems [IncompleteVS (IncompleteVersionstamp 1)]
--- Right [IncompleteVS (IncompleteVersionstamp 1),Bytes ""]
+-- Right [IncompleteVS (IncompleteVersionstamp 1),Bytes "",None,None]
 --
 -- For this reason, 'decodeTupleElems' should only be called on keys that have
 -- been returned from the database, because 'setVersionstampedKey' drops
