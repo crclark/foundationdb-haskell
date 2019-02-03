@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module FoundationDB.Layer.Subspace where
 
 import Data.ByteString (ByteString)
@@ -6,7 +9,7 @@ import Data.Monoid
 import Data.Sequence(Seq(Empty,(:<|)))
 
 import FoundationDB
-import FoundationDB.Layer.Tuple
+import FoundationDB.Layer.Tuple.Internal
 
 -- | Represents a subspace of 'Tuple' keys. A subspace is just a common prefix
 -- for a set of tuples.
@@ -19,6 +22,9 @@ subspace :: [Elem]
          -- incomplete version stamps.
          -> Subspace
 subspace es = Subspace (encodeTupleElems es)
+
+subspaceFromTuple :: (NoIncompleteVersionstamp xs, AtMostOneIncompleteVersionstamp xs) => Tuple xs -> Subspace
+subspaceFromTuple t = Subspace (encodeTuple t)
 
 -- | Create a subspace from a raw bytestring prefix and a tuple.
 prefixedSubspace :: ByteString
@@ -41,8 +47,14 @@ extend (Subspace prfx) =
 pack :: Subspace -> [Elem] -> ByteString
 pack sub = encodeTupleElemsWPrefix (rawPrefix sub)
 
+packTuple :: AtMostOneIncompleteVersionstamp xs => Subspace -> Tuple xs -> ByteString
+packTuple sub = encodeTupleWPrefix (rawPrefix sub)
+
 unpack :: Subspace -> ByteString -> Either String [Elem]
 unpack sub = decodeTupleElemsWPrefix (rawPrefix sub)
+
+unpackTuple :: FromTuple (Tuple xs) => Subspace -> ByteString -> Either String (Tuple xs)
+unpackTuple sub = decodeTupleWPrefix (rawPrefix sub)
 
 -- | Returns 'True' iff the subspace contains the given key.
 contains :: Subspace

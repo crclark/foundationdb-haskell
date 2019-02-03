@@ -618,21 +618,36 @@ instance (NFData x, NFData (Tuple xs)) => NFData (Tuple (x ': xs)) where
 
 type AtMostOneIncompleteVersionstamp xs = FoldIncomplete 'NoIncomplete xs ~ xs
 
-encodeTuple :: AtMostOneIncompleteVersionstamp xs => Tuple xs -> ByteString
-encodeTuple Nil = mempty
-encodeTuple t = fst $ runPutTuple $ go t
+type NoIncompleteVersionstamp xs = FoldIncomplete 'WithIncomplete xs ~ xs
+
+encodeTuple' :: AtMostOneIncompleteVersionstamp xs => Tuple xs -> PutTuple ()
+encodeTuple' t = go t
   where go :: Tuple xs -> PutTuple ()
         go Nil = return ()
         go (e :/: es) = encodeTupleElem False e >> go es
 
+encodeTuple :: AtMostOneIncompleteVersionstamp xs => Tuple xs -> ByteString
+encodeTuple Nil = mempty
+encodeTuple t = fst $ runPutTuple $ encodeTuple' t
+
+encodeTupleWPrefix :: AtMostOneIncompleteVersionstamp xs
+                   => ByteString
+                   -> Tuple xs
+                   -> ByteString
+encodeTupleWPrefix prefix tuple = fst $ runPutTuple $ do
+  putByteString prefix
+  encodeTuple' tuple
+
 decodeTuple :: FromTuple (Tuple xs) => ByteString -> Either String (Tuple xs)
 decodeTuple = runGet getTuple
 
-{-
-demo :: Int
-demo =
-  case decodeTuple encoded of
-    Right ((b :: Bool) :/: (CompleteVersionstamp _ z) :/: Nil) -> if b then fromIntegral z else 12
-    Left err -> error err
-  where encoded = encodeTuple (True :/: (CompleteVersionstamp (TransactionVersionstamp 1 3) 11) :/: Nil)
--}
+decodeTupleWPrefix :: FromTuple (Tuple xs)
+                   => ByteString
+                   -- ^ expected prefix
+                   -> ByteString
+                   -- ^ encoded tuple
+                   -> Either String (Tuple xs)
+decodeTupleWPrefix prefix bs = flip runGet bs $ do
+  gotPrefix <- getByteString (BS.length prefix)
+  guard (gotPrefix == prefix)
+  getTuple
