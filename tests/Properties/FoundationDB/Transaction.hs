@@ -60,6 +60,16 @@ setting testSS db = describe "set and get" $ do
     putStrLn "finished transaction"
     v `shouldBe` Just "x"
 
+  it "awaiting twice returns same result twice" $ do
+    let k = SS.pack testSS [Bytes "foo2"]
+    runTransaction db $ set k "bar"
+    (v1, v2) <- runTransaction db $ do
+      f <- get k
+      v1 <- await f
+      v2 <- await f
+      return (v1, v2)
+    v1 `shouldBe` v2
+
 cancellation :: Subspace -> Database -> SpecWith ()
 cancellation testSS db = describe "transaction cancellation" $ do
   it "should not commit cancelled transactions" $ do

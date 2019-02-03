@@ -131,16 +131,54 @@ deriving instance MonadResource Transaction
 -- calling 'await' on the value in another transaction will cause a segfault!
 -- Future versions of this library may use more sophisticated types to prevent
 -- this.
-data Future a = forall b. Future
+data Future a =
+  PureFuture a
+  -- ^ For applicative and monad instances
+  | forall b. Future
   { _cFuture :: FDB.Future b
   , _extractValue :: Transaction a
   }
 
-instance Show (Future a) where
+instance Show a => Show (Future a) where
+  show (PureFuture x) = show $ "Future " ++ show x
   show (Future c _) = show $ "Future " ++ show c
 
 instance Functor Future where
+  fmap f (PureFuture x) = PureFuture (f x)
   fmap f (Future cf e) = Future cf (fmap f e)
+
+instance Applicative Future where
+  pure = PureFuture
+  (PureFuture f)   <*> (PureFuture x)   = PureFuture (f x)
+  (PureFuture f)   <*> fut@(Future _ _) = fmap f fut
+  fut@(Future _ _) <*> (PureFuture x)   = fmap ($ x) fut
+  fut@(Future _ _) <*> (Future cf e)    = Future cf (await fut <*> e)
+
+fromCExtractor
+  :: FDB.Future b -> ReleaseKey -> Transaction a -> Transaction (Future a)
+fromCExtractor cFuture rk extract = return $ Future cFuture $ do
+  futErr <- liftIO $ FDB.futureGetError cFuture
+  case toError futErr of
+    Just x  -> release rk >> throwError (CError x)
+    Nothing -> do
+      res <- extract
+      release rk
+      return res
+
+allocFuture
+  :: IO (FDB.Future b)
+  -> (FDB.Future b -> Transaction a)
+  -> Transaction (Future a)
+allocFuture make extract = do
+  (rk, future) <- allocate make FDB.futureDestroy
+  fromCExtractor future rk (extract future)
+
+-- | Block until a future is ready.
+await :: Future a -> Transaction a
+await (PureFuture x) = return x
+await (Future f e) = do
+  fdbExcept' $ FDB.futureBlockUntilReady f
+  e
 
 -- | A future that can only be awaited after its transaction has committed.
 -- That is, in contrast to 'Future', this __must__ be returned from
@@ -174,31 +212,6 @@ awaitIO :: FutureIO a -> IO (Either Error a)
 awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
   Left  err -> return $ Left err
   Right ()  -> Right <$> e
-
-fromCExtractor
-  :: FDB.Future b -> ReleaseKey -> Transaction a -> Transaction (Future a)
-fromCExtractor cFuture rk extract = return $ Future cFuture $ do
-  futErr <- liftIO $ FDB.futureGetError cFuture
-  case toError futErr of
-    Just x  -> release rk >> throwError (CError x)
-    Nothing -> do
-      res <- extract
-      release rk
-      return res
-
-allocFuture
-  :: IO (FDB.Future b)
-  -> (FDB.Future b -> Transaction a)
-  -> Transaction (Future a)
-allocFuture make extract = do
-  (rk, future) <- allocate make FDB.futureDestroy
-  fromCExtractor future rk (extract future)
-
--- | Block until a future is ready.
-await :: Future a -> Transaction a
-await (Future f e) = do
-  fdbExcept' $ FDB.futureBlockUntilReady f
-  e
 
 -- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
 -- works without errors, the transaction was committed.
