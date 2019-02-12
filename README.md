@@ -23,16 +23,3 @@ You can then invoke it on `fdb.options`.
 ```
 stack exec generate-options -- --file /usr/include/foundationdb/fdb.options > src/FoundationDB/Options.hs
 ```
-
-### Running tests
-
-The tests read, write, and delete keys from a database. The database to use in the tests is specified by the `FDB_HASKELL_TEST_CLUSTER_FILE` environment variable. For example, using `stack`, one might invoke the tests like this
-
-```
-FDB_HASKELL_TEST_CLUSTER_FILE=/etc/foundationdb/fdb.cluster stack test
-```
-
-
-### To do
-
-Useful hints [here](https://forums.foundationdb.org/t/creating-new-bindings/207).
