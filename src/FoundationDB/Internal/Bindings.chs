@@ -157,9 +157,6 @@ foreign import ccall "fdbc_wrapper.h &fdb_future_destroy"
 
 {#fun unsafe future_is_ready as ^ {inFuture `Future a'} -> `Bool'#}
 
--- TODO future_set_callback? Haskell has lightweight threads, so might be easier
--- to just fork and block.
-
 {#fun unsafe future_release_memory as ^ {inFuture `Future a'} -> `()'#}
 
 {#fun unsafe future_get_error as ^
@@ -294,7 +291,6 @@ futureGetKeyValueArray f = do
   (err, arr, n, more) <- futureGetKeyValueArray_ f
   if isError err
     then return $ Left err
-    -- TODO: possible bug -- when does arr get freed?
     else do kvs <- peekArray n arr >>= mapM packKeyValue
             return $ Right $ (kvs, more)
 
@@ -304,8 +300,6 @@ futureGetKeyValueArray f = do
   {withCString* `FilePath'} -> `Future Cluster' outFuture #}
 
 {#fun unsafe cluster_destroy as ^ {`Cluster'} -> `()'#}
-
--- TODO: cluster_set_option.
 
 {#fun unsafe cluster_create_database as clusterCreateDatabase_
   {`Cluster', id `Ptr CUChar', `Int'} -> `Future a' outFuture #}

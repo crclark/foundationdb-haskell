@@ -434,8 +434,6 @@ contentsOfNodePartition
   -> Path
   -> Transaction DirPartition
 contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
-  -- TODO: need a type class of things that can be converted to keys to avoid
-  -- @pack node []@
   -- TODO: do combinators like throwing already exist in some lib?
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
