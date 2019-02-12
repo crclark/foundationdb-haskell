@@ -6,7 +6,6 @@ module Main where
 import FoundationDB
 import FoundationDB.Layer.Subspace
 import FoundationDB.Layer.Tuple
-import qualified FoundationDB.Options as Opts
 
 import System.Environment (lookupEnv)
 import Test.Hspec

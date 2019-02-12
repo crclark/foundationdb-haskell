@@ -12,10 +12,11 @@ import FoundationDB.Options
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Monad
 import Control.Monad.Except ( throwError )
+import Control.Monad.IO.Class(liftIO)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -36,6 +37,7 @@ transactionProps testSS db = do
     streamingModes testSS db
     retries testSS db
     watches testSS db
+    timeouts testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -239,3 +241,14 @@ watches testSS db = describe "watches" $
     runTransaction db $ set k "foo"
     afterSet <- takeMVar mvar
     afterSet `shouldBe` Right ()
+
+timeouts :: Subspace -> Database -> SpecWith ()
+timeouts testSS db = describe "timeouts" $
+  it "aborts after timing out" $ do
+    let k = SS.pack testSS [Bytes "timeoutkey"]
+    w <- runTransaction' db $ do
+      set k "hello"
+      liftIO $ threadDelay 1000000
+    w `shouldBe` Left (CError TransactionTimedOut)
+    v <- runTransaction db $ get k >>= await
+    v `shouldBe` Nothing
