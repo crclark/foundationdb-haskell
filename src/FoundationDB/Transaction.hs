@@ -91,7 +91,7 @@ import Foreign.Ptr (castPtr)
 
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
-import qualified FoundationDB.Options as FDB
+import qualified FoundationDB.Options as Opt
 import FoundationDB.Versionstamp
 
 -- TODO: this will be exported to users with a MonadIO instance. At first
@@ -391,7 +391,7 @@ isRangeEmpty r = do
     RangeDone Empty -> return True
     _               -> return False
 
-atomicOp :: ByteString -> FDB.MutationType -> Transaction ()
+atomicOp :: ByteString -> Opt.MutationType -> Transaction ()
 atomicOp k op = do
   t <- asks cTransaction
   liftIO $ FDB.transactionAtomicOp t k op
@@ -408,7 +408,7 @@ runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
 defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False 5
+defaultConfig = TransactionConfig False False 5 500
 
 -- | Contains useful options that are not directly exposed by the C API (for
 --   options that are, see 'setOption').
@@ -426,6 +426,9 @@ data TransactionConfig = TransactionConfig {
   , maxRetries :: Int
   -- ^ Max number of times to retry retryable errors. After this many retries,
   -- 'MaxRetriesExceeded' will be thrown to the caller of 'runTransaction'.
+  , timeout :: Int
+  -- ^ Max number of milliseconds the transaction is allowed to run. If this
+  -- number is exceeded, the transaction fails with an error.
   } deriving (Show, Read, Eq, Ord)
 
 -- | Attempt to commit a transaction against the given database. If an
@@ -464,6 +467,7 @@ runTransactionWithConfig'
 runTransactionWithConfig' conf db t = runResourceT $ runExceptT $ do
   trans <- createTransactionEnv db conf
   flip runReaderT trans $ unTransaction $ withRetry $ do
+    setOption (Opt.timeout (timeout conf))
     res    <- t
     commit <- commitFuture
     await commit
@@ -539,7 +543,7 @@ watch k = do
 
 
 -- | Set one of the transaction options from the underlying C API.
-setOption :: FDB.TransactionOption -> Transaction ()
+setOption :: Opt.TransactionOption -> Transaction ()
 setOption opt = do
   t <- asks cTransaction
   fdbExcept' $ FDB.transactionSetOption t opt

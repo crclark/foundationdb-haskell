@@ -282,11 +282,11 @@ popAtomicOp = popN 3 >>= \case
   _ -> return Nothing
 
   where parse "ADD" = Just Opts.add
-        parse "AND" = Just Opts.and
+        parse "AND" = Just Opts.bitAnd
         parse "BIT_AND" = Just Opts.bitAnd
-        parse "OR" = Just Opts.or
+        parse "OR" = Just Opts.bitOr
         parse "BIT_OR" = Just Opts.bitOr
-        parse "XOR" = Just Opts.xor
+        parse "XOR" = Just Opts.bitXor
         parse "BIT_XOR" = Just Opts.bitXor
         parse "MAX" = Just Opts.max
         parse "MIN" = Just Opts.min
@@ -602,7 +602,7 @@ step i (SnapshotOp op) = do
   -- as to whether separate threads will ever operate on the same
   -- transaction, so this might not be safe.
   st <- State.get
-  updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False True 5})
+  updateTransactions $ M.adjust (\env -> env {envConf = TransactionConfig False True 5 50})
                                 (transactionName st)
   step i op
   updateTransactions $ M.adjust (\env -> env {envConf = defaultConfig})
