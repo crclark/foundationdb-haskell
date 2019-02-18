@@ -113,7 +113,12 @@ library
 
   c-sources:           cbits/fdbc_wrapper.c
 
-  ghc-options:         -Wall -O2
+  ghc-options:         -O2
+                       -Wall
+                       -Wcompat
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
 
 executable generate-options
   if flag(with-generate-options)

@@ -117,6 +117,7 @@ data CError =
   | TransactionTooOld
   | FutureVersion
   | NotCommitted
+  -- ^ Returned if a transaction failed because of a conflict.
   | CommitUnknownResult
   | TransactionCanceled
   | TransactionTimedOut
@@ -157,10 +158,9 @@ data CError =
   | UsedDuringCommit
   | InvalidMutationType
   | TransactionInvalidVersion
-  | TransactionReadOnly2021
-  -- ^ this has the same name as error code 2023, hence the int suffix.
+  | NoCommitVersion
   | EnvironmentVariableNetworkOptionFailed
-  | TransactionReadOnly2023
+  | TransactionReadOnly
   | IncompatibleProtocolVersion
   | TransactionTooLarge
   | KeyTooLarge
@@ -229,9 +229,9 @@ toError 2016 = Just FutureNotError
 toError 2017 = Just UsedDuringCommit
 toError 2018 = Just InvalidMutationType
 toError 2020 = Just TransactionInvalidVersion
-toError 2021 = Just TransactionReadOnly2021
+toError 2021 = Just NoCommitVersion
 toError 2022 = Just EnvironmentVariableNetworkOptionFailed
-toError 2023 = Just TransactionReadOnly2023
+toError 2023 = Just TransactionReadOnly
 toError 2100 = Just IncompatibleProtocolVersion
 toError 2101 = Just TransactionTooLarge
 toError 2102 = Just KeyTooLarge
@@ -296,9 +296,9 @@ toCFDBError FutureNotError = 2016
 toCFDBError UsedDuringCommit = 2017
 toCFDBError InvalidMutationType = 2018
 toCFDBError TransactionInvalidVersion = 2020
-toCFDBError TransactionReadOnly2021 = 2021
+toCFDBError NoCommitVersion = 2021
 toCFDBError EnvironmentVariableNetworkOptionFailed = 2022
-toCFDBError TransactionReadOnly2023 = 2023
+toCFDBError TransactionReadOnly = 2023
 toCFDBError IncompatibleProtocolVersion = 2100
 toCFDBError TransactionTooLarge = 2101
 toCFDBError KeyTooLarge = 2102
