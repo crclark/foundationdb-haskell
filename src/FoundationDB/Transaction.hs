@@ -338,21 +338,18 @@ getRange' Range {..} mode = do
   let mk = getR rangeBegin rangeEnd (fromMaybe 0 rangeLimit) 1
   let
     handler bsel esel i lim fut = do
+      -- more doesn't take into account our count limit, so we check below
       (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
       let kvs' = Seq.fromList kvs
-      -- more doesn't take into account our count limit
-      if not (null kvs) && more && maybe True (length kvs' <) lim
-        then do
-          -- partial, but access guarded by @more@
-          let (_ :|> (lstK,_)) = kvs'
-          let bsel' =
-                if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
+      case kvs' of
+        (_ :|> (lstK,_)) | more && maybe True (length kvs' <) lim -> do
+          let bsel' = if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
           let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
           let lim' = fmap (\x -> x - length kvs') lim
           let mk' = getR bsel' esel' (fromMaybe 0 lim') (i+1)
           res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
           return $ RangeMore kvs' res
-        else return $ RangeDone $ case lim of
+        _ -> return $ RangeDone $ case lim of
           Nothing -> kvs'
           Just n  -> Seq.take n kvs'
   allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
