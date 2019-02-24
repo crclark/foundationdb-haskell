@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE LambdaCase #-}
 
 module FoundationDB.Layer.Tuple.Internal where
 
@@ -306,32 +307,29 @@ decodeTupleElemsWPrefix prefix bs = flip runGet bs $ do
   guard (gotPrefix == prefix)
   many (decodeElem False)
 
--- TODO: this could be sped up by parsing the code up front and switching based
--- on it, rather than trying and backtracking on it repeatedly. ~30% of time
--- is spent on `expectCode` in the benchmarks.
 decodeElem :: Bool -> Get Elem
-decodeElem nested =
-  decodeNoneElem nested
-  <|> decodeBytesElem
-  <|> decodeTextElem
-  <|> decodeIntElem
-  <|> decodeFloatElem
-  <|> decodeDoubleElem
-  <|> decodeBoolElem
-  <|> decodeUUIDElem
-  <|> decodeTupleElem
-  <|> decodeVersionstamp
+decodeElem nested = getWord8 >>= \case
+  c | c == nullCode && nested          -> expectCode 0xff >> return None
+    | c == nullCode                    -> return None
+    | c == bytesCode                   -> decodeBytesElem
+    | c == stringCode                  -> decodeTextElem
+    | c >= zeroCode && c < posEndCode  -> decodeSmallPosInt c
+    | c > negStartCode && c < zeroCode -> decodeSmallNegInt c
+    | c == posEndCode                  -> decodeLargePosInt
+    | c == negStartCode                -> decodeLargeNegInt
+    | c == floatCode                   -> decodeFloatElem
+    | c == doubleCode                  -> decodeDoubleElem
+    | c == trueCode                    -> return (Bool True)
+    | c == falseCode                   -> return (Bool False)
+    | c == uuidCode                    -> decodeUUIDElem
+    | c == nestedCode                  -> decodeTupleElem
+    | c == versionstampCode            -> decodeVersionstamp
+  c -> fail $ "got unknown tuple code: " ++ show c
 
 expectCode :: Word8 -> Get ()
 expectCode c = do
   c' <- getWord8
   guard (c == c')
-
-decodeNoneElem :: Bool -> Get Elem
-decodeNoneElem nested = do
-  expectCode nullCode
-  when nested (expectCode 0xff)
-  return None
 
 bytesTerminator :: Get ()
 bytesTerminator = do
@@ -370,21 +368,15 @@ decodeBytes bs =
         go (x:xs) = x : go xs
 
 decodeBytesElem :: Get Elem
-decodeBytesElem = do
-  expectCode bytesCode
-  bs <- getBytesUntil bytesTerminator
-  return $ Bytes $ decodeBytes bs
+decodeBytesElem =
+  Bytes . decodeBytes <$> getBytesUntil bytesTerminator
 
 decodeTextElem :: Get Elem
-decodeTextElem = do
-  expectCode stringCode
-  bs <- getBytesUntil bytesTerminator
-  return $ Text $ decodeUtf8 $ decodeBytes bs
+decodeTextElem =
+  Text . decodeUtf8 . decodeBytes <$> getBytesUntil bytesTerminator
 
-decodeSmallPosInt :: Get Elem
-decodeSmallPosInt = do
-  code <- getWord8
-  guard (code >= zeroCode && code < posEndCode)
+decodeSmallPosInt :: Word8 -> Get Elem
+decodeSmallPosInt code = do
   let n = fromIntegral $ code - 20
   bs <- (BS.pack (replicate (8 - n) 0x00) <>) <$> getBytes n
   let subres = runGet getWord64be bs
@@ -392,10 +384,8 @@ decodeSmallPosInt = do
     Left e -> fail e
     Right x -> return $ Int $ fromIntegral x
 
-decodeSmallNegInt :: Get Elem
-decodeSmallNegInt = do
-  code <- getWord8
-  guard (code > negStartCode && code < zeroCode)
+decodeSmallNegInt :: Word8 -> Get Elem
+decodeSmallNegInt code = do
   let n = fromIntegral $ 20 - code
   bs <- (BS.pack (replicate (8 - n) 0x00) <>) <$> getBytes n
   let subres = runGet getWord64be bs
@@ -405,7 +395,6 @@ decodeSmallNegInt = do
 
 decodeLargeNegInt :: Get Elem
 decodeLargeNegInt = do
-  expectCode negStartCode
   (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
   go 0 n 0
 
@@ -415,7 +404,6 @@ decodeLargeNegInt = do
 
 decodeLargePosInt :: Get Elem
 decodeLargePosInt = do
-  expectCode posEndCode
   (n :: Int) <- fromIntegral <$> getWord8
   go 0 n 0
 
@@ -423,16 +411,8 @@ decodeLargePosInt = do
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
-decodeIntElem :: Get Elem
-decodeIntElem =
-  decodeSmallPosInt
-  <|> decodeLargePosInt
-  <|> decodeSmallNegInt
-  <|> decodeLargeNegInt
-
 decodeFloatElem :: Get Elem
 decodeFloatElem = do
-  expectCode floatCode
   fBytes <- floatAdjust False <$> getByteString 4
   let subres = runGet getFloat32be fBytes
   case subres of
@@ -441,22 +421,14 @@ decodeFloatElem = do
 
 decodeDoubleElem :: Get Elem
 decodeDoubleElem = do
-  expectCode doubleCode
   fBytes <- floatAdjust False <$> getByteString 8
   let subres = runGet getFloat64be fBytes
   case subres of
     Left e -> fail e
     Right x -> return $ Double x
 
-decodeBoolElem :: Get Elem
-decodeBoolElem = do
-  c <- getWord8
-  guard (c == falseCode || c == trueCode)
-  return (Bool (c == trueCode))
-
 decodeUUIDElem :: Get Elem
-decodeUUIDElem = do
-  expectCode uuidCode
+decodeUUIDElem =
   UUID <$> getWord32be
        <*> getWord32be
        <*> getWord32be
@@ -464,7 +436,6 @@ decodeUUIDElem = do
 
 decodeTupleElem :: Get Elem
 decodeTupleElem = do
-  expectCode nestedCode
   ts <- loop
   terminator <- getWord8
   guard (terminator == 0)
@@ -488,7 +459,6 @@ decodeTupleElem = do
 
 decodeVersionstamp :: Get Elem
 decodeVersionstamp = do
-  expectCode versionstampCode
   tv <- getWord64be
   bo <- getWord16be
   uv <- getWord16be
