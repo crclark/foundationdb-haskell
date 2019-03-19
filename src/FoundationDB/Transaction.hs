@@ -86,7 +86,7 @@ import Data.Maybe (fromMaybe, fromJust)
 import Data.Semigroup ((<>))
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq(Empty, (:|>)))
-import Foreign.ForeignPtr (ForeignPtr, newForeignPtr)
+import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Ptr (castPtr)
 
 import FoundationDB.Error.Internal
@@ -135,6 +135,10 @@ data Future a =
   PureFuture a
   -- ^ For applicative and monad instances
   | forall b. Future
+  -- TODO:the future is closed over by _extractValue. It's only included in this
+  -- record so that we can more easily debug (see the Show instance, which
+  -- prints the address). Given the lack of bugs so far, it is probably safe
+  -- to simplify this.
   { _cFuture :: FDB.Future b
   , _extractValue :: Transaction a
   }
@@ -184,34 +188,26 @@ await (Future f e) = do
 -- That is, in contrast to 'Future', this __must__ be returned from
 -- 'runTransaction' before it can safely be awaited. Use 'awaitIO' to await it.
 -- This future type is not needed frequently.
-data FutureIO a = forall b. FutureIO
-  { _cFutureIO :: FDB.Future b
-  , _fgnPtr :: ForeignPtr ()
-  -- ^ Hack because we can't get a Ptr back out of a ForeignPtr, so we just
-  -- keep this around to ensure that when this FutureIO gets GC'ed, our
-  -- finalizer on the future pointer gets called. To simplify so that we don't
-  -- have to carry around both cFutureIO and fgnPtr (which both point to the
-  -- same thing), we'd need to make
-  -- duplicate versions of all Future functions at the bindings level that work
-  -- with a second Future newtype that's defined as a ForeignPtr. Then we would
-  -- only need _fgnPtr.
+data FutureIO a = FutureIO
+  { _fgnPtr :: ForeignPtr ()
   , _extractValueIO :: IO a}
 
 instance Show (FutureIO a) where
-  show (FutureIO p _ _) = show $ "FutureIO " ++ show p
+  show (FutureIO p _) = show $ "FutureIO " ++ show p
 
 instance Functor FutureIO where
-  fmap f (FutureIO cf p e) = FutureIO cf p (fmap f e)
+  fmap f (FutureIO cf e) = FutureIO cf (fmap f e)
 
 allocFutureIO :: FDB.Future b -> IO a -> IO (FutureIO a)
 allocFutureIO (FDB.Future f) e = do
   fp <- newForeignPtr FDB.futureDestroyPtr (castPtr f)
-  return $ FutureIO (FDB.Future f) fp e
+  return $ FutureIO fp e
 
 awaitIO :: FutureIO a -> IO (Either Error a)
-awaitIO (FutureIO f _ e) = fdbEither' (FDB.futureBlockUntilReady f) >>= \case
-  Left  err -> return $ Left err
-  Right ()  -> Right <$> e
+awaitIO (FutureIO fp e) = withForeignPtr fp $ \f ->
+  fdbEither' (FDB.futureBlockUntilReady (FDB.Future (castPtr f))) >>= \case
+    Left  err -> return $ Left err
+    Right ()  -> Right <$> e
 
 -- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
 -- works without errors, the transaction was committed.
@@ -282,6 +278,7 @@ getKeyAddresses k = do
   allocFuture (FDB.transactionGetAddressesForKey t k)
               (\f -> liftIO (FDB.futureGetStringArray f) >>= liftFDBError)
 
+-- TODO: rename to RangeQuery?
 -- | Specifies a range of keys to be iterated over by 'getRange'.
 data Range = Range {
   rangeBegin :: FDB.KeySelector
