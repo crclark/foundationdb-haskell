@@ -59,7 +59,6 @@ setting testSS db = describe "set and get" $ do
     let k = SS.pack testSS [Bytes "onetrans"]
     v <- runTransaction db $ do set k "x"
                                 get k >>= await
-    putStrLn "finished transaction"
     v `shouldBe` Just "x"
 
   it "awaiting twice returns same result twice" $ do
@@ -110,12 +109,28 @@ versionstamps testSS db = describe "versionstamped tuple key" $
     v `shouldBe` v'
 
 readVersions :: Subspace -> Database -> SpecWith ()
-readVersions _testSS db = describe "Read versions" $
+readVersions _testSS db = describe "Read versions" $ do
   it "trivial get followed by set gives error" $ do
     res <- runTransaction' db $ do
              v <- getReadVersion >>= await
              setReadVersion v
     res `shouldBe` Left (CError ReadVersionAlreadySet)
+  it "monotonically increases" $ do
+    readVer1 <- runTransaction db $ getReadVersion >>= await
+    vsf <- runTransaction db $ do
+      set "foo" "bar"
+      getVersionstamp
+    Right (Right (TransactionVersionstamp commitVer _)) <- awaitIO vsf
+    readVer2 <- runTransaction db $ getReadVersion >>= await
+    readVer1 `shouldSatisfy` (< readVer2)
+    commitVer `shouldSatisfy` (<= readVer2)
+  it "reusing old versions doesn't see newer state" $ do
+    readVer1 <- runTransaction db $ getReadVersion >>= await
+    runTransaction db $ set "oldVersionTest" "bar"
+    res <- runTransaction db $ do
+      setReadVersion readVer1
+      get "oldVersionTest" >>= await
+    res `shouldBe` Nothing
 
 ranges :: Subspace -> Database -> SpecWith ()
 ranges testSS db = describe "range ops" $ do
