@@ -86,6 +86,7 @@ import Data.Maybe (fromMaybe, fromJust)
 import Data.Semigroup ((<>))
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq(Empty, (:|>)))
+import Data.Word (Word64)
 import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
 import Foreign.Ptr (castPtr)
 
@@ -490,14 +491,14 @@ withSnapshot = local $ \s ->
 
 -- | Sets the read version on the current transaction. As the FoundationDB docs
 -- state, "this is not needed in simple cases".
-setReadVersion :: Int -> Transaction ()
+setReadVersion :: Word64 -> Transaction ()
 setReadVersion v = do
   t <- asks cTransaction
   liftIO $ FDB.transactionSetReadVersion t (fromIntegral v)
 
 -- | Gets the read version of the current transaction, representing all
 -- transactions that were reported committed before this one.
-getReadVersion :: Transaction (Future Int)
+getReadVersion :: Transaction (Future Word64)
 getReadVersion = do
   t <- asks cTransaction
   allocFuture (FDB.transactionGetReadVersion t)
