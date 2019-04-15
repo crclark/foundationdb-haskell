@@ -2,6 +2,8 @@ language: haskell
 dist: xenial
 ghc:
   - "8.2"
+  - "8.4"
+  - "8.6"
 before_install:
   - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
   - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
