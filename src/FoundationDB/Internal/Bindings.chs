@@ -25,19 +25,13 @@ module FoundationDB.Internal.Bindings (
   , futureGetError
   , futureGetVersion
   , futureGetKey
-  , futureGetCluster
-  , futureGetDatabase
   , futureGetValue
   , futureGetStringArray
   , FDBKeyValue (..)
   , futureGetKeyValueArray
-  -- * Cluster
-  , Cluster
-  , createCluster
-  , clusterDestroy
-  , clusterCreateDatabase
   -- * Database
   , Database
+  , createDatabase
   , databaseDestroy
   , databaseSetOption
   , databaseCreateTransaction
@@ -140,11 +134,6 @@ inFuture (Future x) = castPtr x
 outFuture ::Ptr () -> Future a
 outFuture p = Future (castPtr p)
 
-{#pointer *FDBCluster as Cluster newtype #}
-
-deriving instance Show Cluster
-deriving instance Storable Cluster
-
 {#fun unsafe future_cancel as ^ {inFuture `Future a'} -> `()'#}
 
 {#fun unsafe future_destroy as ^ {inFuture `Future a'} -> `()'#}
@@ -186,18 +175,11 @@ futureGetKey f = do
     else do bs <- B.packCStringLen (castPtr cs, l)
             return $ Right bs
 
-{#fun unsafe future_get_cluster as ^
-  {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
-
 -- | Handle to the underlying C API client state.
 {#pointer *FDBDatabase as Database newtype #}
 
 deriving instance Show Database
 deriving instance Storable Database
-
-{#fun unsafe future_get_database as ^
-  {inFuture `Future Database', alloca- `Database' peek*}
-  -> `CFDBError' CFDBError#}
 
 {#fun unsafe future_get_value as futureGetValue_
   {inFuture `Future a'
@@ -294,20 +276,7 @@ futureGetKeyValueArray f = do
     else do kvs <- peekArray n arr >>= mapM packKeyValue
             return $ Right $ (kvs, more)
 
--- | If empty string is given for FilePath, tries to use the default cluster
--- file.
-{#fun unsafe create_cluster as ^
-  {withCString* `FilePath'} -> `Future Cluster' outFuture #}
-
-{#fun unsafe cluster_destroy as ^ {`Cluster'} -> `()'#}
-
-{#fun unsafe cluster_create_database as clusterCreateDatabase_
-  {`Cluster', id `Ptr CUChar', `Int'} -> `Future a' outFuture #}
-
-clusterCreateDatabase :: Cluster -> IO (Future Database)
-clusterCreateDatabase cluster =
-  withCStringLen "DB" $ \(arr,len) ->
-    clusterCreateDatabase_ cluster (castPtr arr) len
+{#fun unsafe create_database as ^ {`String', alloca- `Database' peek*} -> `CFDBError' CFDBError #}
 
 {#fun unsafe database_destroy as ^ {`Database'} -> `()'#}
 

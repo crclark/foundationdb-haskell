@@ -3,3 +3,4 @@ dist-newstyle/
 test.sh
 .ghci
 *.py
+.vscode/
