@@ -109,7 +109,7 @@ versionstamps testSS db = describe "versionstamped tuple key" $
     v `shouldBe` v'
 
 readVersions :: Subspace -> Database -> SpecWith ()
-readVersions _testSS db = describe "Read versions" $ do
+readVersions testSS db = describe "Read versions" $ do
   it "trivial get followed by set gives error" $ do
     res <- runTransaction' db $ do
              v <- getReadVersion >>= await
@@ -118,18 +118,20 @@ readVersions _testSS db = describe "Read versions" $ do
   it "monotonically increases" $ do
     readVer1 <- runTransaction db $ getReadVersion >>= await
     vsf <- runTransaction db $ do
-      set "foo" "bar"
+      let k = SS.pack testSS [Bytes "monoReadVer"]
+      set k "bar"
       getVersionstamp
     Right (Right (TransactionVersionstamp commitVer _)) <- awaitIO vsf
     readVer2 <- runTransaction db $ getReadVersion >>= await
     readVer1 `shouldSatisfy` (< readVer2)
     commitVer `shouldSatisfy` (<= readVer2)
   it "reusing old versions doesn't see newer state" $ do
+    let k = SS.pack testSS [Bytes "oldVersionTest"]
     readVer1 <- runTransaction db $ getReadVersion >>= await
-    runTransaction db $ set "oldVersionTest" "bar"
+    runTransaction db $ set k "bar"
     res <- runTransaction db $ do
       setReadVersion readVer1
-      get "oldVersionTest" >>= await
+      get k >>= await
     res `shouldBe` Nothing
 
 ranges :: Subspace -> Database -> SpecWith ()
