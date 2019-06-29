@@ -5,11 +5,12 @@ ghc:
   - "8.4"
   - "8.6"
 before_install:
-  - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-clients_6.0.15-1_amd64.deb
-  - wget https://www.foundationdb.org/downloads/6.0.15/ubuntu/installers/foundationdb-server_6.0.15-1_amd64.deb
-  - sudo dpkg -i foundationdb-clients_6.0.15-1_amd64.deb
-  - sudo dpkg -i foundationdb-server_6.0.15-1_amd64.deb
+  - wget https://www.foundationdb.org/downloads/6.1.8/ubuntu/installers/foundationdb-clients_6.1.8-1_amd64.deb
+  - wget https://www.foundationdb.org/downloads/6.1.8/ubuntu/installers/foundationdb-server_6.1.8-1_amd64.deb
+  - sudo dpkg -i foundationdb-clients_6.1.8-1_amd64.deb
+  - sudo dpkg -i foundationdb-server_6.1.8-1_amd64.deb
   - sudo apt-get install c2hs
 env:
   - FDB_HASKELL_TEST_API_VERSION=520
   - FDB_HASKELL_TEST_API_VERSION=600
+  - FDB_HASKELL_TEST_API_VERSION=610
