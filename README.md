@@ -4,7 +4,7 @@ Unfinished Haskell bindings for the FoundationDB C client. Under active developm
 
 ### Supported FoundationDB versions
 
-Currently supports 5.2.x and 6.0.x.
+Currently supports 5.2.x, 6.0.x, and 6.1.x.
 
 
 ### Generating options from `fdb.options`
