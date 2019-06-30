@@ -1,6 +1,8 @@
 [![Build Status](https://travis-ci.org/crclark/foundationdb-haskell.svg?branch=master)](https://travis-ci.org/crclark/foundationdb-haskell)
 
-Unfinished Haskell bindings for the FoundationDB C client. Under active development. Currently contains FFI bindings to all of the C API, a `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/1f8d0ba2c4985d2fe3d8e6fcbc852c01050af9bb/tests/Properties.hs#L48)), and implementations of the standard tuple, subspace and directory layers. Tests are still sparser than I'd like, and the API is still changing.
+Haskell bindings for the FoundationDB C client. Not entirely finished, but quite usable. Currently contains FFI bindings to all of the C API, a `Transaction` monad for running transactions ([example](https://github.com/crclark/foundationdb-haskell/blob/1f8d0ba2c4985d2fe3d8e6fcbc852c01050af9bb/tests/Properties.hs#L48)), and implementations of the standard tuple, subspace and directory layers.
+
+I am not using this in a production-like context, but I have exercised the code rather heavily (heavy transaction rates for days at a time) in both local and cloud environments. The major missing component is directory partitions, but I haven't needed them yet. Generally speaking, the directory layer is the least exercised part of the library.
 
 ### Supported FoundationDB versions
 
