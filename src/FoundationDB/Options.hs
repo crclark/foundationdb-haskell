@@ -7,28 +7,31 @@ module FoundationDB.Options where
 import Data.ByteString.Char8 (ByteString)
 
 {-# DEPRECATED
-localAddress "deprecated in C API"
+localAddress "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-clusterFile "deprecated in C API"
+clusterFile "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-tlsPlugin "deprecated in C API"
+tlsPlugin "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-readAheadDisable "deprecated in C API"
+readAheadDisable "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-durabilityDevNullIsWebScale "deprecated in C API"
+durabilityDevNullIsWebScale "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-and "deprecated in C API"
+transactionLoggingEnable "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-or "deprecated in C API"
+and "Deprecated in FDB C API"
  #-}
 {-# DEPRECATED
-xor "deprecated in C API"
+or "Deprecated in FDB C API"
+ #-}
+{-# DEPRECATED
+xor "Deprecated in FDB C API"
  #-}
 data NetworkOption = NetworkOptionString Int String
                    | NetworkOptionInt Int Int
@@ -53,6 +56,9 @@ traceMaxLogsSize i = NetworkOptionInt (32) i
 
 -- | Sets the 'LogGroup' attribute with the specified value for all events in the trace output files. The default log group is 'default'.
 traceLogGroup str = NetworkOptionString (33) str
+
+-- | Select the format of the log files. xml (the default) and json are supported.
+traceFormat str = NetworkOptionString (34) str
 
 -- | Set internal tuning or debugging knobs
 knob str = NetworkOptionString (40) str
@@ -145,6 +151,21 @@ machineId str = DatabaseOptionString (21) str
 -- | Specify the datacenter ID that was passed to fdbserver processes running in the same datacenter as this client, for better location-aware load balancing.
 datacenterId str = DatabaseOptionString (22) str
 
+-- | Set a timeout in milliseconds which, when elapsed, will cause each transaction automatically to be cancelled. This sets the ``timeout`` option of each transaction created by this database. See the transaction option description for more information. Using this option requires that the API version is 610 or higher.
+transactionTimeout i = DatabaseOptionInt (500) i
+
+-- | Set a timeout in milliseconds which, when elapsed, will cause a transaction automatically to be cancelled. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.
+transactionRetryLimit i = DatabaseOptionInt (501) i
+
+-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. This sets the ``max_retry_delay`` option of each transaction created by this database. See the transaction option description for more information.
+transactionMaxRetryDelay i = DatabaseOptionInt (502) i
+
+-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.
+dbSnapshotRywEnable = DatabaseOptionFlag (26)
+
+-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.
+dbSnapshotRywDisable = DatabaseOptionFlag (27)
+
 
 data TransactionOption = TransactionOptionString Int String
                        | TransactionOptionInt Int Int
@@ -188,7 +209,7 @@ durabilityDevNullIsWebScale = TransactionOptionFlag (130)
 -- | Specifies that this transaction should be treated as highest priority and that lower priority transactions should block behind this one. Use is discouraged outside of low-level tools
 prioritySystemImmediate = TransactionOptionFlag (200)
 
--- | Specifies that this transaction should be treated as low priority and that default priority transactions should be processed first. Useful for doing batch work simultaneously with latency-sensitive work
+-- | Specifies that this transaction should be treated as low priority and that default priority transactions will be processed first. Batch priority transactions will also be throttled at load levels smaller than for other types of transactions and may be fully cut off in the event of machine failures. Useful for doing batch work simultaneously with latency-sensitive work
 priorityBatch = TransactionOptionFlag (201)
 
 -- | This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.
@@ -206,22 +227,28 @@ debugDump = TransactionOptionFlag (400)
 -- |
 debugRetryLogging str = TransactionOptionString (401) str
 
--- | Enables tracing for this transaction and logs results to the client trace logs. Client trace logging must be enabled to get log output.
+-- | Deprecated
 transactionLoggingEnable str = TransactionOptionString (402) str
 
--- | Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Like all transaction options, a timeout must be reset after a call to onError. This behavior allows the user to make the timeout dynamic.
+-- | Sets a client provided identifier for the transaction that will be used in scenarios like tracing or profiling. Client trace logging or transaction profiling must be separately enabled.
+debugTransactionIdentifier str = TransactionOptionString (403) str
+
+-- | Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled and to get log output.
+logTransaction = TransactionOptionFlag (404)
+
+-- | Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Prior to API version 610, like all other transaction options, the timeout must be reset after a call to ``onError``. If the API version is 610 or greater, the timeout is not reset after an ``onError`` call. This allows the user to specify a longer timeout on specific transactions than the default timeout specified through the ``transaction_timeout`` database option without the shorter database timeout cancelling transactions that encounter a retryable error. Note that at all API versions, it is safe and legal to set the timeout each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.
 timeout i = TransactionOptionInt (500) i
 
--- | Set a maximum number of retries after which additional calls to onError will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Like all transaction options, the retry limit must be reset after a call to onError. This behavior allows the user to make the retry limit dynamic.
+-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Prior to API version 610, like all other transaction options, the retry limit must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the retry limit each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.
 retryLimit i = TransactionOptionInt (501) i
 
--- | Set the maximum amount of backoff delay incurred in the call to onError if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. Like all transaction options, the maximum retry delay must be reset after a call to onError. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay.
+-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay. Prior to API version 610, like all other transaction options, the maximum retry delay must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the maximum retry delay each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.
 maxRetryDelay i = TransactionOptionInt (502) i
 
--- | Snapshot read operations will see the results of writes done in the same transaction.
+-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.
 snapshotRywEnable = TransactionOptionFlag (600)
 
--- | Snapshot read operations will not see the results of writes done in the same transaction.
+-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.
 snapshotRywDisable = TransactionOptionFlag (601)
 
 -- | The transaction can read and write to locked databases, and is resposible for checking that it took the lock.
@@ -235,6 +262,9 @@ readLockAware = TransactionOptionFlag (702)
 
 -- | No other transactions will be applied before this transaction within the same commit version.
 firstInBatch = TransactionOptionFlag (710)
+
+-- | This option should only be used by tools which change the database configuration.
+useProvisionalProxies = TransactionOptionFlag (711)
 
 
 data StreamingMode = StreamingModeString Int String
@@ -301,10 +331,10 @@ max bs = MutationTypeBytes (12) bs
 -- | Performs a little-endian comparison of byte strings. If the existing value in the database is not present, then ``param`` is stored in the database. If the existing value in the database is shorter than ``param``, it is first extended to the length of ``param`` with zero bytes.  If ``param`` is shorter than the existing value in the database, the existing value is truncated to match the length of ``param``. The smaller of the two values is then stored in the database.
 min bs = MutationTypeBytes (13) bs
 
--- | Transforms ``key`` using a versionstamp for the transaction. Sets the transformed key in the database to ``param``. The key is transformed by removing the final four bytes from the key and reading those as a little-Endian 32-bit integer to get a position ``pos``. The 10 bytes of the key from ``pos`` to ``pos + 10`` are replaced with the versionstamp of the transaction used. The first byte of the key is position 0. A versionstamp is a 10 byte, unique, monotonically (but not sequentially) increasing value for each committed transaction. The first 8 bytes are the committed version of the database (serialized in big-Endian order). The last 2 bytes are monotonic in the serialization order for transactions. WARNING: At this time, versionstamps are compatible with the Tuple layer only in the Java and Python bindings. Also, note that prior to API version 520, the offset was computed from only the final two bytes rather than the final four bytes.
+-- | Transforms ``key`` using a versionstamp for the transaction. Sets the transformed key in the database to ``param``. The key is transformed by removing the final four bytes from the key and reading those as a little-Endian 32-bit integer to get a position ``pos``. The 10 bytes of the key from ``pos`` to ``pos + 10`` are replaced with the versionstamp of the transaction used. The first byte of the key is position 0. A versionstamp is a 10 byte, unique, monotonically (but not sequentially) increasing value for each committed transaction. The first 8 bytes are the committed version of the database (serialized in big-Endian order). The last 2 bytes are monotonic in the serialization order for transactions. WARNING: At this time, versionstamps are compatible with the Tuple layer only in the Java, Python, and Go bindings. Also, note that prior to API version 520, the offset was computed from only the final two bytes rather than the final four bytes.
 setVersionstampedKey bs = MutationTypeBytes (14) bs
 
--- | Transforms ``param`` using a versionstamp for the transaction. Sets the ``key`` given to the transformed ``param``. The parameter is transformed by removing the final four bytes from ``param`` and reading those as a little-Endian 32-bit integer to get a position ``pos``. The 10 bytes of the parameter from ``pos`` to ``pos + 10`` are replaced with the versionstamp of the transaction used. The first byte of the parameter is position 0. A versionstamp is a 10 byte, unique, monotonically (but not sequentially) increasing value for each committed transaction. The first 8 bytes are the committed version of the database (serialized in big-Endian order). The last 2 bytes are monotonic in the serialization order for transactions. WARNING: At this time, versionstamps are compatible with the Tuple layer only in the Java and Python bindings. Also, note that prior to API version 520, the versionstamp was always placed at the beginning of the parameter rather than computing an offset.
+-- | Transforms ``param`` using a versionstamp for the transaction. Sets the ``key`` given to the transformed ``param``. The parameter is transformed by removing the final four bytes from ``param`` and reading those as a little-Endian 32-bit integer to get a position ``pos``. The 10 bytes of the parameter from ``pos`` to ``pos + 10`` are replaced with the versionstamp of the transaction used. The first byte of the parameter is position 0. A versionstamp is a 10 byte, unique, monotonically (but not sequentially) increasing value for each committed transaction. The first 8 bytes are the committed version of the database (serialized in big-Endian order). The last 2 bytes are monotonic in the serialization order for transactions. WARNING: At this time, versionstamps are compatible with the Tuple layer only in the Java, Python, and Go bindings. Also, note that prior to API version 520, the versionstamp was always placed at the beginning of the parameter rather than computing an offset.
 setVersionstampedValue bs = MutationTypeBytes (15) bs
 
 -- | Performs lexicographic comparison of byte strings. If the existing value in the database is not present, then ``param`` is stored. Otherwise the smaller of the two values is then stored in the database.
@@ -312,6 +342,9 @@ byteMin bs = MutationTypeBytes (16) bs
 
 -- | Performs lexicographic comparison of byte strings. If the existing value in the database is not present, then ``param`` is stored. Otherwise the larger of the two values is then stored in the database.
 byteMax bs = MutationTypeBytes (17) bs
+
+-- | Performs an atomic ``compare and clear`` operation. If the existing value in the database is equal to the given value, then given key is cleared.
+compareAndClear bs = MutationTypeBytes (20) bs
 
 
 data ConflictRangeType = ConflictRangeTypeString Int String
