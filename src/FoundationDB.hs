@@ -50,8 +50,10 @@ module FoundationDB (
   -- * Futures
   , Future
   , await
+  , cancelFuture
   , FutureIO
   , awaitIO
+  , cancelFutureIO
   -- * Key selectors
   , FDB.KeySelector( LastLessThan
                    , LastLessOrEq
