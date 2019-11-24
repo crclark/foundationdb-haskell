@@ -49,8 +49,10 @@ module FoundationDB.Transaction (
   -- * Futures
   , Future
   , await
+  , cancelFuture
   , FutureIO
   , awaitIO
+  , cancelFutureIO
   -- * Key selectors
   , FDB.KeySelector( LastLessThan
                    , LastLessOrEq
@@ -185,6 +187,12 @@ await (Future f e) = do
   fdbExcept' $ FDB.futureBlockUntilReady f
   e
 
+-- | Cancel a future. Attempts to await the future after cancellation will throw
+-- 'OperationCancelled'.
+cancelFuture :: Future a -> Transaction ()
+cancelFuture (PureFuture _) = return ()
+cancelFuture (Future f _e) = liftIO $ FDB.futureCancel f
+
 -- | A future that can only be awaited after its transaction has committed.
 -- That is, in contrast to 'Future', this __must__ be returned from
 -- 'runTransaction' before it can safely be awaited. Use 'awaitIO' to await it.
@@ -209,6 +217,12 @@ awaitIO (FutureIO fp e) = withForeignPtr fp $ \f ->
   fdbEither' (FDB.futureBlockUntilReady (FDB.Future (castPtr f))) >>= \case
     Left  err -> return $ Left err
     Right ()  -> Right <$> e
+
+-- | Cancel a future. Attempts to await the future after cancellation will throw
+-- 'OperationCancelled'.
+cancelFutureIO :: FutureIO a -> IO ()
+cancelFutureIO (FutureIO fp _e) = withForeignPtr fp $ \f ->
+  FDB.futureCancel (FDB.Future (castPtr f))
 
 -- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
 -- works without errors, the transaction was committed.
