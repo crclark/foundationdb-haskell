@@ -49,10 +49,14 @@ module FoundationDB.Transaction (
   -- * Futures
   , Future
   , await
+  , awaitInterruptible
   , cancelFuture
+  , futureIsReady
   , FutureIO
   , awaitIO
+  , awaitInterruptibleIO
   , cancelFutureIO
+  , futureIsReadyIO
   -- * Key selectors
   , FDB.KeySelector( LastLessThan
                    , LastLessOrEq
@@ -70,6 +74,7 @@ module FoundationDB.Transaction (
   , getCommittedVersion
 ) where
 
+import Control.Concurrent (threadDelay)
 import Control.Exception (throwIO)
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
@@ -180,12 +185,23 @@ allocFuture make extract = do
   (rk, future) <- allocate make FDB.futureDestroy
   fromCExtractor future rk (extract future)
 
--- | Block until a future is ready.
+-- | Block until a future is ready. Unfortunately, does not seem to be
+-- interruptible SIGPIPE (the interrupt sent by Control.Conccurent.Async to
+-- cancel), even when using InterruptibleFFI.
 await :: Future a -> Transaction a
 await (PureFuture x) = return x
 await (Future f e) = do
   fdbExcept' $ FDB.futureBlockUntilReady f
   e
+
+-- | Polls a future for readiness in a loop until it is ready, then returns
+-- the value in the future. This is less resource efficient than 'await', but
+-- can be interrupted more easily.
+awaitInterruptible :: Future a -> Transaction a
+awaitInterruptible (PureFuture x) = return x
+awaitInterruptible fut@(Future _f e) = futureIsReady fut >>= \case
+  True -> e
+  False -> liftIO (threadDelay 1000) >> awaitInterruptible fut
 
 -- | Cancel a future. Attempts to await the future after cancellation will throw
 -- 'OperationCancelled'.
@@ -193,10 +209,17 @@ cancelFuture :: Future a -> Transaction ()
 cancelFuture (PureFuture _) = return ()
 cancelFuture (Future f _e) = liftIO $ FDB.futureCancel f
 
+-- | Returns True if the future is ready. If so, calling 'await' will not block.
+futureIsReady :: Future a -> Transaction Bool
+futureIsReady (PureFuture _) = return True
+futureIsReady (Future f _) = liftIO $ FDB.futureIsReady f
+
 -- | A future that can only be awaited after its transaction has committed.
 -- That is, in contrast to 'Future', this __must__ be returned from
 -- 'runTransaction' before it can safely be awaited. Use 'awaitIO' to await it.
 -- This future type is not needed frequently.
+--
+-- All 'FutureIO' functions work similarly to their 'Future' counterparts.
 data FutureIO a = FutureIO
   { _fgnPtr :: ForeignPtr ()
   , _extractValueIO :: IO a}
@@ -218,11 +241,20 @@ awaitIO (FutureIO fp e) = withForeignPtr fp $ \f ->
     Left  err -> return $ Left err
     Right ()  -> Right <$> e
 
+awaitInterruptibleIO :: FutureIO a -> IO a
+awaitInterruptibleIO fut@(FutureIO _ e) = futureIsReadyIO fut >>= \case
+  True -> e
+  False -> threadDelay 1000 >> awaitInterruptibleIO fut
+
 -- | Cancel a future. Attempts to await the future after cancellation will throw
 -- 'OperationCancelled'.
 cancelFutureIO :: FutureIO a -> IO ()
 cancelFutureIO (FutureIO fp _e) = withForeignPtr fp $ \f ->
   FDB.futureCancel (FDB.Future (castPtr f))
+
+futureIsReadyIO :: FutureIO a -> IO Bool
+futureIsReadyIO (FutureIO fp _) = withForeignPtr fp $ \f ->
+  FDB.futureIsReady (FDB.Future (castPtr f))
 
 -- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
 -- works without errors, the transaction was committed.
