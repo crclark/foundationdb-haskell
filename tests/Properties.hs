@@ -14,6 +14,7 @@ import Properties.FoundationDB.Layer.Tuple (encodeDecodeSpecs, encodeDecodeProps
 import Properties.FoundationDB.Layer.Directory (directorySpecs)
 import Properties.FoundationDB.Layer.Subspace (subspaceSpecs)
 import Properties.FoundationDB.Transaction
+import Properties.FoundationDB.Versionstamp.Internal (versionstampProps)
 
 -- | Prefix for all test keys, to reduce the chance of a user accidentally
 -- wiping something important.
@@ -35,5 +36,6 @@ main = do
     hspec encodeDecodeSpecs
     hspec encodeDecodeProps
     hspec subspaceSpecs
+    hspec versionstampProps
     cleanupAfter $ transactionProps testSS db
     cleanupAfter $ directorySpecs db testSS

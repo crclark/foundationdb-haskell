@@ -150,7 +150,8 @@ test-suite tests
   other-modules:       Properties.FoundationDB.Layer.Tuple,
                        Properties.FoundationDB.Layer.Directory,
                        Properties.FoundationDB.Layer.Subspace,
-                       Properties.FoundationDB.Transaction
+                       Properties.FoundationDB.Transaction,
+                       Properties.FoundationDB.Versionstamp.Internal
 
 benchmark tuple-bench
   type:                exitcode-stdio-1.0
