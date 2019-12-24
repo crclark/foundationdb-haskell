@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module FoundationDB.Versionstamp.Internal where
 
@@ -39,6 +40,10 @@ deriving instance Eq (Versionstamp a)
 
 deriving instance Ord (Versionstamp a)
 
+instance Bounded (Versionstamp 'Complete) where
+  minBound = CompleteVersionstamp minBound minBound
+  maxBound = CompleteVersionstamp maxBound maxBound
+
 instance NFData (Versionstamp a) where
   rnf (CompleteVersionstamp tv w) = rnf tv `seq` w `seq` ()
   rnf (IncompleteVersionstamp w) = w `seq` ()
@@ -47,7 +52,7 @@ instance NFData (Versionstamp a) where
 -- 8-byte transaction version and a 2-byte transaction batch order. Each
 -- transaction has an associated 'TransactionVersionstamp'.
 data TransactionVersionstamp = TransactionVersionstamp Word64 Word16
-  deriving (Show, Read, Eq, Ord, Generic, NFData)
+  deriving (Show, Read, Eq, Ord, Generic, NFData, Bounded)
 
 putTransactionVersionstamp :: Putter TransactionVersionstamp
 putTransactionVersionstamp (TransactionVersionstamp tv tb) = do
