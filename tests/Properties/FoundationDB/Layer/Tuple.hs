@@ -163,6 +163,14 @@ issue12 = describe "Max 8-byte encoded ints" $ do
     encodeTupleElems [Int $ negate $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
 
+decodeInvalidBytes :: SpecWith ()
+decodeInvalidBytes = describe "decode invalid bytes" $ do
+  let err = Left "could not decode 1 bytes from the end of the bytestring"
+  it "decodeTupleElems with invalid tuple" $
+    decodeTupleElems "\x50" `shouldBe` err
+  it "decodeTupleElemsWPrefix with valid prefix but invalid tuple" $ do
+    decodeTupleElemsWPrefix "a" "a\x50" `shouldBe` err
+
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
@@ -195,6 +203,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   -- doesn't roundtrip either.
   describeIntegerTypeCodes
   issue12
+  decodeInvalidBytes
 
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $

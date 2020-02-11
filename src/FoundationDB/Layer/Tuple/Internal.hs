@@ -34,7 +34,8 @@ import Data.Serialize.Get ( Get
                           , getWord8
                           , lookAhead
                           , remaining
-                          , runGet)
+                          , runGet
+                          , runGetState)
 import qualified Data.Serialize.IEEE754 as Put
 import Data.Serialize.IEEE754 (getFloat32be, getFloat64be)
 import qualified Data.Serialize.Put as Put
@@ -293,7 +294,7 @@ encodeTupleElemsWPrefix prefix es =
 -- 'IncompleteVS' tuple elements. See the note on 'encodeTupleElems' for more
 -- information.
 decodeTupleElems :: ByteString -> Either String [Elem]
-decodeTupleElems = runGet $ many (decodeElem False)
+decodeTupleElems bs = runGetComplete bs $ many (decodeElem False)
 
 -- | Decodes a tuple that was encoded with a given prefix. Fails if the
 -- input prefix is not actually a prefix of the encoded tuple.
@@ -302,10 +303,17 @@ decodeTupleElemsWPrefix :: ByteString
                         -> ByteString
                         -- ^ encoded tuple
                         -> Either String [Elem]
-decodeTupleElemsWPrefix prefix bs = flip runGet bs $ do
+decodeTupleElemsWPrefix prefix bs = runGetComplete bs $ do
   gotPrefix <- getByteString (BS.length prefix)
   guard (gotPrefix == prefix)
   many (decodeElem False)
+
+runGetComplete :: ByteString -> Get a -> Either String a
+runGetComplete bs decoder = do
+  (result, rest) <- runGetState decoder bs 0
+  unless (BS.null rest) $
+    Left $ "could not decode " <> show (BS.length rest) <> " bytes from the end of the bytestring"
+  pure result
 
 decodeElem :: Bool -> Get Elem
 decodeElem nested = getWord8 >>= \case
