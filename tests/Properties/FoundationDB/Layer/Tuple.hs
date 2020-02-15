@@ -78,6 +78,9 @@ exampleUnicodeString =
 exampleNested :: ByteString
 exampleNested = "\x05\x15\x01\x00"
 
+exampleNestedNone :: ByteString
+exampleNestedNone = "\x05\x00\xff\x00"
+
 examplePosInt :: ByteString
 examplePosInt = "\x15\x01"
 
@@ -177,6 +180,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [Bytes "hello"] exampleBytes "bytes"
   encodeDecode [Text "Iñtërnâtiônàližætiøn"] exampleUnicodeString "unicode"
   encodeDecode [Tuple [Int 1]] exampleNested "nested tuple"
+  encodeDecode [Tuple [None]] exampleNestedNone "nested tuple containing none"
   encodeDecode [Int 1] examplePosInt "postive int"
   encodeDecode [Int (-5)] exampleNegInt "negative int"
   encodeDecode [Int 0] exampleZero "zero"
