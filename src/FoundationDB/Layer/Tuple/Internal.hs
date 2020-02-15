@@ -459,10 +459,10 @@ decodeTupleElem = do
                 return (next : rest)
 
     checkEnd :: Get Bool
-    checkEnd = do
-      c <- lookAhead getWord8
+    checkEnd = lookAhead $ do
+      c <- getWord8
       if c == 0x00
-        then lookAhead ((/= 0xff) <$> getWord8) <|> return True
+        then ((/= 0xff) <$> getWord8) <|> return True
         else return False
 
 decodeVersionstamp :: Get Elem
