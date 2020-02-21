@@ -350,38 +350,26 @@ bytesTerminator = do
          d <- lookAhead getWord8
          guard (c == 0x00 && d /= 0xff)
 
--- | Returns number of bytes remaining until terminator. Does not consume
--- terminator.
-remainingUntil :: Get () -> Get Int
-remainingUntil term = lookAhead (go 0)
-  where go !i =
-          (lookAhead term >> return i)
-          <|>
-          (getWord8 >> go (i+1))
-
--- | Takes all bytes up to terminator. Consumes and discards terminator.
-getBytesUntil :: Get () -> Get ByteString
-getBytesUntil term = do
-  n <- remainingUntil term
-  bs <- getBytes n
-  term
-  return bs
-
-decodeBytes :: ByteString -> ByteString
-decodeBytes bs =
-  BS.pack $ go $ BS.unpack bs
-  where go [] = []
-        go [x] = [x]
-        go (0x00:0xff:xs) = 0x00 : go xs
-        go (x:xs) = x : go xs
+-- | Reads all bytes up to (but not including) the terminator byte
+getBytesUntilTerminator :: Get ByteString
+getBytesUntilTerminator = BS.pack <$> many nonTerminator
+  where
+    nonTerminator = do
+      a <- getWord8
+      if a == 0 then do
+        b <- getWord8
+        guard (b == 0xff)
+        pure 0
+      else do
+        pure a
 
 decodeBytesElem :: Get Elem
 decodeBytesElem =
-  Bytes . decodeBytes <$> getBytesUntil bytesTerminator
+  Bytes <$> (getBytesUntilTerminator <* bytesTerminator)
 
 decodeTextElem :: Get Elem
 decodeTextElem =
-  Text . decodeUtf8 . decodeBytes <$> getBytesUntil bytesTerminator
+  Text . decodeUtf8 <$> (getBytesUntilTerminator <* bytesTerminator)
 
 decodeSmallPosInt :: Word8 -> Get Elem
 decodeSmallPosInt code = do

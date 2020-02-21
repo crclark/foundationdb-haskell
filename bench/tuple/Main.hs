@@ -3,6 +3,7 @@
 module Main where
 
 import Data.ByteString (ByteString)
+import qualified Data.Text as T
 
 import FoundationDB.Versionstamp
 import FoundationDB.Layer.Tuple.Internal
@@ -11,6 +12,10 @@ import Gauge.Main
 
 mixedTuple :: ByteString
 mixedTuple = "\SOHsome_prefix\NUL\SOHsome_other_prefix\NUL3\NUL\NUL\NUL\NUL\NUL\NUL\NUL\SOH\NUL\STX\NUL\ETX\NAK\f"
+
+longTextTuple :: ByteString
+longTextTuple =
+  encodeTupleElems [Text (T.replicate 80000 "a")]
 
 main :: IO ()
 main =
@@ -51,6 +56,7 @@ main =
     [ bench "Tuple" (nf decodeTupleElems "\ENQ\SOHhello\NUL\NUL")
     , bench "Bytes" (nf decodeTupleElems "\SOHhello\NUL")
     , bench "Text"  (nf decodeTupleElems "\STXhello\NUL")
+    , bench "Text long" (nf decodeTupleElems longTextTuple)
     , bench "Int small pos" (nf decodeTupleElems "\SYN\EOT\NUL")
     , bench "Int small neg" (nf decodeTupleElems "\DC2\251\255")
     , bench "Int large pos" (nf decodeTupleElems "\FS\SOHk\204A\233\NUL\NUL\NUL")
