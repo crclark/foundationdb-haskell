@@ -2,6 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
+-- | This module is a relatively direct translation of the official directory
+-- layer code in Python and Go.
 module FoundationDB.Layer.Directory.Internal where
 
 import Control.Monad (when, unless)
@@ -80,6 +82,7 @@ data DirPartition = DirPartition
   , dirPartitionParentDL :: DirectoryLayer
   } deriving (Show, Eq, Ord)
 
+-- | Creates a new directory layer, containing a  hierarchy of directories.
 newDirectoryLayer
   :: Subspace
   -- ^ node subspace for directory metadata

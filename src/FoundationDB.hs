@@ -96,6 +96,7 @@ withDatabase clusterFile f =
           FDB.databaseDestroy
           f
 
+-- | Options set at the connection level for FoundationDB.
 data FoundationDBOptions = FoundationDBOptions
   { apiVersion :: Int
     -- ^ Desired API version. See 'currentAPIVersion' for the latest
@@ -109,6 +110,8 @@ data FoundationDBOptions = FoundationDBOptions
   -- ^ Additional database options. Each will be set in order.
   } deriving (Show, Eq, Ord)
 
+-- | Uses the current API version, the default cluster file location, and no
+-- additional options.
 defaultOptions :: FoundationDBOptions
 defaultOptions = FoundationDBOptions FDB.currentAPIVersion Nothing [] []
 

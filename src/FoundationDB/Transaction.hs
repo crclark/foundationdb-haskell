@@ -44,6 +44,7 @@ module FoundationDB.Transaction (
   , keyRange
   , keyRangeInclusive
   , prefixRange
+  , prefixRangeEnd
   , RangeResult(..)
   , watch
   -- * Futures
@@ -70,7 +71,6 @@ module FoundationDB.Transaction (
   , onEnv
   , commitFuture
   , onError
-  , prefixRangeEnd
   , getCommittedVersion
 ) where
 
@@ -102,15 +102,6 @@ import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as Opt
 import FoundationDB.Versionstamp
 
--- TODO: this will be exported to users with a MonadIO instance. At first
--- glance, that seems bad, since runTransaction does auto
--- retries. I see a few options in various DB libraries on Hackage:
--- 1. don't allow IO in transactions at all.
--- 2. don't even create a separate transaction monad; use IO for everything.
--- 3. Export a TransactionT with MonadIO m => MonadIO (TransactionT m)
---    so that users can decide whether they want to deal with the risk.
--- I'm leaning towards 3. We can export both Transaction and TransactionT.
-
 -- | A transaction monad. This is currently exported with a 'MonadIO' instance,
 -- but using it comes with caveats:
 --
@@ -119,10 +110,6 @@ import FoundationDB.Versionstamp
 --
 --   - Transactions have strict time limits, so slow IO operations should be
 --     avoided.
---
--- The 'MonadIO' instance may be removed in the future, to improve type safety.
--- In its place, we may export a 'TransactionT' transformer that can be wrapped
--- around IO, if desired.
 newtype Transaction a = Transaction
   {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
   deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
@@ -235,12 +222,14 @@ allocFutureIO (FDB.Future f) e = do
   fp <- newForeignPtr FDB.futureDestroyPtr (castPtr f)
   return $ FutureIO fp e
 
+-- | IO analogue to 'await'.
 awaitIO :: FutureIO a -> IO (Either Error a)
 awaitIO (FutureIO fp e) = withForeignPtr fp $ \f ->
   fdbEither' (FDB.futureBlockUntilReady (FDB.Future (castPtr f))) >>= \case
     Left  err -> return $ Left err
     Right ()  -> Right <$> e
 
+-- | IO analogue to 'awaitInterruptible'.
 awaitInterruptibleIO :: FutureIO a -> IO a
 awaitInterruptibleIO fut@(FutureIO _ e) = futureIsReadyIO fut >>= \case
   True -> e
@@ -262,7 +251,6 @@ commitFuture :: Transaction (Future ())
 commitFuture = do
   t <- asks cTransaction
   allocFuture (FDB.transactionCommit t) (const $ return ())
-
 
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
 get :: ByteString -> Transaction (Future (Maybe ByteString))
@@ -290,25 +278,32 @@ clearRange k l = do
   t <- asks cTransaction
   liftIO $ FDB.transactionClearRange t k l
 
+-- | Tells FoundationDB to consider the given range to have been read by this
+-- transaction.
 addConflictRange
   :: ByteString -> ByteString -> FDB.FDBConflictRangeType -> Transaction ()
 addConflictRange k l ty = do
   t <- asks cTransaction
   fdbExcept' $ FDB.transactionAddConflictRange t k l ty
 
+-- | Tells FoundationDB to consider the given key to have been read by this
+-- transaction.
 addReadConflictKey :: ByteString -> Transaction ()
 addReadConflictKey k =
   addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeRead
 
-
+-- | Tells FoundationDB to consider the given key to have been written
+-- by this transaction.
 addWriteConflictKey :: ByteString -> Transaction ()
 addWriteConflictKey k =
   addConflictRange k (BS.snoc k 0x00) FDB.ConflictRangeTypeWrite
 
+-- | Increase the offset of the given 'KeySelector'.
 offset :: Int -> FDB.KeySelector -> FDB.KeySelector
 offset m (FDB.WithOffset n ks) = FDB.WithOffset (n + m) ks
 offset n ks                    = FDB.WithOffset n ks
 
+-- | Gets the key specified by the given 'KeySelector'.
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
   t          <- asks cTransaction
@@ -425,6 +420,7 @@ getEntireRange' mode r = do
 getEntireRange :: Range -> Transaction (Seq (ByteString, ByteString))
 getEntireRange = getEntireRange' FDB.StreamingModeWantAll
 
+-- | Return True iff the given range is empty.
 isRangeEmpty :: Range -> Transaction Bool
 isRangeEmpty r = do
   rr <- getRange r >>= await
@@ -432,6 +428,9 @@ isRangeEmpty r = do
     RangeDone Empty -> return True
     _               -> return False
 
+-- | Perform an atomic operation of 'MutationType' on the given key. A
+-- transaction that performs only atomic operations is guaranteed not to
+-- conflict. However, it may cause other concurrent transactions to conflict.
 atomicOp :: ByteString -> Opt.MutationType -> Transaction ()
 atomicOp k op = do
   t <- asks cTransaction
@@ -448,6 +447,8 @@ runTransaction = runTransactionWithConfig defaultConfig
 runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
+-- | A config for a non-idempotent transaction, allowing 5 retries, with a time
+-- limit of 500 milliseconds.
 defaultConfig :: TransactionConfig
 defaultConfig = TransactionConfig False False 5 500
 
@@ -619,6 +620,7 @@ createTransactionEnv db config = do
     (either (const $ return ()) FDB.transactionDestroy)
   liftEither $ fmap (flip TransactionEnv config) eTrans
 
+-- | Execute a transactional action on an existing transaction environment.
 onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
 onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
 
