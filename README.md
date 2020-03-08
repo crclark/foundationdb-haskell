@@ -8,7 +8,7 @@ I am not using this in a production-like context, but I have exercised the code 
 
 ### Supported FoundationDB versions
 
-Currently supports 5.2.x, 6.0.x, and 6.1.x.
+Currently supports 5.2.x, 6.0.x, 6.1.x, and 6.2.x.
 
 
 ### Generating options from `fdb.options`
