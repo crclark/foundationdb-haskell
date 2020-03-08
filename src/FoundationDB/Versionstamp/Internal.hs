@@ -15,6 +15,9 @@ import Data.Serialize.Get
 import Data.Serialize.Put
 import GHC.Generics (Generic)
 
+-- | Represents whether a versionstamp is complete (has been written to FDB and
+-- thus contains a full version integer) or incomplete (contains a user-provided
+-- version, but has not yet been committed to FDB).
 data VersionstampCompleteness = Complete | Incomplete
 
 -- | Represents a version stamp. Version stamps consist of
