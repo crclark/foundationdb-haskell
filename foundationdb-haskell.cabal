@@ -88,10 +88,10 @@ library
                        , integer-gmp
                        , mtl
                        , random
-                       , resourcet
                        , text
                        , deepseq
-
+                       , monad-control
+                       , transformers-base
   build-tools:         c2hs
 
   -- Directories containing source files.

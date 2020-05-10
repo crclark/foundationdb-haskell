@@ -5,6 +5,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module FoundationDB.Transaction (
   -- * Transactions
@@ -76,17 +79,14 @@ module FoundationDB.Transaction (
 
 import Control.Concurrent (threadDelay)
 import Control.Exception (throwIO)
+import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
-import Control.Monad.Except (ExceptT, liftEither, runExceptT)
+import Control.Monad.Except (ExceptT(..), runExceptT)
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.Reader (ask, asks, local, MonadReader, ReaderT, runReaderT)
-import Control.Monad.Trans.Resource ( allocate
-                                    , MonadResource
-                                    , release
-                                    , ReleaseKey
-                                    , ResourceT
-                                    , runResourceT)
+import Control.Monad.Trans.Control (MonadBaseControl(..)
+                                   , liftBaseOp)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromMaybe, fromJust)
@@ -94,31 +94,44 @@ import Data.Semigroup ((<>))
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq(Empty, (:|>)))
 import Data.Word (Word64)
-import Foreign.ForeignPtr (ForeignPtr, newForeignPtr, withForeignPtr)
-import Foreign.Ptr (castPtr)
+import Foreign.ForeignPtr ( ForeignPtr
+                          , finalizeForeignPtr
+                          , newForeignPtr
+                          , withForeignPtr)
+import Foreign.Ptr (Ptr, castPtr)
 
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
 import qualified FoundationDB.Options as Opt
 import FoundationDB.Versionstamp
 
+withForeignPtr' :: MonadBaseControl IO m => ForeignPtr a -> (Ptr a -> m b) -> m b
+withForeignPtr' fp = liftBaseOp (withForeignPtr fp)
+
+withTransactionPtr :: (FDB.Transaction -> Transaction b) -> Transaction b
+withTransactionPtr m = do
+  ft <- asks cTransaction
+  withForeignPtr' ft $ \t -> m (FDB.Transaction $ castPtr t)
+
 -- | A transaction monad. This is currently exported with a 'MonadIO' instance,
 -- but using it comes with caveats:
 --
 --   - 'runTransaction' will retry your transaction in some cases, which means
---     any IO in your transaction will be repeated.
+--     any IO in your transaction will be repeated. You can disable retries by
+--     setting 'maxRetries' in 'TransactionConfig' to 0.
 --
 --   - Transactions have strict time limits, so slow IO operations should be
 --     avoided.
 newtype Transaction a = Transaction
-  {unTransaction :: ReaderT TransactionEnv (ExceptT Error (ResourceT IO)) a}
+  {unTransaction :: ReaderT TransactionEnv (ExceptT Error IO) a}
   deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
             MonadMask)
 -- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
 -- TODO: does this MonadReader instance need to be exposed?
 deriving instance MonadReader TransactionEnv Transaction
-deriving instance MonadResource Transaction
+deriving instance MonadBase IO Transaction
+deriving instance MonadBaseControl IO Transaction
 
 -- | A future result of a FoundationDB call. You can block on a future with
 -- 'await'.
@@ -129,17 +142,17 @@ deriving instance MonadResource Transaction
 data Future a =
   PureFuture a
   -- ^ For applicative and monad instances
-  | forall b. Future
+  | Future
   -- TODO:the future is closed over by _extractValue. It's only included in this
   -- record so that we can more easily debug (see the Show instance, which
   -- prints the address). Given the lack of bugs so far, it is probably safe
   -- to simplify this.
-  { _cFuture :: FDB.Future b
+  { _cFuture :: ForeignPtr ()
   , _extractValue :: Transaction a
   }
 
 instance Show a => Show (Future a) where
-  show (PureFuture x) = show $ "Future " ++ show x
+  show (PureFuture x) = show $ "PureFuture (" ++ show x ++ ")"
   show (Future c _) = show $ "Future " ++ show c
 
 instance Functor Future where
@@ -154,31 +167,37 @@ instance Applicative Future where
   fut@(Future _ _) <*> (Future cf e)    = Future cf (await fut <*> e)
 
 fromCExtractor
-  :: FDB.Future b -> ReleaseKey -> Transaction a -> Transaction (Future a)
-fromCExtractor cFuture rk extract = return $ Future cFuture $ do
-  futErr <- liftIO $ FDB.futureGetError cFuture
-  case toError futErr of
-    Just x  -> release rk >> throwError (CError x)
-    Nothing -> do
-      res <- extract
-      release rk
-      return res
+  :: ForeignPtr () -> (FDB.Future b -> Transaction a) -> Transaction (Future a)
+fromCExtractor fp extract =
+  return $ Future fp $ do
+    fpResult <- withForeignPtr' fp $ \f -> do
+      futErr <- liftIO $ FDB.futureGetError (FDB.Future (castPtr f))
+      case toError futErr of
+        Just x  -> return $ Left $ toCFDBError x
+        Nothing -> do
+          res <- extract (FDB.Future (castPtr f))
+          return $ Right res
+    liftIO $ finalizeForeignPtr fp
+    liftFDBError fpResult
 
 allocFuture
   :: IO (FDB.Future b)
   -> (FDB.Future b -> Transaction a)
   -> Transaction (Future a)
 allocFuture make extract = do
-  (rk, future) <- allocate make FDB.futureDestroy
-  fromCExtractor future rk (extract future)
+  (FDB.Future p) <- liftIO $ make
+  fp <- liftIO $ newForeignPtr FDB.futureDestroyPtr (castPtr p)
+  fromCExtractor fp extract
 
 -- | Block until a future is ready. Unfortunately, does not seem to be
--- interruptible SIGPIPE (the interrupt sent by Control.Conccurent.Async to
+-- interruptible by SIGPIPE (the interrupt sent by Control.Conccurent.Async to
 -- cancel), even when using InterruptibleFFI.
 await :: Future a -> Transaction a
 await (PureFuture x) = return x
-await (Future f e) = do
-  fdbExcept' $ FDB.futureBlockUntilReady f
+await (Future fp e) = do
+  fdbExcept'
+    $ withForeignPtr' fp
+    $ \f -> FDB.futureBlockUntilReady (FDB.Future (castPtr f))
   e
 
 -- | Polls a future for readiness in a loop until it is ready, then returns
@@ -194,12 +213,14 @@ awaitInterruptible fut@(Future _f e) = futureIsReady fut >>= \case
 -- 'OperationCancelled'.
 cancelFuture :: Future a -> Transaction ()
 cancelFuture (PureFuture _) = return ()
-cancelFuture (Future f _e) = liftIO $ FDB.futureCancel f
+cancelFuture (Future fp _e) =
+  withForeignPtr' fp $ \f -> liftIO $ FDB.futureCancel (FDB.Future (castPtr f))
 
 -- | Returns True if the future is ready. If so, calling 'await' will not block.
 futureIsReady :: Future a -> Transaction Bool
 futureIsReady (PureFuture _) = return True
-futureIsReady (Future f _) = liftIO $ FDB.futureIsReady f
+futureIsReady (Future fp _) =
+  withForeignPtr' fp $ \f -> liftIO $ FDB.futureIsReady (FDB.Future (castPtr f))
 
 -- | A future that can only be awaited after its transaction has committed.
 -- That is, in contrast to 'Future', this __must__ be returned from
@@ -230,9 +251,9 @@ awaitIO (FutureIO fp e) = withForeignPtr fp $ \f ->
     Right ()  -> Right <$> e
 
 -- | IO analogue to 'awaitInterruptible'.
-awaitInterruptibleIO :: FutureIO a -> IO a
-awaitInterruptibleIO fut@(FutureIO _ e) = futureIsReadyIO fut >>= \case
-  True -> e
+awaitInterruptibleIO :: FutureIO a -> IO (Either Error a)
+awaitInterruptibleIO fut = futureIsReadyIO fut >>= \case
+  True -> awaitIO fut
   False -> threadDelay 1000 >> awaitInterruptibleIO fut
 
 -- | Cancel a future. Attempts to await the future after cancellation will throw
@@ -248,43 +269,47 @@ futureIsReadyIO (FutureIO fp _) = withForeignPtr fp $ \f ->
 -- | Attempts to commit a transaction. If 'await'ing the returned 'Future'
 -- works without errors, the transaction was committed.
 commitFuture :: Transaction (Future ())
-commitFuture = do
-  t <- asks cTransaction
-  allocFuture (FDB.transactionCommit t) (const $ return ())
+commitFuture =
+  withTransactionPtr $ \t ->
+    allocFuture (FDB.transactionCommit t)
+                -- TODO: might need to touch the transaction pointer
+                -- in this callback
+                (const $ return ())
 
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
 get :: ByteString -> Transaction (Future (Maybe ByteString))
 get key = do
   t <- ask
   let isSnapshot = snapshotReads (envConf t)
-  allocFuture (FDB.transactionGet (cTransaction t) key isSnapshot)
-              (\f -> liftIO (FDB.futureGetValue f) >>= liftFDBError)
+  withTransactionPtr $ \tp ->
+    allocFuture (FDB.transactionGet tp key isSnapshot)
+                (\f -> liftIO (FDB.futureGetValue f) >>= liftFDBError)
 
 -- | Set a bytestring key to a bytestring value.
 set :: ByteString -> ByteString -> Transaction ()
-set key val = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionSet t key val
+set key val =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionSet t key val
 
 -- | Delete a key from the DB.
 clear :: ByteString -> Transaction ()
-clear k = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionClear t k
+clear k =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionClear t k
 
 -- | @clearRange k l@ deletes all keys in the half-open range [k,l).
 clearRange :: ByteString -> ByteString -> Transaction ()
-clearRange k l = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionClearRange t k l
+clearRange k l =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionClearRange t k l
 
 -- | Tells FoundationDB to consider the given range to have been read by this
 -- transaction.
 addConflictRange
   :: ByteString -> ByteString -> FDB.FDBConflictRangeType -> Transaction ()
-addConflictRange k l ty = do
-  t <- asks cTransaction
-  fdbExcept' $ FDB.transactionAddConflictRange t k l ty
+addConflictRange k l ty =
+  withTransactionPtr $ \t ->
+    fdbExcept' $ FDB.transactionAddConflictRange t k l ty
 
 -- | Tells FoundationDB to consider the given key to have been read by this
 -- transaction.
@@ -306,19 +331,21 @@ offset n ks                    = FDB.WithOffset n ks
 -- | Gets the key specified by the given 'KeySelector'.
 getKey :: FDB.KeySelector -> Transaction (Future ByteString)
 getKey ks = do
-  t          <- asks cTransaction
   isSnapshot <- asks (snapshotReads . envConf)
   let (k, orEqual, offsetN) = FDB.keySelectorTuple ks
-  allocFuture (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
-              (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
+  withTransactionPtr $ \t ->
+    allocFuture
+      (FDB.transactionGetKey t k orEqual offsetN isSnapshot)
+      (\f -> liftIO (FDB.futureGetKey f) >>= liftFDBError)
 
 -- | Get the public network addresses of all nodes responsible for storing
 -- the given key.
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
-getKeyAddresses k = do
-  t <- asks cTransaction
-  allocFuture (FDB.transactionGetAddressesForKey t k)
-              (\f -> liftIO (FDB.futureGetStringArray f) >>= liftFDBError)
+getKeyAddresses k =
+  withTransactionPtr $ \t ->
+    allocFuture
+      (FDB.transactionGetAddressesForKey t k)
+      (\f -> liftIO (FDB.futureGetStringArray f) >>= liftFDBError)
 
 -- TODO: rename to RangeQuery?
 -- | Specifies a range of keys to be iterated over by 'getRange'.
@@ -371,27 +398,27 @@ data RangeResult =
 -- | Like 'getRange', but allows you to specify the streaming mode as desired.
 getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
 getRange' Range {..} mode = do
-  t <- asks cTransaction
   isSnapshot <- asks (snapshotReads . envConf)
-  let getR b e lim i = FDB.transactionGetRange t b e lim 0 mode i isSnapshot rangeReverse
-  let mk = getR rangeBegin rangeEnd (fromMaybe 0 rangeLimit) 1
-  let
-    handler bsel esel i lim fut = do
-      -- more doesn't take into account our count limit, so we check below
-      (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
-      let kvs' = Seq.fromList kvs
-      case kvs' of
-        (_ :|> (lstK,_)) | more && maybe True (length kvs' <) lim -> do
-          let bsel' = if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
-          let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
-          let lim' = fmap (\x -> x - length kvs') lim
-          let mk' = getR bsel' esel' (fromMaybe 0 lim') (i+1)
-          res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
-          return $ RangeMore kvs' res
-        _ -> return $ RangeDone $ case lim of
-          Nothing -> kvs'
-          Just n  -> Seq.take n kvs'
-  allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
+  withTransactionPtr $ \t -> do
+    let getR b e lim i = FDB.transactionGetRange t b e lim 0 mode i isSnapshot rangeReverse
+    let mk = getR rangeBegin rangeEnd (fromMaybe 0 rangeLimit) 1
+    let
+      handler bsel esel i lim fut = do
+        -- more doesn't take into account our count limit, so we check below
+        (kvs, more) <- liftIO (FDB.futureGetKeyValueArray fut) >>= liftFDBError
+        let kvs' = Seq.fromList kvs
+        case kvs' of
+          (_ :|> (lstK,_)) | more && maybe True (length kvs' <) lim -> do
+            let bsel' = if not rangeReverse then FDB.FirstGreaterThan lstK else bsel
+            let esel' = if rangeReverse then FDB.FirstGreaterOrEq lstK else esel
+            let lim' = fmap (\x -> x - length kvs') lim
+            let mk' = getR bsel' esel' (fromMaybe 0 lim') (i+1)
+            res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
+            return $ RangeMore kvs' res
+          _ -> return $ RangeDone $ case lim of
+            Nothing -> kvs'
+            Just n  -> Seq.take n kvs'
+    allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
 
 -- | Reads all key-value pairs in the specified 'Range' which are
 --   lexicographically greater than or equal to the 'rangeBegin' 'KeySelector'
@@ -432,9 +459,9 @@ isRangeEmpty r = do
 -- transaction that performs only atomic operations is guaranteed not to
 -- conflict. However, it may cause other concurrent transactions to conflict.
 atomicOp :: ByteString -> Opt.MutationType -> Transaction ()
-atomicOp k op = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionAtomicOp t k op
+atomicOp k op =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionAtomicOp t k op
 
 -- | Attempts to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
@@ -506,7 +533,7 @@ withRetry t = catchError t $ \err -> do
 -- errors.
 runTransactionWithConfig'
   :: TransactionConfig -> FDB.Database -> Transaction a -> IO (Either Error a)
-runTransactionWithConfig' conf db t = runResourceT $ runExceptT $ do
+runTransactionWithConfig' conf db t = runExceptT $ do
   trans <- createTransactionEnv db conf
   flip runReaderT trans $ unTransaction $ withRetry $ do
     setOption (Opt.timeout (timeout conf))
@@ -518,16 +545,16 @@ runTransactionWithConfig' conf db t = runResourceT $ runExceptT $ do
 -- | Cancel a transaction. The transaction will not be committed, and
 -- will throw 'TransactionCanceled'.
 cancel :: Transaction ()
-cancel = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionCancel t
-  throwError (CError TransactionCanceled)
+cancel =
+  withTransactionPtr $ \t -> do
+    liftIO $ FDB.transactionCancel t
+    throwError (CError TransactionCanceled)
 
 -- | Reset the transaction. All operations prior to this will be discarded.
 reset :: Transaction ()
-reset = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionReset t
+reset =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionReset t
 
 -- | Runs a transaction using snapshot reads, which means that the transaction
 -- will see the results of concurrent transactions, removing the default
@@ -539,24 +566,23 @@ withSnapshot = local $ \s ->
 -- | Sets the read version on the current transaction. As the FoundationDB docs
 -- state, "this is not needed in simple cases".
 setReadVersion :: Word64 -> Transaction ()
-setReadVersion v = do
-  t <- asks cTransaction
-  liftIO $ FDB.transactionSetReadVersion t (fromIntegral v)
+setReadVersion v =
+  withTransactionPtr $ \t ->
+    liftIO $ FDB.transactionSetReadVersion t (fromIntegral v)
 
 -- | Gets the read version of the current transaction, representing all
 -- transactions that were reported committed before this one.
 getReadVersion :: Transaction (Future Word64)
-getReadVersion = do
-  t <- asks cTransaction
-  allocFuture (FDB.transactionGetReadVersion t)
-              (\f -> fromIntegral <$> fdbExcept (FDB.futureGetVersion f))
+getReadVersion =
+  withTransactionPtr $ \t ->
+    allocFuture (FDB.transactionGetReadVersion t)
+                (\f -> fromIntegral <$> fdbExcept (FDB.futureGetVersion f))
 
 -- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
 -- transaction. Most applications won't need this.
 getVersionstamp
   :: Transaction (FutureIO (Either Error TransactionVersionstamp))
-getVersionstamp = do
-  t <- asks cTransaction
+getVersionstamp = withTransactionPtr $ \t -> do
   f <- liftIO $ FDB.transactionGetVersionstamp t
   liftIO $ allocFutureIO f $ FDB.futureGetKey f >>= \case
     Left  err -> return $ Left (CError $ fromJust $ toError err)
@@ -578,17 +604,15 @@ getVersionstamp = do
 -- fails to commit, awaiting it will return the same error as
 -- running the transaction did.
 watch :: ByteString -> Transaction (FutureIO ())
-watch k = do
-  t <- asks cTransaction
+watch k = withTransactionPtr $ \t -> do
   f <- liftIO $ FDB.transactionWatch t k
   liftIO $ allocFutureIO f $ return ()
 
-
 -- | Set one of the transaction options from the underlying C API.
 setOption :: Opt.TransactionOption -> Transaction ()
-setOption opt = do
-  t <- asks cTransaction
-  fdbExcept' $ FDB.transactionSetOption t opt
+setOption opt =
+  withTransactionPtr $ \t ->
+    fdbExcept' $ FDB.transactionSetOption t opt
 
 {- $advanced
    The functionality in this section is for more advanced use cases where you
@@ -606,32 +630,33 @@ setOption opt = do
 -- | The internal state of a transaction as it is being executed by
 -- 'runTransaction'.
 data TransactionEnv = TransactionEnv {
-  cTransaction :: FDB.Transaction
+  cTransaction :: ForeignPtr FDB.Transaction
   , envConf :: TransactionConfig
   } deriving (Show)
 
 createTransactionEnv
   :: FDB.Database
   -> TransactionConfig
-  -> ExceptT Error (ResourceT IO) TransactionEnv
-createTransactionEnv db config = do
-  (_rk, eTrans) <- allocate
-    (fdbEither $ FDB.databaseCreateTransaction db)
-    (either (const $ return ()) FDB.transactionDestroy)
-  liftEither $ fmap (flip TransactionEnv config) eTrans
+  -> ExceptT Error IO TransactionEnv
+createTransactionEnv db config = ExceptT $
+  fdbEither (FDB.databaseCreateTransaction db) >>= \case
+    Left e -> return $ Left e
+    Right (FDB.Transaction p) -> do
+      fp <- newForeignPtr FDB.transactionDestroyPtr p
+      return $ Right $ TransactionEnv fp config
 
 -- | Execute a transactional action on an existing transaction environment.
 onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
-onEnv env (Transaction t) = runResourceT $ runExceptT $ runReaderT t env
+onEnv env (Transaction t) = runExceptT $ runReaderT t env
 
 -- | Calls the C API's @fdb_transaction_on_error@ function. Re-raises
 -- unretryable errors.
 onError :: Error -> Transaction ()
-onError (CError err) = do
-  trans <- asks cTransaction
-  f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
-                       (const $ return ())
-  await f
+onError (CError err) =
+  withTransactionPtr $ \trans -> do
+    f     <- allocFuture (FDB.transactionOnError trans (toCFDBError err))
+                         (const $ return ())
+    await f
 onError _ = return ()
 
 -- @prefixRangeEnd prefix@ returns the lexicographically greatest bytestring
@@ -647,6 +672,5 @@ prefixRangeEnd prefix =
 -- 'TransactionEnv', since 'runTransaction' and its variants immediately destroy
 -- the internal 'TransactionEnv' as soon as they return.
 getCommittedVersion :: Transaction Int
-getCommittedVersion = do
-  t <- asks cTransaction
+getCommittedVersion = withTransactionPtr $ \t ->
   fdbExcept (FDB.transactionGetCommittedVersion t)
