@@ -36,12 +36,13 @@ module FoundationDB.Internal.Bindings (
   , databaseSetOption
   , databaseCreateTransaction
   -- * Transaction
-  , Transaction
+  , Transaction (..)
   , KeySelector (..)
   , keySelectorBytes
   , keySelectorTuple
   , tupleKeySelector
   , transactionDestroy
+  , transactionDestroyPtr
   , transactionSetOption
   , transactionSetReadVersion
   , transactionGetReadVersion
@@ -304,6 +305,10 @@ deriving instance Storable Transaction
 
 {#fun unsafe database_create_transaction as ^
   {`Database', alloca- `Transaction' peek*} -> `CFDBError' CFDBError#}
+
+
+foreign import ccall "fdbc_wrapper.h &fdb_transaction_destroy"
+  transactionDestroyPtr :: FunPtr (Ptr a -> IO ())
 
 {#fun unsafe transaction_destroy as ^ {`Transaction'} -> `()'#}
 

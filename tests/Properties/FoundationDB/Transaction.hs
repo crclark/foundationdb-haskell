@@ -30,6 +30,7 @@ import Test.Hspec
 transactionProps :: Subspace -> Database -> SpecWith ()
 transactionProps testSS db = do
     setting testSS db
+    futures testSS db
     cancellation testSS db
     versionstamps testSS db
     readVersions testSS db
@@ -70,6 +71,40 @@ setting testSS db = describe "set and get" $ do
       v2 <- await f
       return (v1, v2)
     v1 `shouldBe` v2
+
+futures :: Subspace -> Database -> SpecWith ()
+futures testSS db = describe "futures" $ do
+  it "has applicative instances" $ do
+    let k1 = SS.pack testSS [Bytes "qwerty"]
+    let k2 = SS.pack testSS [Bytes "uiop"]
+    let v1 = "uiop"
+    let v2 = "qwerty"
+    runTransaction db $ set k1 v1 >> set k2 v2
+    tuple <- runTransaction db $ do
+      f1 <- get k1
+      f2 <- get k2
+      let t = (,,) <$> f1 <*> f2 <*> pure 1
+      awaitInterruptible t
+    tuple `shouldBe` (Just v1, Just v2, 1)
+  it "cancellation" $ do
+    let k = SS.pack testSS [Bytes "foo"]
+    runTransaction db $ set k "hello"
+    result <- runTransaction' db $ do
+      f <- get k
+      cancelFuture f
+      awaitInterruptible f
+    result `shouldBe` Left (CError OperationCancelled)
+  it "FutureIO" $ do
+    let k = SS.pack testSS [Bytes "foo"]
+    w1 <- runTransaction db $ watch k
+    w2 <- runTransaction db $ watch k
+    cancelFutureIO w2
+    runTransaction db $ set k "hello"
+    v1 <- awaitInterruptibleIO w1
+    v1 `shouldBe` Right ()
+    v2 <- awaitInterruptibleIO w2
+    v2 `shouldBe` Right ()
+
 
 cancellation :: Subspace -> Database -> SpecWith ()
 cancellation testSS db = describe "transaction cancellation" $ do
