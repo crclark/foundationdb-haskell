@@ -81,7 +81,8 @@ import Data.Maybe (fromMaybe)
 
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
-import FoundationDB.Options (NetworkOption(..), DatabaseOption(..))
+import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
+import FoundationDB.Options.NetworkOption (NetworkOption(..))
 import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 

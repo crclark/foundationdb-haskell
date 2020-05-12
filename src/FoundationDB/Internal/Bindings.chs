@@ -72,7 +72,10 @@ module FoundationDB.Internal.Bindings (
   , FDBErrorPredicate (..)
 ) where
 
-import FoundationDB.Options
+import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
+import FoundationDB.Options.MutationType
+import FoundationDB.Options.NetworkOption (NetworkOption(..))
+import FoundationDB.Options.TransactionOption (TransactionOption(..))
 
 import qualified Data.ByteString.Char8 as B
 import Data.Int (Int64)

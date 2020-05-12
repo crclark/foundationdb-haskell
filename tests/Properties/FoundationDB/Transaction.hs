@@ -8,7 +8,7 @@ import FoundationDB
 import FoundationDB.Error
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
-import FoundationDB.Options
+import FoundationDB.Options.MutationType (setVersionstampedKey)
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 

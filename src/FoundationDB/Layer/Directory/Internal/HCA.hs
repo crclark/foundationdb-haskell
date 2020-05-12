@@ -20,7 +20,8 @@ import FoundationDB
 import FoundationDB.Layer.Directory.Internal.Error
 import FoundationDB.Layer.Tuple
 import FoundationDB.Layer.Subspace
-import FoundationDB.Options
+import FoundationDB.Options.TransactionOption (nextWriteNoWriteConflictRange)
+import FoundationDB.Options.MutationType(add)
 
 oneBytes :: ByteString
 oneBytes = BS.pack [0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]

@@ -64,7 +64,10 @@ library
                      , FoundationDB.Layer.Subspace
                      , FoundationDB.Layer.Tuple
                      , FoundationDB.Layer.Tuple.Internal
-                     , FoundationDB.Options
+                     , FoundationDB.Options.DatabaseOption
+                     , FoundationDB.Options.MutationType
+                     , FoundationDB.Options.NetworkOption
+                     , FoundationDB.Options.TransactionOption
                      , FoundationDB.Transaction
                      , FoundationDB.Versionstamp
                      , FoundationDB.Versionstamp.Internal

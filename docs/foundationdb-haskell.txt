@@ -13,139 +13,7 @@
 --   generate-options executable in this project. All documentation on the
 --   individual options in this namespace comes from FoundationDB's
 --   documentation in <tt>fdb.options</tt>.
-module FoundationDB.Options
-data NetworkOption
-NetworkOptionString :: Int -> String -> NetworkOption
-NetworkOptionInt :: Int -> Int -> NetworkOption
-NetworkOptionBytes :: Int -> ByteString -> NetworkOption
-NetworkOptionFlag :: Int -> NetworkOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-localAddress :: String -> NetworkOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-clusterFile :: String -> NetworkOption
-
--- | Enables trace output to a file in a directory of the clients choosing
-traceEnable :: String -> NetworkOption
-
--- | Sets the maximum size in bytes of a single trace output file. This
---   value should be in the range ``[0, INT64_MAX]``. If the value is set
---   to 0, there is no limit on individual file size. The default is a
---   maximum size of 10,485,760 bytes.
-traceRollSize :: Int -> NetworkOption
-
--- | Sets the maximum size of all the trace output files put together. This
---   value should be in the range ``[0, INT64_MAX]``. If the value is set
---   to 0, there is no limit on the total size of the files. The default is
---   a maximum size of 104,857,600 bytes. If the default roll size is used,
---   this means that a maximum of 10 trace files will be written at a time.
-traceMaxLogsSize :: Int -> NetworkOption
-
--- | Sets the <tt>LogGroup</tt> attribute with the specified value for all
---   events in the trace output files. The default log group is 'default'.
-traceLogGroup :: String -> NetworkOption
-
--- | Select the format of the log files. xml (the default) and json are
---   supported.
-traceFormat :: String -> NetworkOption
-
--- | Set internal tuning or debugging knobs
-knob :: String -> NetworkOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-tlsPlugin :: String -> NetworkOption
-
--- | Set the certificate chain
-tlsCertBytes :: ByteString -> NetworkOption
-
--- | Set the file from which to load the certificate chain
-tlsCertPath :: String -> NetworkOption
-
--- | Set the private key corresponding to your own certificate
-tlsKeyBytes :: ByteString -> NetworkOption
-
--- | Set the file from which to load the private key corresponding to your
---   own certificate
-tlsKeyPath :: String -> NetworkOption
-
--- | Set the peer certificate field verification criteria
-tlsVerifyPeers :: ByteString -> NetworkOption
-buggifyEnable :: NetworkOption
-buggifyDisable :: NetworkOption
-
--- | Set the probability of a BUGGIFY section being active for the current
---   execution. Only applies to code paths first traversed AFTER this
---   option is changed.
-buggifySectionActivatedProbability :: Int -> NetworkOption
-
--- | Set the probability of an active BUGGIFY section being fired
-buggifySectionFiredProbability :: Int -> NetworkOption
-
--- | Set the ca bundle
-tlsCaBytes :: ByteString -> NetworkOption
-
--- | Set the file from which to load the certificate authority bundle
-tlsCaPath :: String -> NetworkOption
-
--- | Set the passphrase for encrypted private key. Password should be set
---   before setting the key for the password to be used.
-tlsPassword :: String -> NetworkOption
-
--- | Disables the multi-version client API and instead uses the local
---   client directly. Must be set before setting up the network.
-disableMultiVersionClientApi :: NetworkOption
-
--- | If set, callbacks from external client libraries can be called from
---   threads created by the FoundationDB client library. Otherwise,
---   callbacks will be called from either the thread used to add the
---   callback or the network thread. Setting this option can improve
---   performance when connected using an external client, but may not be
---   safe to use in all environments. Must be set before setting up the
---   network. WARNING: This feature is considered experimental at this
---   time.
-callbacksOnExternalThreads :: NetworkOption
-
--- | Adds an external client library for use by the multi-version client
---   API. Must be set before setting up the network.
-externalClientLibrary :: String -> NetworkOption
-
--- | Searches the specified path for dynamic libraries and adds them to the
---   list of client libraries for use by the multi-version client API. Must
---   be set before setting up the network.
-externalClientDirectory :: String -> NetworkOption
-
--- | Prevents connections through the local client, allowing only
---   connections through externally loaded client libraries. Intended
---   primarily for testing.
-disableLocalClient :: NetworkOption
-
--- | Disables logging of client statistics, such as sampled transaction
---   activity.
-disableClientStatisticsLogging :: NetworkOption
-
--- | Enables debugging feature to perform slow task profiling. Requires
---   trace logging to be enabled. WARNING: this feature is not recommended
---   for use in production.
-enableSlowTaskProfiling :: NetworkOption
-
--- | This option is set automatically to communicate the list of supported
---   clients to the active client.
-supportedClientVersions :: String -> NetworkOption
-
--- | This option is set automatically on all clients loaded externally
---   using the multi-version API.
-externalClient :: NetworkOption
-
--- | This option tells a child on a multiversion client what transport ID
---   to use.
-externalClientTransportId :: Int -> NetworkOption
+module FoundationDB.Options.DatabaseOption
 data DatabaseOption
 DatabaseOptionString :: Int -> String -> DatabaseOption
 DatabaseOptionInt :: Int -> Int -> DatabaseOption
@@ -173,11 +41,27 @@ machineId :: String -> DatabaseOption
 --   location-aware load balancing.
 datacenterId :: String -> DatabaseOption
 
+-- | Snapshot read operations will see the results of writes done in the
+--   same transaction. This is the default behavior.
+snapshotRywEnable :: DatabaseOption
+
+-- | Snapshot read operations will not see the results of writes done in
+--   the same transaction. This was the default behavior prior to API
+--   version 300.
+snapshotRywDisable :: DatabaseOption
+
+-- | Sets the maximum escaped length of key and value fields to be logged
+--   to the trace file via the LOG_TRANSACTION option. This sets the
+--   `<tt>transaction_logging_max_field_length</tt>` option of each
+--   transaction created by this database. See the transaction option
+--   description for more information.
+transactionLoggingMaxFieldLength :: Int -> DatabaseOption
+
 -- | Set a timeout in milliseconds which, when elapsed, will cause each
 --   transaction automatically to be cancelled. This sets the
---   `<a>timeout</a>` option of each transaction created by this database.
---   See the transaction option description for more information. Using
---   this option requires that the API version is 610 or higher.
+--   `<tt>timeout</tt>` option of each transaction created by this
+--   database. See the transaction option description for more information.
+--   Using this option requires that the API version is 610 or higher.
 transactionTimeout :: Int -> DatabaseOption
 
 -- | Set a timeout in milliseconds which, when elapsed, will cause a
@@ -192,238 +76,31 @@ transactionRetryLimit :: Int -> DatabaseOption
 --   database. See the transaction option description for more information.
 transactionMaxRetryDelay :: Int -> DatabaseOption
 
--- | Snapshot read operations will see the results of writes done in the
---   same transaction. This is the default behavior.
-dbSnapshotRywEnable :: DatabaseOption
-
--- | Snapshot read operations will not see the results of writes done in
---   the same transaction. This was the default behavior prior to API
---   version 300.
-dbSnapshotRywDisable :: DatabaseOption
-data TransactionOption
-TransactionOptionString :: Int -> String -> TransactionOption
-TransactionOptionInt :: Int -> Int -> TransactionOption
-TransactionOptionBytes :: Int -> ByteString -> TransactionOption
-TransactionOptionFlag :: Int -> TransactionOption
-
--- | The transaction, if not self-conflicting, may be committed a second
---   time after commit succeeds, in the event of a fault
-causalWriteRisky :: TransactionOption
+-- | Set the maximum transaction size in bytes. This sets the
+--   `<tt>size_limit</tt>` option on each transaction created by this
+--   database. See the transaction option description for more information.
+transactionSizeLimit :: Int -> DatabaseOption
 
 -- | The read version will be committed, and usually will be the latest
 --   committed, but might not be the latest committed in the event of a
---   fault or partition
-causalReadRisky :: TransactionOption
-causalReadDisable :: TransactionOption
+--   simultaneous fault and misbehaving clock.
+transactionCausalReadRisky :: DatabaseOption
 
--- | The next write performed on this transaction will not generate a write
---   conflict range. As a result, other transactions which read the key(s)
---   being modified by the next write will not conflict with this
---   transaction. Care needs to be taken when using this option on a
---   transaction that is shared between multiple threads. When setting this
---   option, write conflict ranges will be disabled on the next write
---   operation, regardless of what thread it is on.
-nextWriteNoWriteConflictRange :: TransactionOption
+-- | Addresses returned by get_addresses_for_key include the port when
+--   enabled. This will be enabled by default in api version 700, and this
+--   option will be deprecated.
+transactionIncludePortInAddress :: DatabaseOption
+instance GHC.Classes.Ord FoundationDB.Options.DatabaseOption.DatabaseOption
+instance GHC.Classes.Eq FoundationDB.Options.DatabaseOption.DatabaseOption
+instance GHC.Read.Read FoundationDB.Options.DatabaseOption.DatabaseOption
+instance GHC.Show.Show FoundationDB.Options.DatabaseOption.DatabaseOption
 
--- | Committing this transaction will bypass the normal load balancing
---   across proxies and go directly to the specifically nominated 'first
---   proxy'.
-commitOnFirstProxy :: TransactionOption
-checkWritesEnable :: TransactionOption
 
--- | Reads performed by a transaction will not see any prior mutations that
---   occured in that transaction, instead seeing the value which was in the
---   database at the transaction's read version. This option may provide a
---   small performance benefit for the client, but also disables a number
---   of client-side optimizations which are beneficial for transactions
---   which tend to read and write the same keys within a single
---   transaction.
-readYourWritesDisable :: TransactionOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-readAheadDisable :: TransactionOption
-durabilityDatacenter :: TransactionOption
-durabilityRisky :: TransactionOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-durabilityDevNullIsWebScale :: TransactionOption
-
--- | Specifies that this transaction should be treated as highest priority
---   and that lower priority transactions should block behind this one. Use
---   is discouraged outside of low-level tools
-prioritySystemImmediate :: TransactionOption
-
--- | Specifies that this transaction should be treated as low priority and
---   that default priority transactions will be processed first. Batch
---   priority transactions will also be throttled at load levels smaller
---   than for other types of transactions and may be fully cut off in the
---   event of machine failures. Useful for doing batch work simultaneously
---   with latency-sensitive work
-priorityBatch :: TransactionOption
-
--- | This is a write-only transaction which sets the initial configuration.
---   This option is designed for use by database system tools only.
-initializeNewDatabase :: TransactionOption
-
--- | Allows this transaction to read and modify system keys (those that
---   start with the byte 0xFF)
-accessSystemKeys :: TransactionOption
-
--- | Allows this transaction to read system keys (those that start with the
---   byte 0xFF)
-readSystemKeys :: TransactionOption
-debugDump :: TransactionOption
-debugRetryLogging :: String -> TransactionOption
-
--- | Deprecated
-
--- | <i>Deprecated: Deprecated in FDB C API</i>
-transactionLoggingEnable :: String -> TransactionOption
-
--- | Sets a client provided identifier for the transaction that will be
---   used in scenarios like tracing or profiling. Client trace logging or
---   transaction profiling must be separately enabled.
-debugTransactionIdentifier :: String -> TransactionOption
-
--- | Enables tracing for this transaction and logs results to the client
---   trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before
---   using this option, and client trace logging must be enabled and to get
---   log output.
-logTransaction :: TransactionOption
-
--- | Set a timeout in milliseconds which, when elapsed, will cause the
---   transaction automatically to be cancelled. Valid parameter values are
---   ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending
---   and any future uses of the transaction will throw an exception. The
---   transaction can be used again after it is reset. Prior to API version
---   610, like all other transaction options, the timeout must be reset
---   after a call to `<tt>onError</tt>`. If the API version is 610 or
---   greater, the timeout is not reset after an `<tt>onError</tt>` call.
---   This allows the user to specify a longer timeout on specific
---   transactions than the default timeout specified through the
---   `<tt>transaction_timeout</tt>` database option without the shorter
---   database timeout cancelling transactions that encounter a retryable
---   error. Note that at all API versions, it is safe and legal to set the
---   timeout each time the transaction begins, so most code written
---   assuming the older behavior can be upgraded to the newer behavior
---   without requiring any modification, and the caller is not required to
---   implement special logic in retry loops to only conditionally set this
---   option.
-timeout :: Int -> TransactionOption
-
--- | Set a maximum number of retries after which additional calls to
---   `<tt>onError</tt>` will throw the most recently seen error code. Valid
---   parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the
---   retry limit. Prior to API version 610, like all other transaction
---   options, the retry limit must be reset after a call to
---   `<tt>onError</tt>`. If the API version is 610 or greater, the retry
---   limit is not reset after an `<tt>onError</tt>` call. Note that at all
---   API versions, it is safe and legal to set the retry limit each time
---   the transaction begins, so most code written assuming the older
---   behavior can be upgraded to the newer behavior without requiring any
---   modification, and the caller is not required to implement special
---   logic in retry loops to only conditionally set this option.
-retryLimit :: Int -> TransactionOption
-
--- | Set the maximum amount of backoff delay incurred in the call to
---   `<tt>onError</tt>` if the error is retryable. Defaults to 1000 ms.
---   Valid parameter values are ``[0, INT_MAX]``. If the maximum retry
---   delay is less than the current retry delay of the transaction, then
---   the current retry delay will be clamped to the maximum retry delay.
---   Prior to API version 610, like all other transaction options, the
---   maximum retry delay must be reset after a call to `<tt>onError</tt>`.
---   If the API version is 610 or greater, the retry limit is not reset
---   after an `<tt>onError</tt>` call. Note that at all API versions, it is
---   safe and legal to set the maximum retry delay each time the
---   transaction begins, so most code written assuming the older behavior
---   can be upgraded to the newer behavior without requiring any
---   modification, and the caller is not required to implement special
---   logic in retry loops to only conditionally set this option.
-maxRetryDelay :: Int -> TransactionOption
-
--- | Snapshot read operations will see the results of writes done in the
---   same transaction. This is the default behavior.
-snapshotRywEnable :: TransactionOption
-
--- | Snapshot read operations will not see the results of writes done in
---   the same transaction. This was the default behavior prior to API
---   version 300.
-snapshotRywDisable :: TransactionOption
-
--- | The transaction can read and write to locked databases, and is
---   resposible for checking that it took the lock.
-lockAware :: TransactionOption
-
--- | By default, operations that are performed on a transaction while it is
---   being committed will not only fail themselves, but they will attempt
---   to fail other in-flight operations (such as the commit) as well. This
---   behavior is intended to help developers discover situations where
---   operations could be unintentionally executed after the transaction has
---   been reset. Setting this option removes that protection, causing only
---   the offending operation to fail.
-usedDuringCommitProtectionDisable :: TransactionOption
-
--- | The transaction can read from locked databases.
-readLockAware :: TransactionOption
-
--- | No other transactions will be applied before this transaction within
---   the same commit version.
-firstInBatch :: TransactionOption
-
--- | This option should only be used by tools which change the database
---   configuration.
-useProvisionalProxies :: TransactionOption
-data StreamingMode
-StreamingModeString :: Int -> String -> StreamingMode
-StreamingModeInt :: Int -> Int -> StreamingMode
-StreamingModeBytes :: Int -> ByteString -> StreamingMode
-StreamingModeFlag :: Int -> StreamingMode
-
--- | Client intends to consume the entire range and would like it all
---   transferred as early as possible.
-wantAll :: StreamingMode
-
--- | The default. The client doesn't know how much of the range it is
---   likely to used and wants different performance concerns to be
---   balanced. Only a small portion of data is transferred to the client
---   initially (in order to minimize costs if the client doesn't read the
---   entire range), and as the caller iterates over more items in the range
---   larger batches will be transferred in order to minimize latency.
-iterator :: StreamingMode
-
--- | Infrequently used. The client has passed a specific row limit and
---   wants that many rows delivered in a single batch. Because of iterator
---   operation in client drivers make request batches transparent to the
---   user, consider `<tt>WANT_ALL</tt>` StreamingMode instead. A row limit
---   must be specified if this mode is used.
-exact :: StreamingMode
-
--- | Infrequently used. Transfer data in batches small enough to not be
---   much more expensive than reading individual rows, to minimize cost if
---   iteration stops early.
-small :: StreamingMode
-
--- | Infrequently used. Transfer data in batches sized in between small and
---   large.
-medium :: StreamingMode
-
--- | Infrequently used. Transfer data in batches large enough to be, in a
---   high-concurrency environment, nearly as efficient as possible. If the
---   client stops iteration early, some disk and network bandwidth may be
---   wasted. The batch size may still be too small to allow a single client
---   to get high throughput from the database, so if that is what you need
---   consider the SERIAL StreamingMode.
-large :: StreamingMode
-
--- | Transfer data in batches large enough that an individual client can
---   get reasonable read bandwidth from the database. If the client stops
---   iteration early, considerable disk and network bandwidth may be
---   wasted.
-serial :: StreamingMode
+-- | NOTE: This file is generated from <a>fdb.options</a> by the
+--   generate-options executable in this project. All documentation on the
+--   individual options in this namespace comes from FoundationDB's
+--   documentation in <tt>fdb.options</tt>.
+module FoundationDB.Options.MutationType
 data MutationType
 MutationTypeString :: Int -> String -> MutationType
 MutationTypeInt :: Int -> Int -> MutationType
@@ -566,62 +243,378 @@ byteMax :: ByteString -> MutationType
 --   value in the database is equal to the given value, then given key is
 --   cleared.
 compareAndClear :: ByteString -> MutationType
-data ConflictRangeType
-ConflictRangeTypeString :: Int -> String -> ConflictRangeType
-ConflictRangeTypeInt :: Int -> Int -> ConflictRangeType
-ConflictRangeTypeBytes :: Int -> ByteString -> ConflictRangeType
-ConflictRangeTypeFlag :: Int -> ConflictRangeType
+instance GHC.Classes.Ord FoundationDB.Options.MutationType.MutationType
+instance GHC.Classes.Eq FoundationDB.Options.MutationType.MutationType
+instance GHC.Read.Read FoundationDB.Options.MutationType.MutationType
+instance GHC.Show.Show FoundationDB.Options.MutationType.MutationType
 
--- | Used to add a read conflict range
-read :: ConflictRangeType
 
--- | Used to add a write conflict range
-write :: ConflictRangeType
-data ErrorPredicate
-ErrorPredicateString :: Int -> String -> ErrorPredicate
-ErrorPredicateInt :: Int -> Int -> ErrorPredicate
-ErrorPredicateBytes :: Int -> ByteString -> ErrorPredicate
-ErrorPredicateFlag :: Int -> ErrorPredicate
+-- | NOTE: This file is generated from <a>fdb.options</a> by the
+--   generate-options executable in this project. All documentation on the
+--   individual options in this namespace comes from FoundationDB's
+--   documentation in <tt>fdb.options</tt>.
+module FoundationDB.Options.NetworkOption
+data NetworkOption
+NetworkOptionString :: Int -> String -> NetworkOption
+NetworkOptionInt :: Int -> Int -> NetworkOption
+NetworkOptionBytes :: Int -> ByteString -> NetworkOption
+NetworkOptionFlag :: Int -> NetworkOption
 
--- | Returns `<tt>true</tt>` if the error indicates the operations in the
---   transactions should be retried because of transient error.
-retryable :: ErrorPredicate
+-- | Deprecated
 
--- | Returns `<tt>true</tt>` if the error indicates the transaction may
---   have succeeded, though not in a way the system can verify.
-maybeCommitted :: ErrorPredicate
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+localAddress :: String -> NetworkOption
 
--- | Returns `<tt>true</tt>` if the error indicates the transaction has not
---   committed, though in a way that can be retried.
-retryableNotCommitted :: ErrorPredicate
-instance GHC.Classes.Ord FoundationDB.Options.ErrorPredicate
-instance GHC.Classes.Eq FoundationDB.Options.ErrorPredicate
-instance GHC.Read.Read FoundationDB.Options.ErrorPredicate
-instance GHC.Show.Show FoundationDB.Options.ErrorPredicate
-instance GHC.Classes.Ord FoundationDB.Options.ConflictRangeType
-instance GHC.Classes.Eq FoundationDB.Options.ConflictRangeType
-instance GHC.Read.Read FoundationDB.Options.ConflictRangeType
-instance GHC.Show.Show FoundationDB.Options.ConflictRangeType
-instance GHC.Classes.Ord FoundationDB.Options.MutationType
-instance GHC.Classes.Eq FoundationDB.Options.MutationType
-instance GHC.Read.Read FoundationDB.Options.MutationType
-instance GHC.Show.Show FoundationDB.Options.MutationType
-instance GHC.Classes.Ord FoundationDB.Options.StreamingMode
-instance GHC.Classes.Eq FoundationDB.Options.StreamingMode
-instance GHC.Read.Read FoundationDB.Options.StreamingMode
-instance GHC.Show.Show FoundationDB.Options.StreamingMode
-instance GHC.Classes.Ord FoundationDB.Options.TransactionOption
-instance GHC.Classes.Eq FoundationDB.Options.TransactionOption
-instance GHC.Read.Read FoundationDB.Options.TransactionOption
-instance GHC.Show.Show FoundationDB.Options.TransactionOption
-instance GHC.Classes.Ord FoundationDB.Options.DatabaseOption
-instance GHC.Classes.Eq FoundationDB.Options.DatabaseOption
-instance GHC.Read.Read FoundationDB.Options.DatabaseOption
-instance GHC.Show.Show FoundationDB.Options.DatabaseOption
-instance GHC.Classes.Ord FoundationDB.Options.NetworkOption
-instance GHC.Classes.Eq FoundationDB.Options.NetworkOption
-instance GHC.Read.Read FoundationDB.Options.NetworkOption
-instance GHC.Show.Show FoundationDB.Options.NetworkOption
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+clusterFile :: String -> NetworkOption
+
+-- | Enables trace output to a file in a directory of the clients choosing
+traceEnable :: String -> NetworkOption
+
+-- | Sets the maximum size in bytes of a single trace output file. This
+--   value should be in the range ``[0, INT64_MAX]``. If the value is set
+--   to 0, there is no limit on individual file size. The default is a
+--   maximum size of 10,485,760 bytes.
+traceRollSize :: Int -> NetworkOption
+
+-- | Sets the maximum size of all the trace output files put together. This
+--   value should be in the range ``[0, INT64_MAX]``. If the value is set
+--   to 0, there is no limit on the total size of the files. The default is
+--   a maximum size of 104,857,600 bytes. If the default roll size is used,
+--   this means that a maximum of 10 trace files will be written at a time.
+traceMaxLogsSize :: Int -> NetworkOption
+
+-- | Sets the <tt>LogGroup</tt> attribute with the specified value for all
+--   events in the trace output files. The default log group is 'default'.
+traceLogGroup :: String -> NetworkOption
+
+-- | Select the format of the log files. xml (the default) and json are
+--   supported.
+traceFormat :: String -> NetworkOption
+
+-- | Set internal tuning or debugging knobs
+knob :: String -> NetworkOption
+
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+tlsPlugin :: String -> NetworkOption
+
+-- | Set the certificate chain
+tlsCertBytes :: ByteString -> NetworkOption
+
+-- | Set the file from which to load the certificate chain
+tlsCertPath :: String -> NetworkOption
+
+-- | Set the private key corresponding to your own certificate
+tlsKeyBytes :: ByteString -> NetworkOption
+
+-- | Set the file from which to load the private key corresponding to your
+--   own certificate
+tlsKeyPath :: String -> NetworkOption
+
+-- | Set the peer certificate field verification criteria
+tlsVerifyPeers :: ByteString -> NetworkOption
+buggifyEnable :: NetworkOption
+buggifyDisable :: NetworkOption
+
+-- | Set the probability of a BUGGIFY section being active for the current
+--   execution. Only applies to code paths first traversed AFTER this
+--   option is changed.
+buggifySectionActivatedProbability :: Int -> NetworkOption
+
+-- | Set the probability of an active BUGGIFY section being fired
+buggifySectionFiredProbability :: Int -> NetworkOption
+
+-- | Set the ca bundle
+tlsCaBytes :: ByteString -> NetworkOption
+
+-- | Set the file from which to load the certificate authority bundle
+tlsCaPath :: String -> NetworkOption
+
+-- | Set the passphrase for encrypted private key. Password should be set
+--   before setting the key for the password to be used.
+tlsPassword :: String -> NetworkOption
+
+-- | Disables the multi-version client API and instead uses the local
+--   client directly. Must be set before setting up the network.
+disableMultiVersionClientApi :: NetworkOption
+
+-- | If set, callbacks from external client libraries can be called from
+--   threads created by the FoundationDB client library. Otherwise,
+--   callbacks will be called from either the thread used to add the
+--   callback or the network thread. Setting this option can improve
+--   performance when connected using an external client, but may not be
+--   safe to use in all environments. Must be set before setting up the
+--   network. WARNING: This feature is considered experimental at this
+--   time.
+callbacksOnExternalThreads :: NetworkOption
+
+-- | Adds an external client library for use by the multi-version client
+--   API. Must be set before setting up the network.
+externalClientLibrary :: String -> NetworkOption
+
+-- | Searches the specified path for dynamic libraries and adds them to the
+--   list of client libraries for use by the multi-version client API. Must
+--   be set before setting up the network.
+externalClientDirectory :: String -> NetworkOption
+
+-- | Prevents connections through the local client, allowing only
+--   connections through externally loaded client libraries. Intended
+--   primarily for testing.
+disableLocalClient :: NetworkOption
+
+-- | Disables logging of client statistics, such as sampled transaction
+--   activity.
+disableClientStatisticsLogging :: NetworkOption
+
+-- | Enables debugging feature to perform slow task profiling. Requires
+--   trace logging to be enabled. WARNING: this feature is not recommended
+--   for use in production.
+enableSlowTaskProfiling :: NetworkOption
+
+-- | Enable client buggify - will make requests randomly fail (intended for
+--   client testing)
+clientBuggifyEnable :: NetworkOption
+
+-- | Disable client buggify
+clientBuggifyDisable :: NetworkOption
+
+-- | Set the probability of a CLIENT_BUGGIFY section being active for the
+--   current execution.
+clientBuggifySectionActivatedProbability :: Int -> NetworkOption
+
+-- | Set the probability of an active CLIENT_BUGGIFY section being fired. A
+--   section will only fire if it was activated
+clientBuggifySectionFiredProbability :: Int -> NetworkOption
+
+-- | This option is set automatically to communicate the list of supported
+--   clients to the active client.
+supportedClientVersions :: String -> NetworkOption
+
+-- | This option is set automatically on all clients loaded externally
+--   using the multi-version API.
+externalClient :: NetworkOption
+
+-- | This option tells a child on a multiversion client what transport ID
+--   to use.
+externalClientTransportId :: Int -> NetworkOption
+instance GHC.Classes.Ord FoundationDB.Options.NetworkOption.NetworkOption
+instance GHC.Classes.Eq FoundationDB.Options.NetworkOption.NetworkOption
+instance GHC.Read.Read FoundationDB.Options.NetworkOption.NetworkOption
+instance GHC.Show.Show FoundationDB.Options.NetworkOption.NetworkOption
+
+
+-- | NOTE: This file is generated from <a>fdb.options</a> by the
+--   generate-options executable in this project. All documentation on the
+--   individual options in this namespace comes from FoundationDB's
+--   documentation in <tt>fdb.options</tt>.
+module FoundationDB.Options.TransactionOption
+data TransactionOption
+TransactionOptionString :: Int -> String -> TransactionOption
+TransactionOptionInt :: Int -> Int -> TransactionOption
+TransactionOptionBytes :: Int -> ByteString -> TransactionOption
+TransactionOptionFlag :: Int -> TransactionOption
+
+-- | The transaction, if not self-conflicting, may be committed a second
+--   time after commit succeeds, in the event of a fault
+causalWriteRisky :: TransactionOption
+
+-- | The read version will be committed, and usually will be the latest
+--   committed, but might not be the latest committed in the event of a
+--   simultaneous fault and misbehaving clock.
+causalReadRisky :: TransactionOption
+causalReadDisable :: TransactionOption
+
+-- | Addresses returned by get_addresses_for_key include the port when
+--   enabled. This will be enabled by default in api version 700, and this
+--   option will be deprecated.
+includePortInAddress :: TransactionOption
+
+-- | The next write performed on this transaction will not generate a write
+--   conflict range. As a result, other transactions which read the key(s)
+--   being modified by the next write will not conflict with this
+--   transaction. Care needs to be taken when using this option on a
+--   transaction that is shared between multiple threads. When setting this
+--   option, write conflict ranges will be disabled on the next write
+--   operation, regardless of what thread it is on.
+nextWriteNoWriteConflictRange :: TransactionOption
+
+-- | Committing this transaction will bypass the normal load balancing
+--   across proxies and go directly to the specifically nominated 'first
+--   proxy'.
+commitOnFirstProxy :: TransactionOption
+checkWritesEnable :: TransactionOption
+
+-- | Reads performed by a transaction will not see any prior mutations that
+--   occured in that transaction, instead seeing the value which was in the
+--   database at the transaction's read version. This option may provide a
+--   small performance benefit for the client, but also disables a number
+--   of client-side optimizations which are beneficial for transactions
+--   which tend to read and write the same keys within a single
+--   transaction.
+readYourWritesDisable :: TransactionOption
+
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+readAheadDisable :: TransactionOption
+durabilityDatacenter :: TransactionOption
+durabilityRisky :: TransactionOption
+
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+durabilityDevNullIsWebScale :: TransactionOption
+
+-- | Specifies that this transaction should be treated as highest priority
+--   and that lower priority transactions should block behind this one. Use
+--   is discouraged outside of low-level tools
+prioritySystemImmediate :: TransactionOption
+
+-- | Specifies that this transaction should be treated as low priority and
+--   that default priority transactions will be processed first. Batch
+--   priority transactions will also be throttled at load levels smaller
+--   than for other types of transactions and may be fully cut off in the
+--   event of machine failures. Useful for doing batch work simultaneously
+--   with latency-sensitive work
+priorityBatch :: TransactionOption
+
+-- | This is a write-only transaction which sets the initial configuration.
+--   This option is designed for use by database system tools only.
+initializeNewDatabase :: TransactionOption
+
+-- | Allows this transaction to read and modify system keys (those that
+--   start with the byte 0xFF)
+accessSystemKeys :: TransactionOption
+
+-- | Allows this transaction to read system keys (those that start with the
+--   byte 0xFF)
+readSystemKeys :: TransactionOption
+debugDump :: TransactionOption
+debugRetryLogging :: String -> TransactionOption
+
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+transactionLoggingEnable :: String -> TransactionOption
+
+-- | Sets a client provided identifier for the transaction that will be
+--   used in scenarios like tracing or profiling. Client trace logging or
+--   transaction profiling must be separately enabled.
+debugTransactionIdentifier :: String -> TransactionOption
+
+-- | Enables tracing for this transaction and logs results to the client
+--   trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before
+--   using this option, and client trace logging must be enabled and to get
+--   log output.
+logTransaction :: TransactionOption
+
+-- | Sets the maximum escaped length of key and value fields to be logged
+--   to the trace file via the LOG_TRANSACTION option, after which the
+--   field will be truncated. A negative value disables truncation.
+transactionLoggingMaxFieldLength :: Int -> TransactionOption
+
+-- | Set a timeout in milliseconds which, when elapsed, will cause the
+--   transaction automatically to be cancelled. Valid parameter values are
+--   ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending
+--   and any future uses of the transaction will throw an exception. The
+--   transaction can be used again after it is reset. Prior to API version
+--   610, like all other transaction options, the timeout must be reset
+--   after a call to `<tt>onError</tt>`. If the API version is 610 or
+--   greater, the timeout is not reset after an `<tt>onError</tt>` call.
+--   This allows the user to specify a longer timeout on specific
+--   transactions than the default timeout specified through the
+--   `<tt>transaction_timeout</tt>` database option without the shorter
+--   database timeout cancelling transactions that encounter a retryable
+--   error. Note that at all API versions, it is safe and legal to set the
+--   timeout each time the transaction begins, so most code written
+--   assuming the older behavior can be upgraded to the newer behavior
+--   without requiring any modification, and the caller is not required to
+--   implement special logic in retry loops to only conditionally set this
+--   option.
+timeout :: Int -> TransactionOption
+
+-- | Set a maximum number of retries after which additional calls to
+--   `<tt>onError</tt>` will throw the most recently seen error code. Valid
+--   parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the
+--   retry limit. Prior to API version 610, like all other transaction
+--   options, the retry limit must be reset after a call to
+--   `<tt>onError</tt>`. If the API version is 610 or greater, the retry
+--   limit is not reset after an `<tt>onError</tt>` call. Note that at all
+--   API versions, it is safe and legal to set the retry limit each time
+--   the transaction begins, so most code written assuming the older
+--   behavior can be upgraded to the newer behavior without requiring any
+--   modification, and the caller is not required to implement special
+--   logic in retry loops to only conditionally set this option.
+retryLimit :: Int -> TransactionOption
+
+-- | Set the maximum amount of backoff delay incurred in the call to
+--   `<tt>onError</tt>` if the error is retryable. Defaults to 1000 ms.
+--   Valid parameter values are ``[0, INT_MAX]``. If the maximum retry
+--   delay is less than the current retry delay of the transaction, then
+--   the current retry delay will be clamped to the maximum retry delay.
+--   Prior to API version 610, like all other transaction options, the
+--   maximum retry delay must be reset after a call to `<tt>onError</tt>`.
+--   If the API version is 610 or greater, the retry limit is not reset
+--   after an `<tt>onError</tt>` call. Note that at all API versions, it is
+--   safe and legal to set the maximum retry delay each time the
+--   transaction begins, so most code written assuming the older behavior
+--   can be upgraded to the newer behavior without requiring any
+--   modification, and the caller is not required to implement special
+--   logic in retry loops to only conditionally set this option.
+maxRetryDelay :: Int -> TransactionOption
+
+-- | Set the transaction size limit in bytes. The size is calculated by
+--   combining the sizes of all keys and values written or mutated, all key
+--   ranges cleared, and all read and write conflict ranges. (In other
+--   words, it includes the total size of all data included in the request
+--   to the cluster to commit the transaction.) Large transactions can
+--   cause performance problems on FoundationDB clusters, so setting this
+--   limit to a smaller value than the default can help prevent the client
+--   from accidentally degrading the cluster's performance. This value must
+--   be at least 32 and cannot be set to higher than 10,000,000, the
+--   default transaction size limit.
+sizeLimit :: Int -> TransactionOption
+
+-- | Snapshot read operations will see the results of writes done in the
+--   same transaction. This is the default behavior.
+snapshotRywEnable :: TransactionOption
+
+-- | Snapshot read operations will not see the results of writes done in
+--   the same transaction. This was the default behavior prior to API
+--   version 300.
+snapshotRywDisable :: TransactionOption
+
+-- | The transaction can read and write to locked databases, and is
+--   resposible for checking that it took the lock.
+lockAware :: TransactionOption
+
+-- | By default, operations that are performed on a transaction while it is
+--   being committed will not only fail themselves, but they will attempt
+--   to fail other in-flight operations (such as the commit) as well. This
+--   behavior is intended to help developers discover situations where
+--   operations could be unintentionally executed after the transaction has
+--   been reset. Setting this option removes that protection, causing only
+--   the offending operation to fail.
+usedDuringCommitProtectionDisable :: TransactionOption
+
+-- | The transaction can read from locked databases.
+readLockAware :: TransactionOption
+
+-- | No other transactions will be applied before this transaction within
+--   the same commit version.
+firstInBatch :: TransactionOption
+
+-- | This option should only be used by tools which change the database
+--   configuration.
+useProvisionalProxies :: TransactionOption
+instance GHC.Classes.Ord FoundationDB.Options.TransactionOption.TransactionOption
+instance GHC.Classes.Eq FoundationDB.Options.TransactionOption.TransactionOption
+instance GHC.Read.Read FoundationDB.Options.TransactionOption.TransactionOption
+instance GHC.Show.Show FoundationDB.Options.TransactionOption.TransactionOption
 
 
 -- | Raw bindings to the underlying C client API. These are not memory
@@ -663,7 +656,8 @@ createDatabase :: (String) -> IO ((CFDBError), (Database))
 databaseDestroy :: (Database) -> IO ()
 databaseSetOption :: Database -> DatabaseOption -> IO CFDBError
 databaseCreateTransaction :: (Database) -> IO ((CFDBError), (Transaction))
-data Transaction
+newtype Transaction
+Transaction :: (Ptr (Transaction)) -> Transaction
 
 -- | Specifies a key in the database. See the official <a>docs</a> for more
 --   information. These can be supplied to <tt>getKey</tt> or used to build
@@ -698,6 +692,7 @@ keySelectorTuple :: KeySelector -> (ByteString, Bool, Int)
 -- | Inverse of <a>keySelectorTuple</a>
 tupleKeySelector :: (ByteString, Bool, Int) -> KeySelector
 transactionDestroy :: (Transaction) -> IO ()
+transactionDestroyPtr :: FunPtr (Ptr a -> IO ())
 transactionSetOption :: Transaction -> TransactionOption -> IO CFDBError
 transactionSetReadVersion :: (Transaction) -> (Int64) -> IO ()
 transactionGetReadVersion :: (Transaction) -> IO ((Future Int64))
@@ -1189,7 +1184,9 @@ module FoundationDB.Transaction
 --   
 --   <ul>
 --   <li><a>runTransaction</a> will retry your transaction in some cases,
---   which means any IO in your transaction will be repeated.</li>
+--   which means any IO in your transaction will be repeated. You can
+--   disable retries by setting <a>maxRetries</a> in
+--   <a>TransactionConfig</a> to 0.</li>
 --   <li>Transactions have strict time limits, so slow IO operations should
 --   be avoided.</li>
 --   </ul>
@@ -1302,9 +1299,9 @@ getKey :: KeySelector -> Transaction (Future ByteString)
 --   the given key.
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 
--- | Perform an atomic operation of <tt>MutationType</tt> on the given key.
---   A transaction that performs only atomic operations is guaranteed not
---   to conflict. However, it may cause other concurrent transactions to
+-- | Perform an atomic operation of <a>MutationType</a> on the given key. A
+--   transaction that performs only atomic operations is guaranteed not to
+--   conflict. However, it may cause other concurrent transactions to
 --   conflict.
 atomicOp :: ByteString -> MutationType -> Transaction ()
 
@@ -1394,8 +1391,8 @@ watch :: ByteString -> Transaction (FutureIO ())
 data Future a
 
 -- | Block until a future is ready. Unfortunately, does not seem to be
---   interruptible SIGPIPE (the interrupt sent by Control.Conccurent.Async
---   to cancel), even when using InterruptibleFFI.
+--   interruptible by SIGPIPE (the interrupt sent by
+--   Control.Conccurent.Async to cancel), even when using InterruptibleFFI.
 await :: Future a -> Transaction a
 
 -- | Polls a future for readiness in a loop until it is ready, then returns
@@ -1424,7 +1421,7 @@ data FutureIO a
 awaitIO :: FutureIO a -> IO (Either Error a)
 
 -- | IO analogue to <a>awaitInterruptible</a>.
-awaitInterruptibleIO :: FutureIO a -> IO a
+awaitInterruptibleIO :: FutureIO a -> IO (Either Error a)
 
 -- | Cancel a future. Attempts to await the future after cancellation will
 --   throw <a>OperationCancelled</a>.
@@ -1458,7 +1455,7 @@ offset :: Int -> KeySelector -> KeySelector
 -- | The internal state of a transaction as it is being executed by
 --   <a>runTransaction</a>.
 data TransactionEnv
-createTransactionEnv :: Database -> TransactionConfig -> ExceptT Error (ResourceT IO) TransactionEnv
+createTransactionEnv :: Database -> TransactionConfig -> ExceptT Error IO TransactionEnv
 
 -- | Execute a transactional action on an existing transaction environment.
 onEnv :: TransactionEnv -> Transaction a -> IO (Either Error a)
@@ -1495,7 +1492,8 @@ instance GHC.Classes.Eq FoundationDB.Transaction.Range
 instance GHC.Show.Show FoundationDB.Transaction.Range
 instance Control.Monad.Error.Class.MonadError FoundationDB.Error.Internal.Error FoundationDB.Transaction.Transaction
 instance Control.Monad.Reader.Class.MonadReader FoundationDB.Transaction.TransactionEnv FoundationDB.Transaction.Transaction
-instance Control.Monad.Trans.Resource.Internal.MonadResource FoundationDB.Transaction.Transaction
+instance Control.Monad.Base.MonadBase GHC.Types.IO FoundationDB.Transaction.Transaction
+instance Control.Monad.Trans.Control.MonadBaseControl GHC.Types.IO FoundationDB.Transaction.Transaction
 instance GHC.Show.Show a => GHC.Show.Show (FoundationDB.Transaction.Future a)
 instance GHC.Base.Functor FoundationDB.Transaction.Future
 instance GHC.Base.Applicative FoundationDB.Transaction.Future
@@ -1544,7 +1542,9 @@ data Database
 --   
 --   <ul>
 --   <li><a>runTransaction</a> will retry your transaction in some cases,
---   which means any IO in your transaction will be repeated.</li>
+--   which means any IO in your transaction will be repeated. You can
+--   disable retries by setting <a>maxRetries</a> in
+--   <a>TransactionConfig</a> to 0.</li>
 --   <li>Transactions have strict time limits, so slow IO operations should
 --   be avoided.</li>
 --   </ul>
@@ -1649,9 +1649,9 @@ getKey :: KeySelector -> Transaction (Future ByteString)
 --   the given key.
 getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 
--- | Perform an atomic operation of <tt>MutationType</tt> on the given key.
---   A transaction that performs only atomic operations is guaranteed not
---   to conflict. However, it may cause other concurrent transactions to
+-- | Perform an atomic operation of <a>MutationType</a> on the given key. A
+--   transaction that performs only atomic operations is guaranteed not to
+--   conflict. However, it may cause other concurrent transactions to
 --   conflict.
 atomicOp :: ByteString -> MutationType -> Transaction ()
 
@@ -1739,8 +1739,8 @@ watch :: ByteString -> Transaction (FutureIO ())
 data Future a
 
 -- | Block until a future is ready. Unfortunately, does not seem to be
---   interruptible SIGPIPE (the interrupt sent by Control.Conccurent.Async
---   to cancel), even when using InterruptibleFFI.
+--   interruptible by SIGPIPE (the interrupt sent by
+--   Control.Conccurent.Async to cancel), even when using InterruptibleFFI.
 await :: Future a -> Transaction a
 
 -- | Polls a future for readiness in a loop until it is ready, then returns
@@ -1769,7 +1769,7 @@ data FutureIO a
 awaitIO :: FutureIO a -> IO (Either Error a)
 
 -- | IO analogue to <a>awaitInterruptible</a>.
-awaitInterruptibleIO :: FutureIO a -> IO a
+awaitInterruptibleIO :: FutureIO a -> IO (Either Error a)
 
 -- | Cancel a future. Attempts to await the future after cancellation will
 --   throw <a>OperationCancelled</a>.
