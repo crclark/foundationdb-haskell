@@ -105,29 +105,6 @@ optionFunctionDecl optType FdbOption{..} =
                              , var (name "bs")])
 
     Just (FdbParam _ FdbFlag) -> error "impossible case"
-{-
-modName :: ModuleName ()
-modName = ModuleName () "FoundationDB.Options"
-
-exports :: [FdbOptionType] -> ExportSpecList ()
-exports opTys =
-  ExportSpecList () (concatMap f opTys)
-
-  where f FdbOptionType{..} =
-          eabs (capitalize optionType)
-          : map (eabs . lowerCamelCase . optionName) options
-        eabs x = EAbs () (NoNamespace ()) (Qual () modName (name x))
-
-moduleHead :: [FdbOptionType] -> ModuleHead ()
-moduleHead opTys =
-  ModuleHead ()
-             modName
-             Nothing
-             (Just (exports opTys))
-
-generateModuleHead :: [FdbOptionType] -> String
-generateModuleHead = prettyPrint . moduleHead
--}
 
 generateOption :: FdbOptionType -> FdbOption -> String
 generateOption opTy opt@FdbOption{..} =
@@ -154,14 +131,14 @@ generateDeprecatedPragmas =
 
 -- TODO: figure out a better way to do comments so we don't need to do any
 -- manual string concatenation.
-generateOptionsModule :: [FdbOptionType] -> String
-generateOptionsModule tys =
+generateOptionsModule :: FdbOptionType -> String
+generateOptionsModule typ =
   "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}\n"
   ++ "-- | NOTE: This file is generated from <https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options>\n"
   ++ "-- by the generate-options executable in this project.\n"
   ++ "-- All documentation on the individual options in this namespace comes\n"
   ++ "-- from FoundationDB's documentation in @fdb.options@.\n"
-  ++ "module FoundationDB.Options where\n"
+  ++ "module FoundationDB.Options." ++ (optionType typ) ++ " where\n"
   ++ "import Data.ByteString.Char8 (ByteString)\n\n"
-  ++ generateDeprecatedPragmas tys
-  ++ unlines (map generateOptionType tys)
+  ++ generateDeprecatedPragmas [typ]
+  ++ generateOptionType typ

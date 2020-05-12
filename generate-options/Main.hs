@@ -7,7 +7,9 @@
 import Generate
 import Parse
 
+import Data.Foldable (for_)
 import Options.Generic (type (<?>), Generic, getRecord, ParseRecord(..), unHelpful)
+import System.IO (writeFile)
 import Text.XML.Light.Proc (onlyElems)
 import Text.XML.Light.Types
 import Text.XML.Light.Input (parseXMLDoc)
@@ -28,4 +30,6 @@ main = do
       let eOptTys = mapM toFdbOptionType $ onlyElems $ elContent contents
       case eOptTys of
         Left err -> error $ "parse error: " ++ err
-        Right optTys -> putStrLn $ generateOptionsModule optTys
+        Right optTys -> for_ optTys $ \optTy -> do
+          let fileName = (optionType optTy) ++ ".hs"
+          writeFile fileName $ generateOptionsModule optTy

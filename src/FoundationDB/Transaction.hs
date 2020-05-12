@@ -102,7 +102,8 @@ import Foreign.Ptr (Ptr, castPtr)
 
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
-import qualified FoundationDB.Options as Opt
+import FoundationDB.Options.MutationType (MutationType)
+import qualified FoundationDB.Options.TransactionOption as TransactionOpt
 import FoundationDB.Versionstamp
 
 withForeignPtr' :: MonadBaseControl IO m => ForeignPtr a -> (Ptr a -> m b) -> m b
@@ -458,7 +459,7 @@ isRangeEmpty r = do
 -- | Perform an atomic operation of 'MutationType' on the given key. A
 -- transaction that performs only atomic operations is guaranteed not to
 -- conflict. However, it may cause other concurrent transactions to conflict.
-atomicOp :: ByteString -> Opt.MutationType -> Transaction ()
+atomicOp :: ByteString -> MutationType -> Transaction ()
 atomicOp k op =
   withTransactionPtr $ \t ->
     liftIO $ FDB.transactionAtomicOp t k op
@@ -536,7 +537,7 @@ runTransactionWithConfig'
 runTransactionWithConfig' conf db t = runExceptT $ do
   trans <- createTransactionEnv db conf
   flip runReaderT trans $ unTransaction $ withRetry $ do
-    setOption (Opt.timeout (timeout conf))
+    setOption (TransactionOpt.timeout (timeout conf))
     res    <- t
     commit <- commitFuture
     await commit
@@ -609,7 +610,7 @@ watch k = withTransactionPtr $ \t -> do
   liftIO $ allocFutureIO f $ return ()
 
 -- | Set one of the transaction options from the underlying C API.
-setOption :: Opt.TransactionOption -> Transaction ()
+setOption :: TransactionOpt.TransactionOption -> Transaction ()
 setOption opt =
   withTransactionPtr $ \t ->
     fdbExcept' $ FDB.transactionSetOption t opt
