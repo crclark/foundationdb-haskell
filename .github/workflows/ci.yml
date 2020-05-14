@@ -8,9 +8,10 @@ on:
 
 jobs:
   cabal:
-    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }} / FDB ${{ matrix.fdb-version }} / API ${{ matrix.fdb-api-version }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         cabal: ["3.2"]
@@ -71,9 +72,10 @@ jobs:
         cabal test all --enable-tests
 
   stack:
-    name: stack / ghc ${{ matrix.ghc }}
+    name: stack / ghc ${{ matrix.ghc }} / FDB ${{ matrix.fdb-version }} / API ${{ matrix.fdb-api-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         stack: ["2.1.3"]
         ghc: ["8.8.3"]
