@@ -2,7 +2,7 @@
 #define FDBC_WRAPPER
 
 #ifndef FDB_API_VERSION
-#define FDB_API_VERSION 610
+#define FDB_API_VERSION 620
 #endif
 #include "foundationdb/fdb_c.h"
 #include "foundationdb/fdb_c_options.g.h"
