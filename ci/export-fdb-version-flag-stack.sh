@@ -16,9 +16,6 @@ then
 elif [[ ${FDB_VER} = "6.1.13" ]]
 then
   export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-610'
-elif [[ ${FDB_VER} = "6.2.20" ]]
-then
-  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-620'
 fi
 
 echo "Using flag ${FDB_VER_FLAG}"
