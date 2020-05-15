@@ -162,9 +162,15 @@ peekIntegral x = fmap fromIntegral $ peek x
 peekBool :: Ptr CInt -> IO Bool
 peekBool x = fmap (/= 0) $ peek x
 
+#if FDB_API_VERSION >= 620
 {#fun unsafe future_get_int64 as ^
   {inFuture `Future Int64', alloca- `Int64' peekIntegral*}
   -> `CFDBError' CFDBError#}
+#else
+{#fun unsafe future_get_version as futureGetInt64
+  {inFuture `Future Int64', alloca- `Int64' peekIntegral*}
+  -> `CFDBError' CFDBError#}
+#endif
 
 {#fun unsafe future_get_key as futureGetKey_
   {inFuture `Future a', alloca- `Ptr CUChar' peek*, alloca- `Int' peekIntegral*}

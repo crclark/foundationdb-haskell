@@ -8,7 +8,13 @@ I am not using this in a production-like context, but I have exercised the code 
 
 ### Supported FoundationDB versions
 
-Currently supports 5.2.x, 6.0.x, 6.1.x, and 6.2.x.
+Currently supports 5.2.x, 6.0.x, 6.1.x, and 6.2.x. By default, this package builds assuming that you have installed the latest supported version of FoundationDB. If not, you need to set the appropriate flag when building the library. For example, if you installed FoundationDB 6.0.x, you need to build with
+
+`stack build --flag foundationdb-haskell:fdb-version-600`
+
+or
+
+`cabal configure -f fdb-version-600 && cabal build`
 
 
 ### Generating options from `fdb.options`

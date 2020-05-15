@@ -50,6 +50,27 @@ flag with-generate-options
   Manual:            True
   Default:           False
 
+flag fdb-version-520
+  description: Indicates that we are building against version 5.2.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               6.2.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-600
+  description: Indicates that we are building against version 6.0.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               6.2.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-610
+  description: Indicates that we are building against version 6.1.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               6.2.x is assumed.
+  Manual:      True
+  Default:     False
+
 library
   -- Modules exported by the library.
   exposed-modules:   FoundationDB
@@ -117,6 +138,13 @@ library
                        -Wincomplete-record-updates
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
+
+  if flag(fdb-version-520)
+    CPP-Options: -DFDB_API_VERSION=520
+  if flag(fdb-version-600)
+    CPP-Options: -DFDB_API_VERSION=600
+  if flag(fdb-version-610)
+    CPP-Options: -DFDB_API_VERSION=610
 
 executable generate-options
   if flag(with-generate-options)

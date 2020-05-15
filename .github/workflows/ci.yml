@@ -62,7 +62,9 @@ jobs:
 
     - name: Build
       run: |
+        source ci/export-fdb-version-flag-cabal.sh ${{ matrix.fdb-version }}
         cabal update
+        cabal configure ${FDB_VER_FLAG}
         cabal build all --enable-tests --enable-benchmarks --write-ghc-environment-files=always
 
     - name: Test
@@ -121,7 +123,8 @@ jobs:
 
     - name: Build
       run: |
-        stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
+        source ci/export-fdb-version-flag-stack.sh ${{ matrix.fdb-version }}
+        stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks ${FDB_VER_FLAG}
 
     - name: Test
       env:
