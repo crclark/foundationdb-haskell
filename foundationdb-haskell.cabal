@@ -126,8 +126,6 @@ library
 
   default-extensions: CPP
 
-  CC-Options: -std=c99
-
   include-dirs:        include
 
   c-sources:           cbits/fdbc_wrapper.c
@@ -139,11 +137,17 @@ library
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
 
+  CC-Options: -std=c99 -DFDB_API_VERSION=620
+  CPP-Options: -DFDB_API_VERSION=620
+
   if flag(fdb-version-520)
+    CC-Options: -std=c99 -DFDB_API_VERSION=520
     CPP-Options: -DFDB_API_VERSION=520
   if flag(fdb-version-600)
+    CC-Options: -std=c99 -DFDB_API_VERSION=600
     CPP-Options: -DFDB_API_VERSION=600
   if flag(fdb-version-610)
+    CC-Options: -std=c99 -DFDB_API_VERSION=610
     CPP-Options: -DFDB_API_VERSION=610
 
 executable generate-options
