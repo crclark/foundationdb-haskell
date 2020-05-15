@@ -33,7 +33,9 @@ transactionProps testSS db = do
     futures testSS db
     cancellation testSS db
     versionstamps testSS db
+#if FDB_API_VERSION > 520
     readVersions testSS db
+#endif
     ranges testSS db
     streamingModes testSS db
     retries testSS db

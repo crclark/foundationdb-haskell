@@ -91,11 +91,36 @@ validateVersion v =
   when (v < 520)
        (throw (Error UnsupportedAPIVersion))
 
+#if FDB_API_VERSION < 610
+initCluster :: FilePath -> IO FDB.Cluster
+initCluster fp = do
+  futureCluster <- FDB.createCluster fp
+  fdbThrowing' $ FDB.futureBlockUntilReady futureCluster
+  fdbThrowing $ FDB.futureGetCluster futureCluster
+
+withCluster :: Maybe FilePath -> (FDB.Cluster -> IO a) -> IO a
+withCluster mfp =
+  bracket (initCluster (fromMaybe "" mfp))
+          FDB.clusterDestroy
+
+initDB :: FDB.Cluster -> IO FDB.Database
+initDB cluster = do
+  futureDB <- FDB.clusterCreateDatabase cluster
+  fdbThrowing' $ FDB.futureBlockUntilReady futureDB
+  fdbThrowing $ FDB.futureGetDatabase futureDB
+
 withDatabase :: Maybe FilePath -> (FDB.Database -> IO a) -> IO a
 withDatabase clusterFile f =
+  withCluster clusterFile $ \ cluster ->
+    bracket (initDB cluster)
+            FDB.databaseDestroy
+            f
+#else
+withDatabase :: Maybe FilePath -> (FDB.Database -> IO a) -> IO a
+withDatabase clusterFile =
   bracket (fdbThrowing $ FDB.createDatabase (fromMaybe "" clusterFile))
           FDB.databaseDestroy
-          f
+#endif
 
 -- | Options set at the connection level for FoundationDB.
 data FoundationDBOptions = FoundationDBOptions
@@ -155,7 +180,12 @@ startFoundationDB FoundationDBOptions{..} = do
   fdbThrowing' FDB.setupNetwork
   void $ forkFinally FDB.runNetwork
                      (\_ -> putMVar startFoundationDBGlobalLock ())
+#if FDB_API_VERSION < 610
+  cluster <- initCluster (fromMaybe "" clusterFile)
+  db <- initDB cluster
+#else
   db <- fdbThrowing $ FDB.createDatabase (fromMaybe "" clusterFile)
+#endif
   forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
   return db
 
