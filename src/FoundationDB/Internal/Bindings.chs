@@ -4,6 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE CPP #-}
 
 module FoundationDB.Internal.Bindings (
   -- * API versioning
@@ -23,7 +24,7 @@ module FoundationDB.Internal.Bindings (
   , futureIsReady
   , futureReleaseMemory
   , futureGetError
-  , futureGetVersion
+  , futureGetInt64
   , futureGetKey
   , futureGetValue
   , futureGetStringArray
@@ -161,7 +162,7 @@ peekIntegral x = fmap fromIntegral $ peek x
 peekBool :: Ptr CInt -> IO Bool
 peekBool x = fmap (/= 0) $ peek x
 
-{#fun unsafe future_get_version as ^
+{#fun unsafe future_get_int64 as ^
   {inFuture `Future Int64', alloca- `Int64' peekIntegral*}
   -> `CFDBError' CFDBError#}
 

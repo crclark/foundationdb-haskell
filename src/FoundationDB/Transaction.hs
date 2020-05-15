@@ -577,7 +577,7 @@ getReadVersion :: Transaction (Future Word64)
 getReadVersion =
   withTransactionPtr $ \t ->
     allocFuture (FDB.transactionGetReadVersion t)
-                (\f -> fromIntegral <$> fdbExcept (FDB.futureGetVersion f))
+                (\f -> fromIntegral <$> fdbExcept (FDB.futureGetInt64 f))
 
 -- | Returns a 'FutureIO' that will resolve to the versionstamp of the committed
 -- transaction. Most applications won't need this.
