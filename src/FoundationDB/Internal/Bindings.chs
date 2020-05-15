@@ -32,7 +32,9 @@ module FoundationDB.Internal.Bindings (
   , futureGetKeyValueArray
   -- * Database
   , Database
+#if FDB_API_VERSION >= 610
   , createDatabase
+#endif
   , databaseDestroy
   , databaseSetOption
   , databaseCreateTransaction
@@ -71,6 +73,15 @@ module FoundationDB.Internal.Bindings (
   , getError
   , errorPredicate
   , FDBErrorPredicate (..)
+#if FDB_API_VERSION < 610
+  -- * Cluster
+  , Cluster
+  , createCluster
+  , clusterDestroy
+  , clusterCreateDatabase
+  , futureGetCluster
+  , futureGetDatabase
+#endif
 ) where
 
 import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
@@ -287,7 +298,9 @@ futureGetKeyValueArray f = do
     else do kvs <- peekArray n arr >>= mapM packKeyValue
             return $ Right $ (kvs, more)
 
+#if FDB_API_VERSION >= 610
 {#fun unsafe create_database as ^ {`String', alloca- `Database' peek*} -> `CFDBError' CFDBError #}
+#endif
 
 {#fun unsafe database_destroy as ^ {`Database'} -> `()'#}
 
@@ -599,3 +612,33 @@ deriving instance Show FDBErrorPredicate
 {#fun pure unsafe error_predicate as ^
   {`FDBErrorPredicate', getCFDBError `CFDBError'}
   -> `Bool'#}
+
+-- NOTE: Pre 6.1.x, there was an intermediate cluster type we had to create
+-- before we could create a database object.
+
+#if FDB_API_VERSION < 610
+{#pointer *FDBCluster as Cluster newtype #}
+
+deriving instance Show Cluster
+deriving instance Storable Cluster
+
+{#fun unsafe future_get_cluster as ^
+  {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
+
+{#fun unsafe future_get_database as ^
+  {inFuture `Future Database', alloca- `Database' peek*}
+  -> `CFDBError' CFDBError#}
+
+{#fun unsafe create_cluster as ^
+  {withCString* `FilePath'} -> `Future Cluster' outFuture #}
+
+{#fun unsafe cluster_destroy as ^ {`Cluster'} -> `()'#}
+
+{#fun unsafe cluster_create_database as clusterCreateDatabase_
+  {`Cluster', id `Ptr CUChar', `Int'} -> `Future a' outFuture #}
+
+clusterCreateDatabase :: Cluster -> IO (Future Database)
+clusterCreateDatabase cluster =
+  withCStringLen "DB" $ \(arr,len) ->
+    clusterCreateDatabase_ cluster (castPtr arr) len
+#endif
