@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/crclark/foundationdb-haskell.svg?branch=master)](https://travis-ci.org/crclark/foundationdb-haskell)
+[![GitHub CI](https://github.com/crclark/foundationdb-haskell/workflows/CI/badge.svg)](https://github.com/crclark/foundationdb-haskell/actions)
 
 [API Docs](https://crclark.github.io/foundationdb-haskell/)
 
