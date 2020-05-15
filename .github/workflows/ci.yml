@@ -121,13 +121,13 @@ jobs:
         path: ~/.stack
         key: ${{ runner.os }}-${{ matrix.ghc }}-stack
 
-    - name: Build
-      run: |
-        source ci/export-fdb-version-flag-stack.sh ${{ matrix.fdb-version }}
-        stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks ${FDB_VER_FLAG}
-
-    - name: Test
+    # Build and test in one step so we don't need to source the flag variable
+    # twice... if we run stack build, then stack test, we have to pass the flag
+    # again or stack turns it back off. This behavior is different from cabal
+    # above.
+    - name: Build and test
       env:
         FDB_HASKELL_TEST_API_VERSION: ${{ matrix.fdb-api-version }}
       run: |
-        stack test --system-ghc
+        source ci/export-fdb-version-flag-stack.sh ${{ matrix.fdb-version }}
+        stack build --system-ghc --test --bench --no-run-benchmarks ${FDB_VER_FLAG}
