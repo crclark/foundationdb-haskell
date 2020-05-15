@@ -2,6 +2,7 @@
 #define FDBC_WRAPPER
 
 #ifndef FDB_API_VERSION
+#warning Defining version to be FDB_API_VERSION
 #define FDB_API_VERSION 620
 #endif
 #include "foundationdb/fdb_c.h"
