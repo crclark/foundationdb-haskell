@@ -9,16 +9,16 @@ FDB_VER=${1}
 
 if [[ ${FDB_VER} = "5.2.8" ]]
 then
-  export FDB_VER_FLAG='-flag foundationdb-haskell:fdb-version-520'
+  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-520'
 elif [[ ${FDB_VER} = "6.0.18" ]]
 then
-  export FDB_VER_FLAG='-flag foundationdb-haskell:fdb-version-600'
+  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-600'
 elif [[ ${FDB_VER} = "6.1.13" ]]
 then
-  export FDB_VER_FLAG='-flag foundationdb-haskell:fdb-version-610'
+  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-610'
 elif [[ ${FDB_VER} = "6.2.20" ]]
 then
-  export FDB_VER_FLAG='-flag foundationdb-haskell:fdb-version-620'
+  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-620'
 fi
 
 echo "Using flag ${FDB_VER_FLAG}"
