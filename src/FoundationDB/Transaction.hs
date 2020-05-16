@@ -25,6 +25,9 @@ module FoundationDB.Transaction (
   , getReadVersion
   , setReadVersion
   , getVersionstamp
+#if FDB_API_VERSION >= 620
+  , getApproximateSize
+#endif
   , get
   , set
   , clear
@@ -595,6 +598,17 @@ getVersionstamp = withTransactionPtr $ \t -> do
         ParseError $ "Failed to parse versionstamp: "
                      ++ show (BS.unpack bs)
       Just vs -> return $ Right vs
+
+#if FDB_API_VERSION >= 620
+-- | Returns a future that will return the size, in bytes, of the transaction so
+-- far, as a summation of the estimated size of mutations, read conflict ranges,
+-- and write conflict ranges. This can be used to decide how to split a large
+-- task into smaller transactions.
+getApproximateSize :: Transaction (Future Word64)
+getApproximateSize = withTransactionPtr $ \t ->
+  allocFuture (FDB.transactionGetApproximateSize t)
+              (fmap fromIntegral . fdbExcept . FDB.futureGetInt64)
+#endif
 
 -- | Creates a future that will be fulfilled when the value
 -- associated with the given key is changed, relative to the value

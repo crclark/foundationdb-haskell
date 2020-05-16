@@ -41,6 +41,9 @@ transactionProps testSS db = do
     retries testSS db
     watches testSS db
     timeouts testSS db
+#if FDB_API_VERSION >= 620
+    approximateSize testSS db
+#endif
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -306,3 +309,16 @@ timeouts testSS db = describe "timeouts" $
     w `shouldBe` Left (CError TransactionTimedOut)
     v <- runTransaction db $ get k >>= await
     v `shouldBe` Nothing
+
+#if FDB_API_VERSION >= 620
+approximateSize :: Subspace -> Database -> SpecWith ()
+approximateSize testSS db = describe "approximate size" $
+  it "Returns some number" $ do
+    let k1 = SS.pack testSS [Bytes "foo"]
+    let k2 = SS.pack testSS [Bytes "bar"]
+    s <- runTransaction db $ do
+      set k1 "foo"
+      set k2 "bar"
+      getApproximateSize >>= await
+    fromIntegral s `shouldSatisfy` (>100)
+#endif
