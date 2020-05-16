@@ -638,7 +638,7 @@ futureBlockUntilReady :: (Future a) -> IO ((CFDBError))
 futureIsReady :: (Future a) -> IO ((Bool))
 futureReleaseMemory :: (Future a) -> IO ()
 futureGetError :: (Future a) -> IO ((CFDBError))
-futureGetVersion :: (Future Int64) -> IO ((CFDBError), (Int64))
+futureGetInt64 :: (Future Int64) -> IO ((CFDBError), (Int64))
 futureGetKey :: Future ByteString -> IO (Either CFDBError ByteString)
 futureGetValue :: Future (Maybe ByteString) -> IO (Either CFDBError (Maybe ByteString))
 futureGetStringArray :: Future [ByteString] -> IO (Either CFDBError [ByteString])
@@ -714,6 +714,7 @@ transactionClearRange :: Transaction -> ByteString -> ByteString -> IO ()
 transactionAtomicOp :: Transaction -> ByteString -> MutationType -> IO ()
 transactionCommit :: (Transaction) -> IO ((Future ()))
 transactionGetCommittedVersion :: (Transaction) -> IO ((CFDBError), (Int))
+transactionGetApproximateSize :: (Transaction) -> IO ((Future Int64))
 transactionGetVersionstamp :: (Transaction) -> IO ((Future ByteString))
 transactionWatch :: Transaction -> ByteString -> IO (Future ())
 transactionOnError :: (Transaction) -> (CFDBError) -> IO ((Future ()))
@@ -1264,6 +1265,12 @@ setReadVersion :: Word64 -> Transaction ()
 --   committed transaction. Most applications won't need this.
 getVersionstamp :: Transaction (FutureIO (Either Error TransactionVersionstamp))
 
+-- | Returns a future that will return the size, in bytes, of the
+--   transaction so far, as a summation of the estimated size of mutations,
+--   read conflict ranges, and write conflict ranges. This can be used to
+--   decide how to split a large task into smaller transactions.
+getApproximateSize :: Transaction (Future Word64)
+
 -- | Get the value of a key. If the key does not exist, returns
 --   <a>Nothing</a>.
 get :: ByteString -> Transaction (Future (Maybe ByteString))
@@ -1621,6 +1628,12 @@ getReadVersion :: Transaction (Future Word64)
 -- | Returns a <a>FutureIO</a> that will resolve to the versionstamp of the
 --   committed transaction. Most applications won't need this.
 getVersionstamp :: Transaction (FutureIO (Either Error TransactionVersionstamp))
+
+-- | Returns a future that will return the size, in bytes, of the
+--   transaction so far, as a summation of the estimated size of mutations,
+--   read conflict ranges, and write conflict ranges. This can be used to
+--   decide how to split a large task into smaller transactions.
+getApproximateSize :: Transaction (Future Word64)
 
 -- | Get the value of a key. If the key does not exist, returns
 --   <a>Nothing</a>.

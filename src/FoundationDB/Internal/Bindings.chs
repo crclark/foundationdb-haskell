@@ -60,6 +60,9 @@ module FoundationDB.Internal.Bindings (
   , transactionAtomicOp
   , transactionCommit
   , transactionGetCommittedVersion
+#if FDB_API_VERSION >= 620
+  , transactionGetApproximateSize
+#endif
   , transactionGetVersionstamp
   , transactionWatch
   , transactionOnError
@@ -553,6 +556,11 @@ transactionAtomicOp _ _ _ = error "impossible case in transactionAtomicOp"
 
 {#fun unsafe transaction_get_committed_version as ^
   {`Transaction', alloca- `Int' peekIntegral*} -> `CFDBError' CFDBError#}
+
+#if FDB_API_VERSION >= 620
+{#fun unsafe transaction_get_approximate_size as ^
+  {`Transaction'} -> `Future Int64' outFuture #}
+#endif
 
 {#fun unsafe transaction_get_versionstamp as ^
   {`Transaction'} -> `Future B.ByteString' outFuture #}

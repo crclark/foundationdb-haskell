@@ -26,6 +26,9 @@ module FoundationDB (
   , setReadVersion
   , getReadVersion
   , getVersionstamp
+#if FDB_API_VERSION >= 620
+  , getApproximateSize
+#endif
   , get
   , set
   , clear
