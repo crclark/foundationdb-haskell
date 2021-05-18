@@ -18,7 +18,7 @@ import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (forAll)
 import Test.QuickCheck.Arbitrary (Arbitrary(..), genericShrink)
-import Test.QuickCheck.Gen (oneof)
+import Test.QuickCheck.Gen (Gen, oneof, sized, vectorOf)
 
 instance Arbitrary TransactionVersionstamp where
   arbitrary = TransactionVersionstamp <$> arbitrary <*> arbitrary
@@ -36,16 +36,19 @@ instance Arbitrary T.Text where
   arbitrary = T.pack <$> arbitrary
 
 instance Arbitrary Elem where
-  arbitrary =
-    oneof [ return None
-          , Bytes <$> arbitrary
-          , Text <$> arbitrary
-          , Int <$> arbitrary
-          , Float <$> arbitrary
-          , Double <$> arbitrary
-          , Bool <$> arbitrary
-          , UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-          , CompleteVS <$> arbitrary]
+  arbitrary = sized go
+    where
+      go :: Int -> Gen Elem
+      go 0 = oneof [ return None
+                   , Bytes <$> arbitrary
+                   , Text <$> arbitrary
+                   , Int <$> arbitrary
+                   , Float <$> arbitrary
+                   , Double <$> arbitrary
+                   , Bool <$> arbitrary
+                   , UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+                   , CompleteVS <$> arbitrary]
+      go n = Tuple <$> vectorOf 3 (go (n `div` 8))
   shrink = genericShrink
 
 -- The below example byte strings come from the Python library.
@@ -174,6 +177,17 @@ decodeInvalidBytes = describe "decode invalid bytes" $ do
   it "decodeTupleElemsWPrefix with valid prefix but invalid tuple" $ do
     decodeTupleElemsWPrefix "a" "a\x50" `shouldBe` err
 
+encodeLargeIntegers :: SpecWith ()
+encodeLargeIntegers = describe "encode roundtrips with large integers" $ do
+  let largeIntegerTuple = [Int 92233720368547758071]
+  let negLargeIntegerTuple = [Int (-92233720368547758071)]
+  it "roundtrips with large integers" $
+    decodeTupleElems (encodeTupleElems largeIntegerTuple)
+      `shouldBe` Right largeIntegerTuple
+  it "roundtrips with negative large integers" $
+    decodeTupleElems (encodeTupleElems negLargeIntegerTuple)
+      `shouldBe` Right negLargeIntegerTuple
+
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
@@ -181,7 +195,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [Text "Iñtërnâtiônàližætiøn"] exampleUnicodeString "unicode"
   encodeDecode [Tuple [Int 1]] exampleNested "nested tuple"
   encodeDecode [Tuple [None]] exampleNestedNone "nested tuple containing none"
-  encodeDecode [Int 1] examplePosInt "postive int"
+  encodeDecode [Int 1] examplePosInt "positive int"
   encodeDecode [Int (-5)] exampleNegInt "negative int"
   encodeDecode [Int 0] exampleZero "zero"
   encodeDecode [Int (2 ^ (63 :: Int) - 1)] exampleLargeInt "large int"
@@ -208,6 +222,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   describeIntegerTypeCodes
   issue12
   decodeInvalidBytes
+  encodeLargeIntegers
 
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $
