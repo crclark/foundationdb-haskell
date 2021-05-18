@@ -88,8 +88,8 @@ bisectSize n = go 0
         go !i = if fromIntegral n < (sizeLimits A.! i) then i else go (i+1)
 
 -- | Returns the minimum number of bits needed to encode the given int.
-bitLen :: Integral a => a -> Int
-bitLen x = 1 + I# (integerLog2# (fromIntegral x))
+bitLen :: Integer -> Int
+bitLen x = 1 + I# (integerLog2# (abs x))
 
 nullCode, bytesCode, stringCode, nestedCode :: Word8
 zeroCode, posEndCode, negStartCode, floatCode :: Word8
@@ -170,14 +170,27 @@ encodeBytes bs = mapM_ f (BS.unpack bs) >> putWord8 0x00
 truncatedInt :: Int -> Integer -> ByteString
 truncatedInt n v = BS.drop (8-n) (Put.runPut (Put.putWord64be $ fromIntegral v))
 
+encodeLargePosInt :: Integer -> PutTuple ()
+encodeLargePosInt v = do
+  let l = fromIntegral ((bitLen v + 7) `div` 8)
+  when (l > 255) (error "integer too large to encode")
+  putWord8 l
+  forM_ [l-1,l-2..0] $ \i ->
+    putWord8 (fromIntegral (v `shiftR` (8 * fromIntegral i)))
+
+encodeLargeNegInt :: Integer -> PutTuple ()
+encodeLargeNegInt v = do
+  let l = ((bitLen v + 7) `div` 8)
+  when (l > 255) (error "integer too large to encode")
+  let v' = v + (1 `shiftL` fromIntegral (8*l)) - 1 :: Integer
+  putWord8 (fromIntegral l `xor` 0xff)
+  forM_ [l-1,l-2..0] $ \i ->
+    putWord8 (fromIntegral (v' `shiftR` (8 * fromIntegral i)))
+
 encodePosInt :: Integer -> PutTuple ()
 encodePosInt v =
   if fromIntegral v > sizeLimits A.! snd (A.bounds sizeLimits)
-    then do let l = fromIntegral (bitLen v + 7 `div` 8)
-            putWord8 posEndCode
-            putWord8 l
-            forM_ [l-1,l-2..0] $ \i ->
-              putWord8 ((fromIntegral v `shiftR` fromIntegral (8*i)) .&. 0xff)
+    then putWord8 posEndCode >> encodeLargePosInt v
     else do let n = bisectSize v
             putWord8 (zeroCode + fromIntegral n)
             putByteString $ truncatedInt n v
@@ -185,12 +198,7 @@ encodePosInt v =
 encodeNegInt :: Integer -> PutTuple ()
 encodeNegInt v =
   if fromIntegral (negate v) > sizeLimits A.! snd (A.bounds sizeLimits)
-    then do let l = fromIntegral (bitLen v + 7 `div` 8)
-            let v' = fromIntegral $ v + (1 `shiftL` fromIntegral (8*l)) - 1
-            putWord8 negStartCode
-            putWord8 (l `xor` 0xff)
-            forM_ [l-1,l-2..0] $ \i ->
-              putWord8 ((v' `shiftR` fromIntegral (8*i)) .&. 0xff)
+    then putWord8 negStartCode >> encodeLargeNegInt v
     else do let n = bisectSize (negate v)
             let maxv = sizeLimits A.! n
             putWord8 (zeroCode - fromIntegral n)
@@ -392,9 +400,10 @@ decodeSmallNegInt code = do
 decodeLargeNegInt :: Get Elem
 decodeLargeNegInt = do
   (n :: Int) <- fromIntegral . xor 0xff <$> getWord8
-  go 0 n 0
+  val <- go 0 n 0
+  return $ Int (val - (1 `shiftL` (n*8)) + 1)
 
-  where go !i !n !x | i == n = return $ Int x
+  where go !i !n !x | i == n = return x
                     | otherwise = do d <- fromIntegral <$> getWord8
                                      go (i+1) n (d + (x `shiftL` 8))
 
