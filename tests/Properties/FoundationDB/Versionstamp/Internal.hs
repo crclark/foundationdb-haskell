@@ -1,10 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Properties.FoundationDB.Versionstamp.Internal where
 
 import FoundationDB.Layer.Tuple.Internal
-import FoundationDB.Versionstamp.Internal
+import FoundationDB.Versionstamp.Internal as VS
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -24,8 +25,12 @@ instance Arbitrary (Versionstamp 'Incomplete) where
   arbitrary = IncompleteVersionstamp <$> arbitrary
 
 versionstampProps :: SpecWith ()
-versionstampProps = prop "Versionstamp Ord instance matches tuple layer serialization" $
-  forAll arbitrary $ \(vs1,vs2) ->
-    compare vs1 vs2 == compare (encode vs1) (encode vs2)
+versionstampProps = do
+  prop "Complete versionstamp encode/decode" $
+    forAll arbitrary $ \(vs :: Versionstamp 'Complete) ->
+      Just vs == VS.decodeVersionstamp (VS.encodeVersionstamp vs)
+  prop "Versionstamp Ord instance matches tuple layer serialization" $
+    forAll arbitrary $ \(vs1,vs2) ->
+      compare vs1 vs2 == compare (encode vs1) (encode vs2)
 
-    where encode x = encodeTupleElems [CompleteVS x]
+      where encode x = encodeTupleElems [CompleteVS x]
