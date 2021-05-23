@@ -47,7 +47,7 @@ jobs:
     - name: Install foundationdb
       run: ci/install-deps.sh ${{ matrix.fdb-version }}
 
-    - uses: actions/setup-haskell@v1.1
+    - uses: haskell/actions/setup@v1
       id: setup-haskell-cabal
       name: Setup Haskell
       with:
@@ -109,10 +109,11 @@ jobs:
     - name: Install foundationdb
       run: ci/install-deps.sh ${{ matrix.fdb-version }}
 
-    - uses: actions/setup-haskell@v1.1
+    - uses: haskell/actions/setup@v1
       name: Setup Haskell Stack
       with:
         ghc-version: ${{ matrix.ghc }}
+        enable-stack: true
         stack-version: ${{ matrix.stack }}
 
     - uses: actions/cache@v1
