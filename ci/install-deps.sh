@@ -2,6 +2,7 @@
 
 FDB_VER=${1}
 
+sudo apt install python
 wget https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-clients_${FDB_VER}-1_amd64.deb
 wget https://www.foundationdb.org/downloads/${FDB_VER}/ubuntu/installers/foundationdb-server_${FDB_VER}-1_amd64.deb
 sudo dpkg -i foundationdb-clients_${FDB_VER}-1_amd64.deb

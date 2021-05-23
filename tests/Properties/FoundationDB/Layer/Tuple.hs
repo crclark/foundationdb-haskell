@@ -12,7 +12,6 @@ import Control.Monad (forM_)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Maybe (fromJust)
-import qualified Data.UUID as UUID
 import qualified Data.Text as T
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
@@ -165,7 +164,7 @@ issue12 = describe "Max 8-byte encoded ints" $ do
   it "encodes 2^64 - 1 correctly" $
     encodeTupleElems [Int $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
-  it "encodes - 2^64 - 1 correctly" $
+  it "encodes - (2^64 - 1) correctly" $
     encodeTupleElems [Int $ negate $ 2^(64 :: Integer) - 1]
       `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
 
@@ -203,8 +202,8 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [Double 1.5] exampleDouble "double"
   encodeDecode [Bool True] exampleTrue "True"
   encodeDecode [Bool False] exampleFalse "False"
-  let uuid = fromJust $ UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"
-  let (w1,w2,w3,w4) = UUID.toWords uuid
+  -- This is @UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"@
+  let (w1,w2,w3,w4) = (2267305829,3369157368,2234122031,1579213564)
   encodeDecode [UUID w1 w2 w3 w4] exampleUUID "UUID"
   let tvs = TransactionVersionstamp 0xdeadbeefdeadbeef 0xbeef
   let vs = CompleteVersionstamp tvs 12
