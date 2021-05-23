@@ -14,11 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        cabal: ["3.2"]
+        cabal: ["3.4"]
         ghc:
-          - "8.6.5"
           - "8.8.3"
-          - "8.10.1"
+          - "8.10.3"
+          - "9.0.1"
         fdb-version:
           - "6.2.20"
           - "6.1.13"
@@ -47,7 +47,7 @@ jobs:
     - name: Install foundationdb
       run: ci/install-deps.sh ${{ matrix.fdb-version }}
 
-    - uses: actions/setup-haskell@v1.1
+    - uses: haskell/actions/setup@v1
       id: setup-haskell-cabal
       name: Setup Haskell
       with:
@@ -109,10 +109,11 @@ jobs:
     - name: Install foundationdb
       run: ci/install-deps.sh ${{ matrix.fdb-version }}
 
-    - uses: actions/setup-haskell@v1.1
+    - uses: haskell/actions/setup@v1
       name: Setup Haskell Stack
       with:
         ghc-version: ${{ matrix.ghc }}
+        enable-stack: true
         stack-version: ${{ matrix.stack }}
 
     - uses: actions/cache@v1
