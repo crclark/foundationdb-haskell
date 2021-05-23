@@ -14,11 +14,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        cabal: ["3.2"]
+        cabal: ["3.4"]
         ghc:
-          - "8.6.5"
           - "8.8.3"
-          - "8.10.1"
+          - "8.10.3"
+          - "9.0.1"
         fdb-version:
           - "6.2.20"
           - "6.1.13"
