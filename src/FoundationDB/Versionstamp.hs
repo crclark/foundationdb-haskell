@@ -21,9 +21,12 @@ import Data.Word (Word16, Word64)
 
 import FoundationDB.Versionstamp.Internal
 
+-- | Extracts the transaction version from the versionstamp. This is the
+-- database version at which the versionstamp was committed.
 transactionVersion :: TransactionVersionstamp -> Word64
 transactionVersion (TransactionVersionstamp x _) = x
 
+-- | Extracts the batch order from the versionstamp.
 transactionBatchOrder :: TransactionVersionstamp -> Word16
 transactionBatchOrder (TransactionVersionstamp _ x) = x
 

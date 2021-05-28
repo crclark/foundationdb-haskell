@@ -1,11 +1,10 @@
--- | Raw bindings to the underlying C client API. These are not memory safe.
--- For documentation, see <https://apple.github.io/foundationdb/api-c.html>.
-
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE CPP #-}
 
+-- | Raw bindings to the underlying C client API. These are not memory safe.
+-- For documentation, see <https://apple.github.io/foundationdb/api-c.html>.
 module FoundationDB.Internal.Bindings (
   -- * API versioning
   currentAPIVersion
@@ -112,7 +111,8 @@ newtype CFDBError = CFDBError {getCFDBError :: CInt}
 isError :: CFDBError -> Bool
 isError = (/=0) . getCFDBError
 
--- | Current version of the installed FDB library.
+-- | Current version of the installed FDB library. For example, returns
+-- 630 if you are using FoundationDB client 6.3.x.
 currentAPIVersion :: Int
 currentAPIVersion = {#const FDB_API_VERSION#}
 

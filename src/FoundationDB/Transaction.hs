@@ -9,6 +9,28 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | This module contains the core of the FoundationDB transaction API,
+-- including all the basic functionality to create and run transactions.
+-- 'Transaction' is a monad, and you will generally want to use it with
+-- do-notation.
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > import FoundationDB.Transaction
+-- > import Data.ByteString
+-- >
+-- > -- | Sets and gets a key in one transaction. Returns the ByteString
+-- > -- "world".
+-- > myTransaction :: Transaction ByteString
+-- > myTransaction = do
+-- >   let mykey = "hello"
+-- >   set mykey "world"
+-- >   get mykey
+--
+-- Run your transactions with 'runTransaction' in the IO monad.
+--
+-- The documentation in this library assumes that you already have some
+-- understanding of how to work with FoundationDB. If you don't, check out
+-- the <https://apple.github.io/foundationdb/class-scheduling.html official tutorial>.
 module FoundationDB.Transaction (
   -- * Transactions
     Transaction
@@ -130,9 +152,7 @@ newtype Transaction a = Transaction
   {unTransaction :: ReaderT TransactionEnv (ExceptT Error IO) a}
   deriving (Applicative, Functor, Monad, MonadIO, MonadThrow, MonadCatch,
             MonadMask)
--- TODO: ok to have both MonadThrow and MonadError instances?
 deriving instance MonadError Error Transaction
--- TODO: does this MonadReader instance need to be exposed?
 deriving instance MonadReader TransactionEnv Transaction
 deriving instance MonadBase IO Transaction
 deriving instance MonadBaseControl IO Transaction
@@ -147,10 +167,8 @@ data Future a =
   PureFuture a
   -- ^ For applicative and monad instances
   | Future
-  -- TODO:the future is closed over by _extractValue. It's only included in this
-  -- record so that we can more easily debug (see the Show instance, which
-  -- prints the address). Given the lack of bugs so far, it is probably safe
-  -- to simplify this.
+  -- Note: the C future is closed over by _extractValue. It's only included in
+  -- this record so that we can print the pointer in the Show instance.
   { _cFuture :: ForeignPtr ()
   , _extractValue :: Transaction a
   }
@@ -213,8 +231,8 @@ awaitInterruptible fut@(Future _f e) = futureIsReady fut >>= \case
   True -> e
   False -> liftIO (threadDelay 1000) >> awaitInterruptible fut
 
--- | Cancel a future. Attempts to await the future after cancellation will throw
--- 'OperationCancelled'.
+-- | Cancel a future. Attempting to await the future after cancellation will
+-- throw 'OperationCancelled'.
 cancelFuture :: Future a -> Transaction ()
 cancelFuture (PureFuture _) = return ()
 cancelFuture (Future fp _e) =
@@ -266,6 +284,8 @@ cancelFutureIO :: FutureIO a -> IO ()
 cancelFutureIO (FutureIO fp _e) = withForeignPtr fp $ \f ->
   FDB.futureCancel (FDB.Future (castPtr f))
 
+-- | Returns 'True' if calling 'awaitIO' will return immediately, without
+-- blocking.
 futureIsReadyIO :: FutureIO a -> IO Bool
 futureIsReadyIO (FutureIO fp _) = withForeignPtr fp $ \f ->
   FDB.futureIsReady (FDB.Future (castPtr f))
@@ -506,7 +526,8 @@ data TransactionConfig = TransactionConfig {
 
 -- | Attempt to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
--- transaction for retryable errors.
+-- transaction for retryable errors according to the 'maxRetries' setting
+-- in the provided 'TransactionConfig'.
 runTransactionWithConfig
   :: TransactionConfig -> FDB.Database -> Transaction a -> IO a
 runTransactionWithConfig conf db t = do
@@ -532,7 +553,7 @@ withRetry t = catchError t $ \err -> do
             then throwError $ Error $ MaxRetriesExceeded err
             else throwError err
 
--- Attempt to commit a transaction against the given database. If an unretryable
+-- | Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
 -- errors.
 runTransactionWithConfig'
@@ -632,7 +653,7 @@ setOption opt =
 {- $advanced
    The functionality in this section is for more advanced use cases where you
    need to be able to refer to an in-progress transaction and add operations to
-   it incrementally. This is similar to how the Python's bindings work -- you
+   it incrementally. This is similar to how the Python bindings work -- you
    pass around a transaction object and call methods on it one by one before
    finally calling @.commit()@.
 

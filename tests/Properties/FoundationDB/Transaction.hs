@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 
 module Properties.FoundationDB.Transaction where
 
 import FoundationDB
-import FoundationDB.Error
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Options.MutationType (setVersionstampedKey)
@@ -88,9 +88,9 @@ futures testSS db = describe "futures" $ do
     tuple <- runTransaction db $ do
       f1 <- get k1
       f2 <- get k2
-      let t = (,,) <$> f1 <*> f2 <*> pure 1
+      let t = (,,) <$> f1 <*> f2 <*> pure True
       awaitInterruptible t
-    tuple `shouldBe` (Just v1, Just v2, 1)
+    tuple `shouldBe` (Just v1, Just v2, True)
   it "cancellation" $ do
     let k = SS.pack testSS [Bytes "foo"]
     runTransaction db $ set k "hello"
@@ -320,5 +320,5 @@ approximateSize testSS db = describe "approximate size" $
       set k1 "foo"
       set k2 "bar"
       getApproximateSize >>= await
-    fromIntegral s `shouldSatisfy` (>100)
+    s `shouldSatisfy` (>100)
 #endif

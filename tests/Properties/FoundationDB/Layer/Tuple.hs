@@ -11,7 +11,6 @@ import FoundationDB.Versionstamp
 import Control.Monad (forM_)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)

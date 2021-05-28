@@ -33,3 +33,7 @@ subspaceSpecs = describe "subspaces" $ do
     let k' = pack rootNode [Int 0, Bytes "helloworld"]
     BS.unpack k' `shouldBe`
       [254, 1, 254, 0, 20, 1, 104, 101, 108, 108, 111, 119, 111, 114, 108, 100, 0]
+
+  it "key packed in subspace is contained by subspace" $ do
+    let k = pack sb [Int 0]
+    contains sb k `shouldBe` True
