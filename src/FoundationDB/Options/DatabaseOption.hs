@@ -36,7 +36,7 @@ transactionLoggingMaxFieldLength i = DatabaseOptionInt (405) i
 -- | Set a timeout in milliseconds which, when elapsed, will cause each transaction automatically to be cancelled. This sets the ``timeout`` option of each transaction created by this database. See the transaction option description for more information. Using this option requires that the API version is 610 or higher.
 transactionTimeout i = DatabaseOptionInt (500) i
 
--- | Set a timeout in milliseconds which, when elapsed, will cause a transaction automatically to be cancelled. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.
+-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.
 transactionRetryLimit i = DatabaseOptionInt (501) i
 
 -- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. This sets the ``max_retry_delay`` option of each transaction created by this database. See the transaction option description for more information.
@@ -48,6 +48,6 @@ transactionSizeLimit i = DatabaseOptionInt (503) i
 -- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.
 transactionCausalReadRisky = DatabaseOptionFlag (504)
 
--- | Addresses returned by get_addresses_for_key include the port when enabled. This will be enabled by default in api version 700, and this option will be deprecated.
+-- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
 transactionIncludePortInAddress = DatabaseOptionFlag (505)
 
