@@ -1,19 +1,17 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Properties.FoundationDB.Versionstamp.Internal where
 
 import FoundationDB.Layer.Tuple.Internal
 import FoundationDB.Versionstamp.Internal as VS
 
-import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (forAll)
-import Test.QuickCheck.Arbitrary (Arbitrary(..), genericShrink)
-import Test.QuickCheck.Gen (oneof)
+import Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 instance Arbitrary TransactionVersionstamp where
   arbitrary = TransactionVersionstamp <$> arbitrary <*> arbitrary

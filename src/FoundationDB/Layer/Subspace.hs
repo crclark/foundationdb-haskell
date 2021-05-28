@@ -1,8 +1,29 @@
-module FoundationDB.Layer.Subspace where
+-- | Subspaces allow you to easily attach a common prefix to tuple-encoded keys
+-- (See "FoundationDB.Layer.Tuple") so that you can perform range reads and
+-- deletes over a set of related keys.
+--
+-- The subspace layer is one of the standard layers supported by all
+-- language bindings. See
+-- <https://apple.github.io/foundationdb/developer-guide.html#subspaces the official documentation>
+-- for more information.
+module FoundationDB.Layer.Subspace (
+  -- * Creating subspaces
+  Subspace(..),
+  subspace,
+  prefixedSubspace,
+  -- * Using subspaces
+  extend,
+  pack,
+  unpack,
+  contains,
+  subspaceRange,
+  getLast,
+  subspaceKey
+) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Monoid
+import Data.Monoid ((<>))
 import Data.Sequence(Seq(Empty,(:<|)))
 
 import FoundationDB
@@ -27,6 +48,8 @@ prefixedSubspace :: ByteString
                  -> Subspace
 prefixedSubspace prefix tuple = Subspace (encodeTupleElemsWPrefix prefix tuple)
 
+-- | Returns the bytestring prefix of the subspace. Equivalent to 'rawPrefix'.
+-- This function is provided for consistency with other language bindings.
 subspaceKey :: Subspace -> ByteString
 subspaceKey = rawPrefix
 
@@ -38,9 +61,11 @@ extend :: Subspace
 extend (Subspace prfx) =
   prefixedSubspace prfx
 
+-- | Encode a tuple prefixed with a subspace.
 pack :: Subspace -> [Elem] -> ByteString
 pack sub = encodeTupleElemsWPrefix (rawPrefix sub)
 
+-- | Decode a tuple that was encoded by 'pack'.
 unpack :: Subspace -> ByteString -> Either String [Elem]
 unpack sub = decodeTupleElemsWPrefix (rawPrefix sub)
 
@@ -51,6 +76,7 @@ contains :: Subspace
          -> Bool
 contains sub = BS.isPrefixOf (rawPrefix sub)
 
+-- | Construct a range query that covers an entire subspace.
 subspaceRange :: Subspace -> Range
 subspaceRange s = Range
   { rangeBegin   = FirstGreaterOrEq (k <> BS.pack [0x00])
@@ -71,4 +97,4 @@ getLast sub = do
     RangeDone Empty      -> return Nothing
     RangeDone (kv:<|_)   -> return (Just kv)
     RangeMore (kv:<|_) _ -> return (Just kv)
-    RangeMore Empty _    -> return Nothing --TODO: impossible
+    RangeMore Empty _    -> return Nothing --NOTE: impossible case

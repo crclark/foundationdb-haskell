@@ -1,4 +1,20 @@
--- | WIP interface for constructing and running transactions.
+-- | This module contains all of the basics needed to build a program that
+-- interacts with <https://apple.github.io/foundationdb/index.html FoundationDB>.
+-- The documentation throughout this library assumes that you have already read
+-- the official
+-- <https://apple.github.io/foundationdb/developer-guide.html developer guide>.
+--
+-- = Quick start
+--
+-- * @import qualified FoundationDB as FDB@
+-- * Use 'withFoundationDB' to get a handle to the database.
+-- * Use 'runTransaction' and its variants to run a transaction in the IO monad.
+-- * Read the docs in "FoundationDB.Transaction" to learn how to use the
+--   'Transaction' monad.
+-- * 'runTransaction' throws exceptions. 'runTransaction'' returns a sum type.
+--   Whichever you choose, all errors you can encounter are defined in
+--   "FoundationDB.Error".
+-- * See <https://github.com/crclark/foundationdb-haskell/blob/master/tests/Properties/FoundationDB/Transaction.hs#L48 the tests> for basic usage examples.
 
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -12,65 +28,9 @@ module FoundationDB (
   , defaultOptions
   , FDB.Database
   -- * Transactions
-  , Transaction
-  , runTransaction
-  , runTransaction'
-  , TransactionConfig (..)
-  , defaultConfig
-  , runTransactionWithConfig
-  , runTransactionWithConfig'
-  , cancel
-  , reset
-  , withSnapshot
-  , setOption
-  , setReadVersion
-  , getReadVersion
-  , getVersionstamp
-#if FDB_API_VERSION >= 620
-  , getApproximateSize
-#endif
-  , get
-  , set
-  , clear
-  , clearRange
-  , addConflictRange
-  , FDBConflictRangeType (..)
-  , getKey
-  , getKeyAddresses
-  , atomicOp
-  , getRange
-  , getRange'
-  , FDBStreamingMode(..)
-  , getEntireRange
-  , isRangeEmpty
-  , Range (..)
-  , rangeKeys
-  , keyRange
-  , keyRangeInclusive
-  , prefixRange
-  , RangeResult (..)
-  , watch
-  -- * Futures
-  , Future
-  , await
-  , awaitInterruptible
-  , cancelFuture
-  , futureIsReady
-  , FutureIO
-  , awaitIO
-  , awaitInterruptibleIO
-  , cancelFutureIO
-  , futureIsReadyIO
-  -- * Key selectors
-  , FDB.KeySelector( LastLessThan
-                   , LastLessOrEq
-                   , FirstGreaterThan
-                   , FirstGreaterOrEq)
-  , offset
+  , module FoundationDB.Transaction
   -- * Errors
-  , Error(..)
-  , CError(..)
-  , retryable
+  , module FoundationDB.Error
   -- * Helpers for ghci
   , startFoundationDB
   , stopFoundationDB
@@ -82,6 +42,7 @@ import Control.Exception
 import Control.Monad.Except
 import Data.Maybe (fromMaybe)
 
+import FoundationDB.Error
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
 import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
@@ -89,6 +50,8 @@ import FoundationDB.Options.NetworkOption (NetworkOption(..))
 import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 
+-- | This library doesn't support FDB versions earlier than 5.2 (the first
+-- open source release).
 validateVersion :: Int -> IO ()
 validateVersion v =
   when (v < 520)
@@ -146,7 +109,7 @@ defaultOptions = FoundationDBOptions FDB.currentAPIVersion Nothing [] []
 
 -- | Handles correctly starting up the network connection to the DB.
 -- Can only be called once per process! Throws an 'Error' if any part of
--- setting up the connection FoundationDB fails.
+-- setting up the connection to FoundationDB fails.
 withFoundationDB :: FoundationDBOptions
                  -> (FDB.Database -> IO a)
                  -> IO a
@@ -192,5 +155,6 @@ startFoundationDB FoundationDBOptions{..} = do
   forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
   return db
 
+-- | Stops FoundationDB. For use with 'startFoundationDB'.
 stopFoundationDB :: IO ()
 stopFoundationDB = FDB.stopNetwork >> takeMVar startFoundationDBGlobalLock

@@ -12,10 +12,6 @@ import Data.Word (Word32)
 
 import qualified FoundationDB.Internal.Bindings as FDB
 
--- TODO: it's still unclear what facilities should be in Bindings and what
--- should be up here. 'fdbEither' and other helpers might work better if they
--- were built into the functions exported from Bindings.
-
 fdbEither :: MonadIO m => m (FDB.CFDBError, a) -> m (Either Error a)
 fdbEither f = do
   (err, res) <- f
@@ -318,8 +314,8 @@ toCFDBError InternalError = 4100
 toCFDBError (OtherError err) = err
 
 -- | Returns true if the given error indicates that the erroring transaction
--- can be tried, but the transaction might have already been committed. The
--- transaction should only be retried if it is idempotent.
+-- can be retried, but the transaction might have already been committed. In
+-- such cases, the transaction should only be retried if it is idempotent.
 retryable :: Error -> Bool
 retryable (CError e) =
   FDB.errorPredicate FDB.ErrorPredicateRetryable (toCFDBError e)

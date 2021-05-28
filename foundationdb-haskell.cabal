@@ -143,6 +143,7 @@ library
                        -Wincomplete-record-updates
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
+                       -Widentities
 
   CC-Options: -std=c99 -DFDB_API_VERSION=630
   CPP-Options: -DFDB_API_VERSION=630

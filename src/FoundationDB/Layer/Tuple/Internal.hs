@@ -85,7 +85,7 @@ sizeLimits = A.listArray (0,8) [shiftL 1 (i*8) - 1 | i <- [0..8]]
 bisectSize :: Integer -> Int
 bisectSize n = go 0
   where go 8 = 8
-        go !i = if fromIntegral n < (sizeLimits A.! i) then i else go (i+1)
+        go !i = if n < (sizeLimits A.! i) then i else go (i+1)
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integer -> Int
@@ -182,14 +182,14 @@ encodeLargeNegInt :: Integer -> PutTuple ()
 encodeLargeNegInt v = do
   let l = ((bitLen v + 7) `div` 8)
   when (l > 255) (error "integer too large to encode")
-  let v' = v + (1 `shiftL` fromIntegral (8*l)) - 1 :: Integer
+  let v' = v + (1 `shiftL` (8*l)) - 1 :: Integer
   putWord8 (fromIntegral l `xor` 0xff)
   forM_ [l-1,l-2..0] $ \i ->
-    putWord8 (fromIntegral (v' `shiftR` (8 * fromIntegral i)))
+    putWord8 (fromIntegral (v' `shiftR` (8 * i)))
 
 encodePosInt :: Integer -> PutTuple ()
 encodePosInt v =
-  if fromIntegral v > sizeLimits A.! snd (A.bounds sizeLimits)
+  if v > sizeLimits A.! snd (A.bounds sizeLimits)
     then putWord8 posEndCode >> encodeLargePosInt v
     else do let n = bisectSize v
             putWord8 (zeroCode + fromIntegral n)
@@ -197,7 +197,7 @@ encodePosInt v =
 
 encodeNegInt :: Integer -> PutTuple ()
 encodeNegInt v =
-  if fromIntegral (negate v) > sizeLimits A.! snd (A.bounds sizeLimits)
+  if (negate v) > sizeLimits A.! snd (A.bounds sizeLimits)
     then putWord8 negStartCode >> encodeLargeNegInt v
     else do let n = bisectSize (negate v)
             let maxv = sizeLimits A.! n

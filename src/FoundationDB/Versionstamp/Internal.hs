@@ -24,6 +24,13 @@ data VersionstampCompleteness = Complete | Incomplete
 -- * An 8-byte transaction version
 -- * A 2-byte transaction batch order
 -- * A 2-byte user version
+--
+-- The first ten bytes are assigned by FoundationDB to each transaction in such
+-- a way that each transaction is numbered in a
+-- <https://en.wikipedia.org/wiki/Serializability serializable> order.
+--
+-- The last two bytes can be used by the user to further distinguish between
+-- multiple entities or keys that were committed in one transaction.
 data Versionstamp (a :: VersionstampCompleteness) where
   -- | A complete version stamp, consisting of 'TransactionVersionstamp', and a
   -- user version set by the user.
@@ -53,7 +60,7 @@ instance NFData (Versionstamp a) where
 
 -- | A 'TransactionVersionstamp' consists of a monotonically-increasing
 -- 8-byte transaction version and a 2-byte transaction batch order. Each
--- transaction has an associated 'TransactionVersionstamp'.
+-- committed transaction has an associated 'TransactionVersionstamp'.
 data TransactionVersionstamp = TransactionVersionstamp Word64 Word16
   deriving (Show, Read, Eq, Ord, Generic, NFData, Bounded)
 

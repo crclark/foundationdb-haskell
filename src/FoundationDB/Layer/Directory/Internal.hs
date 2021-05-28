@@ -20,7 +20,6 @@ import Data.Traversable (mapM)
 import Data.Word (Word32)
 
 import FoundationDB
-import FoundationDB.Error
 import FoundationDB.Layer.Directory.Internal.Error
 import FoundationDB.Layer.Directory.Internal.HCA
 import FoundationDB.Layer.Directory.Internal.Node
@@ -209,6 +208,7 @@ list dl path =
     Nothing -> return Empty
     Just node -> subdirNames dl (nodeNodeSS node)
 
+-- | Represents all ways 'move' may fail.
 data MoveError =
   SelfSubDir
   -- ^ returned by 'move' if you attempt to move a directory into a subdirectory
@@ -227,7 +227,9 @@ data MoveError =
   -- ^ Returned by 'move' if the destination path is the root path.
   deriving (Show, Eq, Ord)
 
--- | Move a directory from one path to another.
+-- | Move a directory from one path to another. Returns @Just err@ if an error
+-- occurred. If an error is returned, the directory structure is left
+-- unchanged.
 move
   :: DirectoryLayer
   -> Path
@@ -264,7 +266,7 @@ move dl oldPath newPath = do
 
 -- | Remove a directory path, its contents, and all subdirectories.
 -- Returns 'True' if removal succeeds. Fails for nonexistent paths and the root
--- directory.
+-- directory. In cases of failure, the directory structure is unchanged.
 remove
   :: DirectoryLayer
   -> Path
@@ -437,7 +439,6 @@ contentsOfNodePartition
   -> Path
   -> Transaction DirPartition
 contentsOfNodePartition dl@DirectoryLayer {..} node queryPath = do
-  -- TODO: do combinators like throwing already exist in some lib?
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
     [Tuple.Bytes prefix] -> do
@@ -456,8 +457,6 @@ contentsOfNodeSubspace
   -> ByteString
   -> Transaction Directory
 contentsOfNodeSubspace DirectoryLayer {..} node queryPath layer = do
-  -- TODO: need a type class of things that can be converted to keys to avoid
-  -- @pack node []@
   p <- throwing "can't unpack node!" (unpack nodeSS (pack node []))
   case p of
     [Tuple.Bytes prefixBytes] -> do
