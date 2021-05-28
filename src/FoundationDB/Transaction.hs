@@ -400,12 +400,11 @@ keyRangeInclusive begin end =
 -- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
 prefixRange :: ByteString -> Maybe Range
-prefixRange prefix
-  | BS.null prefix = Nothing
-  | BS.all (== 0xff) prefix = Nothing
-  | otherwise = Just $ Range
+prefixRange prefix = do
+   end <- prefixRangeEnd prefix
+   return $ Range
     { rangeBegin   = FDB.FirstGreaterOrEq prefix
-    , rangeEnd     = FDB.FirstGreaterOrEq (prefixRangeEnd prefix)
+    , rangeEnd     = FDB.FirstGreaterOrEq end
     , rangeLimit   = Nothing
     , rangeReverse = False
     }
@@ -695,13 +694,16 @@ onError (CError err) =
     await f
 onError _ = return ()
 
--- @prefixRangeEnd prefix@ returns the lexicographically greatest bytestring
--- of which @prefix@ is a prefix. Usually, it's easier to just use
--- 'prefixRange'.
-prefixRangeEnd :: ByteString -> ByteString
-prefixRangeEnd prefix =
-  let prefix' = BS.takeWhile (/= 0xff) prefix
-  in  BS.snoc (BS.init prefix') (BS.last prefix' + 1)
+-- @prefixRangeEnd prefix@ returns the lexicographically least bytestring
+-- greater than @prefix@. This is the first bytestring that is not prefixed by
+-- the input. If @prefix@ is empty or contains only @0xff@, returns 'Nothing'.
+prefixRangeEnd :: ByteString -> Maybe ByteString
+prefixRangeEnd prefix
+  | BS.null prefix = Nothing
+  | BS.all (== 0xff) prefix = Nothing
+  | otherwise =
+    let (prefix',_) = BS.spanEnd (== 0xff) prefix
+    in Just $  BS.snoc (BS.init prefix') (BS.last prefix' + 1)
 
 -- | Gets the committed version of a transaction. Can only be called after the
 -- transaction has committed, so must be used in conjunction with
