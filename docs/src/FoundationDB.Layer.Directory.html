@@ -1,43 +1,35 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | The directory layer. The directory layer provides tools for creating a</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | The directory layer provides tools for creating a</span><span>
 </span><a name="line-2"></a><span class="hs-comment">-- hierarchy of 'Subspace's, which can be operated on efficiently with a</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- directory-like API.</span><span>
-</span><a name="line-4"></a><span class="hs-comment">--</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- This implementation of the directory layer does not yet support directory</span><span>
-</span><a name="line-6"></a><span class="hs-comment">-- partitions. They will be added in the future.</span><span>
-</span><a name="line-7"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-8"></a><span>  </span><a href="FoundationDB.Layer.Directory.Internal.html#DirectoryLayer"><span class="hs-identifier hs-type">DirectoryLayer</span></a><span>
-</span><a name="line-9"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#defaultDirLayer"><span class="hs-identifier hs-var">defaultDirLayer</span></a><span>
-</span><a name="line-10"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#newDirectoryLayer"><span class="hs-identifier hs-var">newDirectoryLayer</span></a><span>
-</span><a name="line-11"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#Directory"><span class="hs-identifier hs-type">Directory</span></a><span>
-</span><a name="line-12"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#Path"><span class="hs-identifier hs-type">Path</span></a><span>
-</span><a name="line-13"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirSubspace"><span class="hs-identifier hs-var">dirSubspace</span></a><span>
-</span><a name="line-14"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirPath"><span class="hs-identifier hs-var">dirPath</span></a><span>
-</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirLayer"><span class="hs-identifier hs-var">dirLayer</span></a><span>
-</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#open"><span class="hs-identifier hs-var">open</span></a><span>
-</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#createOrOpen"><span class="hs-identifier hs-var">createOrOpen</span></a><span>
-</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#move"><span class="hs-identifier hs-var">move</span></a><span>
-</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#remove"><span class="hs-identifier hs-var">remove</span></a><span>
-</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#exists"><span class="hs-identifier hs-var">exists</span></a><span>
-</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#list"><span class="hs-identifier hs-var">list</span></a><span>
-</span><a name="line-22"></a><span>  </span><span class="hs-comment">-- * Advanced usage</span><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#open%27"><span class="hs-identifier hs-var">open'</span></a><span>
-</span><a name="line-24"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#createOrOpen%27"><span class="hs-identifier hs-var">createOrOpen'</span></a><span>
-</span><a name="line-25"></a><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-26"></a><span>
-</span><a name="line-27"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span></a><span>
-</span><a name="line-28"></a><span>
-</span><a name="line-29"></a><span class="hs-comment">-- TODO: in the other bindings, there is an abstract directory interface</span><span>
-</span><a name="line-30"></a><span class="hs-comment">-- and two implementors of that interface. DirSubspace is the standard one,</span><span>
-</span><a name="line-31"></a><span class="hs-comment">-- and DirPartition is the weird one that throws exceptions for most of the</span><span>
-</span><a name="line-32"></a><span class="hs-comment">-- functions in the directory interface. In the short term, I think we need only</span><span>
-</span><a name="line-33"></a><span class="hs-comment">-- support DirSubspace. In Java, DirPartition inherits from DirSubspace.</span><span>
-</span><a name="line-34"></a><span class="hs-comment">-- They both contain an internal DirectoryLayer object that does the real work.</span><span>
-</span><a name="line-35"></a><span class="hs-comment">-- We should export a sum type where the constructors are</span><span>
-</span><a name="line-36"></a><span class="hs-comment">-- DirSubspace and DirPartition. Or, since DirPartition supports only a subset</span><span>
-</span><a name="line-37"></a><span class="hs-comment">-- of operations, make DirSubspace and DirPartition separate types implementing</span><span>
-</span><a name="line-38"></a><span class="hs-comment">-- different type classes, so we don't have excessive partiality.</span><span>
-</span><a name="line-39"></a><span>
-</span><a name="line-40"></a><span>
-</span><a name="line-41"></a><span>
-</span><a name="line-42"></a><span>
-</span><a name="line-43"></a></pre></body></html>
+</span><a name="line-3"></a><span class="hs-comment">-- directory-like API. This is one of the official layers supported by all</span><span>
+</span><a name="line-4"></a><span class="hs-comment">-- language bindings. See the</span><span>
+</span><a name="line-5"></a><span class="hs-comment">-- &lt;https://apple.github.io/foundationdb/developer-guide.html#directories official FoundationDB documentation&gt;</span><span>
+</span><a name="line-6"></a><span class="hs-comment">-- for more information.</span><span>
+</span><a name="line-7"></a><span class="hs-comment">--</span><span>
+</span><a name="line-8"></a><span class="hs-comment">-- This implementation of the directory layer does not yet support directory</span><span>
+</span><a name="line-9"></a><span class="hs-comment">-- partitions. They will be added in the future.</span><span>
+</span><a name="line-10"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span> </span><span class="hs-special">(</span><span>
+</span><a name="line-11"></a><span>  </span><a href="FoundationDB.Layer.Directory.Internal.html#DirectoryLayer"><span class="hs-identifier hs-type">DirectoryLayer</span></a><span>
+</span><a name="line-12"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#defaultDirLayer"><span class="hs-identifier hs-var">defaultDirLayer</span></a><span>
+</span><a name="line-13"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#newDirectoryLayer"><span class="hs-identifier hs-var">newDirectoryLayer</span></a><span>
+</span><a name="line-14"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#Directory"><span class="hs-identifier hs-type">Directory</span></a><span>
+</span><a name="line-15"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#Path"><span class="hs-identifier hs-type">Path</span></a><span>
+</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirSubspace"><span class="hs-identifier hs-var">dirSubspace</span></a><span>
+</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirPath"><span class="hs-identifier hs-var">dirPath</span></a><span>
+</span><a name="line-18"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#dirLayer"><span class="hs-identifier hs-var">dirLayer</span></a><span>
+</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#open"><span class="hs-identifier hs-var">open</span></a><span>
+</span><a name="line-20"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#createOrOpen"><span class="hs-identifier hs-var">createOrOpen</span></a><span>
+</span><a name="line-21"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#move"><span class="hs-identifier hs-var">move</span></a><span>
+</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#remove"><span class="hs-identifier hs-var">remove</span></a><span>
+</span><a name="line-23"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#exists"><span class="hs-identifier hs-var">exists</span></a><span>
+</span><a name="line-24"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#list"><span class="hs-identifier hs-var">list</span></a><span>
+</span><a name="line-25"></a><span>  </span><span class="hs-comment">-- * Advanced usage</span><span>
+</span><a name="line-26"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#open%27"><span class="hs-identifier hs-var">open'</span></a><span>
+</span><a name="line-27"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html#createOrOpen%27"><span class="hs-identifier hs-var">createOrOpen'</span></a><span>
+</span><a name="line-28"></a><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><a name="line-29"></a><span>
+</span><a name="line-30"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span></a><span>
+</span><a name="line-31"></a><span>
+</span><a name="line-32"></a><span>
+</span><a name="line-33"></a><span>
+</span><a name="line-34"></a><span>
+</span><a name="line-35"></a></pre></body></html>
