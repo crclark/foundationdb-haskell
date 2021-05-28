@@ -30,7 +30,7 @@ causalReadRisky = TransactionOptionFlag (20)
 -- | 
 causalReadDisable = TransactionOptionFlag (21)
 
--- | Addresses returned by get_addresses_for_key include the port when enabled. This will be enabled by default in api version 700, and this option will be deprecated.
+-- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
 includePortInAddress = TransactionOptionFlag (23)
 
 -- | The next write performed on this transaction will not generate a write conflict range. As a result, other transactions which read the key(s) being modified by the next write will not conflict with this transaction. Care needs to be taken when using this option on a transaction that is shared between multiple threads. When setting this option, write conflict ranges will be disabled on the next write operation, regardless of what thread it is on.
@@ -84,11 +84,14 @@ transactionLoggingEnable str = TransactionOptionString (402) str
 -- | Sets a client provided identifier for the transaction that will be used in scenarios like tracing or profiling. Client trace logging or transaction profiling must be separately enabled.
 debugTransactionIdentifier str = TransactionOptionString (403) str
 
--- | Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled and to get log output.
+-- | Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled to get log output.
 logTransaction = TransactionOptionFlag (404)
 
 -- | Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option, after which the field will be truncated. A negative value disables truncation.
 transactionLoggingMaxFieldLength i = TransactionOptionInt (405) i
+
+-- | Sets an identifier for server tracing of this transaction. When committed, this identifier triggers logging when each part of the transaction authority encounters it, which is helpful in diagnosing slowness in misbehaving clusters. The identifier is randomly generated. When there is also a debug_transaction_identifier, both IDs are logged together.
+serverRequestTracing = TransactionOptionFlag (406)
 
 -- | Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Prior to API version 610, like all other transaction options, the timeout must be reset after a call to ``onError``. If the API version is 610 or greater, the timeout is not reset after an ``onError`` call. This allows the user to specify a longer timeout on specific transactions than the default timeout specified through the ``transaction_timeout`` database option without the shorter database timeout cancelling transactions that encounter a retryable error. Note that at all API versions, it is safe and legal to set the timeout each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.
 timeout i = TransactionOptionInt (500) i
@@ -108,7 +111,7 @@ snapshotRywEnable = TransactionOptionFlag (600)
 -- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.
 snapshotRywDisable = TransactionOptionFlag (601)
 
--- | The transaction can read and write to locked databases, and is resposible for checking that it took the lock.
+-- | The transaction can read and write to locked databases, and is responsible for checking that it took the lock.
 lockAware = TransactionOptionFlag (700)
 
 -- | By default, operations that are performed on a transaction while it is being committed will not only fail themselves, but they will attempt to fail other in-flight operations (such as the commit) as well. This behavior is intended to help developers discover situations where operations could be unintentionally executed after the transaction has been reset. Setting this option removes that protection, causing only the offending operation to fail.
@@ -122,4 +125,16 @@ firstInBatch = TransactionOptionFlag (710)
 
 -- | This option should only be used by tools which change the database configuration.
 useProvisionalProxies = TransactionOptionFlag (711)
+
+-- | The transaction can retrieve keys that are conflicting with other transactions.
+reportConflictingKeys = TransactionOptionFlag (712)
+
+-- | By default, the special key space will only allow users to read from exactly one module (a subspace in the special key space). Use this option to allow reading from zero or more modules. Users who set this option should be prepared for new modules, which may have different behaviors than the modules they're currently reading. For example, a new module might block or return an error.
+specialKeySpaceRelaxed = TransactionOptionFlag (713)
+
+-- | Adds a tag to the transaction that can be used to apply manual targeted throttling. At most 5 tags can be set on a transaction.
+tag str = TransactionOptionString (800) str
+
+-- | Adds a tag to the transaction that can be used to apply manual or automatic targeted throttling. At most 5 tags can be set on a transaction.
+autoThrottleTag str = TransactionOptionString (801) str
 

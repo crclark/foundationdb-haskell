@@ -15,6 +15,9 @@ clusterFile "Deprecated in FDB C API"
 {-# DEPRECATED
 tlsPlugin "Deprecated in FDB C API"
  #-}
+{-# DEPRECATED
+enableSlowTaskProfiling "Deprecated in FDB C API"
+ #-}
 data NetworkOption = NetworkOptionString Int String
                    | NetworkOptionInt Int Int
                    | NetworkOptionBytes Int ByteString
@@ -41,6 +44,12 @@ traceLogGroup str = NetworkOptionString (33) str
 
 -- | Select the format of the log files. xml (the default) and json are supported.
 traceFormat str = NetworkOptionString (34) str
+
+-- | Select clock source for trace files. now (the default) or realtime are supported.
+traceClockSource str = NetworkOptionString (35) str
+
+-- | Once provided, this string will be used to replace the port/PID in the log file names.
+traceFileIdentifier str = NetworkOptionString (36) str
 
 -- | Set internal tuning or debugging knobs
 knob str = NetworkOptionString (40) str
@@ -96,14 +105,20 @@ externalClientLibrary str = NetworkOptionString (62) str
 -- | Searches the specified path for dynamic libraries and adds them to the list of client libraries for use by the multi-version client API. Must be set before setting up the network.
 externalClientDirectory str = NetworkOptionString (63) str
 
--- | Prevents connections through the local client, allowing only connections through externally loaded client libraries. Intended primarily for testing.
+-- | Prevents connections through the local client, allowing only connections through externally loaded client libraries.
 disableLocalClient = NetworkOptionFlag (64)
+
+-- | Spawns multiple worker threads for each version of the client that is loaded.  Setting this to a number greater than one implies disable_local_client.
+clientThreadsPerVersion i = NetworkOptionInt (65) i
 
 -- | Disables logging of client statistics, such as sampled transaction activity.
 disableClientStatisticsLogging = NetworkOptionFlag (70)
 
--- | Enables debugging feature to perform slow task profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.
+-- | Deprecated
 enableSlowTaskProfiling = NetworkOptionFlag (71)
+
+-- | Enables debugging feature to perform run loop profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.
+enableRunLoopProfiling = NetworkOptionFlag (71)
 
 -- | Enable client buggify - will make requests randomly fail (intended for client testing)
 clientBuggifyEnable = NetworkOptionFlag (80)
