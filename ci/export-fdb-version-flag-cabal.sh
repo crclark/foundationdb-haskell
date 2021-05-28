@@ -6,6 +6,7 @@
 # header fdbc_wrapper.h.
 
 FDB_VER=${1}
+echo "Got FDB_VER ${FDB_VER}"
 
 if [[ ${FDB_VER} = "5.2.8" ]]
 then
@@ -16,6 +17,16 @@ then
 elif [[ ${FDB_VER} = "6.1.13" ]]
 then
   export FDB_VER_FLAG='-f fdb-version-610'
+elif [[ ${FDB_VER} = "6.2.20" ]]
+then
+  export FDB_VER_FLAG='-f fdb-version-620'
+elif [[ ${FDB_VER} = "6.3.12" ]]
+then
+  # latest is the default, so no flag is specified
+  export FDB_VER_FLAG=''
+else
+  echo "Error: unknown FDB_VER in ci/export-fdb-version-flag-cabal.sh"
+  exit 1
 fi
 
 echo "Using flag ${FDB_VER_FLAG}"

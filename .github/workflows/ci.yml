@@ -20,6 +20,7 @@ jobs:
           - "8.10.3"
           - "9.0.1"
         fdb-version:
+          - "6.3.12"
           - "6.2.20"
           - "6.1.13"
           - "6.0.18"
@@ -29,13 +30,18 @@ jobs:
           - "600"
           - "610"
           - "620"
+          - "630"
         # For a given installed FDB version, the client can choose to connect
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
+          - {fdb-version: "6.2.20", fdb-api-version: "630"}
+          - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
+          - {fdb-version: "6.0.18", fdb-api-version: "630"}
           - {fdb-version: "6.0.18", fdb-api-version: "620"}
           - {fdb-version: "6.0.18", fdb-api-version: "610"}
+          - {fdb-version: "5.2.8", fdb-api-version: "630"}
           - {fdb-version: "5.2.8", fdb-api-version: "620"}
           - {fdb-version: "5.2.8", fdb-api-version: "610"}
           - {fdb-version: "5.2.8", fdb-api-version: "600"}
@@ -82,6 +88,7 @@ jobs:
         stack: ["2.1.3"]
         ghc: ["8.8.3"]
         fdb-version:
+          - "6.3.12"
           - "6.2.20"
           - "6.1.13"
           - "6.0.18"
@@ -95,9 +102,13 @@ jobs:
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
+          - {fdb-version: "6.2.20", fdb-api-version: "630"}
+          - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
+          - {fdb-version: "6.0.18", fdb-api-version: "630"}
           - {fdb-version: "6.0.18", fdb-api-version: "620"}
           - {fdb-version: "6.0.18", fdb-api-version: "610"}
+          - {fdb-version: "5.2.8", fdb-api-version: "630"}
           - {fdb-version: "5.2.8", fdb-api-version: "620"}
           - {fdb-version: "5.2.8", fdb-api-version: "610"}
           - {fdb-version: "5.2.8", fdb-api-version: "600"}
