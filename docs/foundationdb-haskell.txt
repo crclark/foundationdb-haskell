@@ -64,10 +64,11 @@ transactionLoggingMaxFieldLength :: Int -> DatabaseOption
 --   Using this option requires that the API version is 610 or higher.
 transactionTimeout :: Int -> DatabaseOption
 
--- | Set a timeout in milliseconds which, when elapsed, will cause a
---   transaction automatically to be cancelled. This sets the
---   `<tt>retry_limit</tt>` option of each transaction created by this
---   database. See the transaction option description for more information.
+-- | Set a maximum number of retries after which additional calls to
+--   `<tt>onError</tt>` will throw the most recently seen error code. This
+--   sets the `<tt>retry_limit</tt>` option of each transaction created by
+--   this database. See the transaction option description for more
+--   information.
 transactionRetryLimit :: Int -> DatabaseOption
 
 -- | Set the maximum amount of backoff delay incurred in the call to
@@ -87,8 +88,8 @@ transactionSizeLimit :: Int -> DatabaseOption
 transactionCausalReadRisky :: DatabaseOption
 
 -- | Addresses returned by get_addresses_for_key include the port when
---   enabled. This will be enabled by default in api version 700, and this
---   option will be deprecated.
+--   enabled. As of api version 630, this option is enabled by default and
+--   setting this has no effect.
 transactionIncludePortInAddress :: DatabaseOption
 instance GHC.Classes.Ord FoundationDB.Options.DatabaseOption.DatabaseOption
 instance GHC.Classes.Eq FoundationDB.Options.DatabaseOption.DatabaseOption
@@ -294,6 +295,14 @@ traceLogGroup :: String -> NetworkOption
 --   supported.
 traceFormat :: String -> NetworkOption
 
+-- | Select clock source for trace files. now (the default) or realtime are
+--   supported.
+traceClockSource :: String -> NetworkOption
+
+-- | Once provided, this string will be used to replace the port/PID in the
+--   log file names.
+traceFileIdentifier :: String -> NetworkOption
+
 -- | Set internal tuning or debugging knobs
 knob :: String -> NetworkOption
 
@@ -362,18 +371,27 @@ externalClientLibrary :: String -> NetworkOption
 externalClientDirectory :: String -> NetworkOption
 
 -- | Prevents connections through the local client, allowing only
---   connections through externally loaded client libraries. Intended
---   primarily for testing.
+--   connections through externally loaded client libraries.
 disableLocalClient :: NetworkOption
+
+-- | Spawns multiple worker threads for each version of the client that is
+--   loaded. Setting this to a number greater than one implies
+--   disable_local_client.
+clientThreadsPerVersion :: Int -> NetworkOption
 
 -- | Disables logging of client statistics, such as sampled transaction
 --   activity.
 disableClientStatisticsLogging :: NetworkOption
 
--- | Enables debugging feature to perform slow task profiling. Requires
+-- | Deprecated
+
+-- | <i>Deprecated: Deprecated in FDB C API</i>
+enableSlowTaskProfiling :: NetworkOption
+
+-- | Enables debugging feature to perform run loop profiling. Requires
 --   trace logging to be enabled. WARNING: this feature is not recommended
 --   for use in production.
-enableSlowTaskProfiling :: NetworkOption
+enableRunLoopProfiling :: NetworkOption
 
 -- | Enable client buggify - will make requests randomly fail (intended for
 --   client testing)
@@ -429,8 +447,8 @@ causalReadRisky :: TransactionOption
 causalReadDisable :: TransactionOption
 
 -- | Addresses returned by get_addresses_for_key include the port when
---   enabled. This will be enabled by default in api version 700, and this
---   option will be deprecated.
+--   enabled. As of api version 630, this option is enabled by default and
+--   setting this has no effect.
 includePortInAddress :: TransactionOption
 
 -- | The next write performed on this transaction will not generate a write
@@ -508,14 +526,22 @@ debugTransactionIdentifier :: String -> TransactionOption
 
 -- | Enables tracing for this transaction and logs results to the client
 --   trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before
---   using this option, and client trace logging must be enabled and to get
---   log output.
+--   using this option, and client trace logging must be enabled to get log
+--   output.
 logTransaction :: TransactionOption
 
 -- | Sets the maximum escaped length of key and value fields to be logged
 --   to the trace file via the LOG_TRANSACTION option, after which the
 --   field will be truncated. A negative value disables truncation.
 transactionLoggingMaxFieldLength :: Int -> TransactionOption
+
+-- | Sets an identifier for server tracing of this transaction. When
+--   committed, this identifier triggers logging when each part of the
+--   transaction authority encounters it, which is helpful in diagnosing
+--   slowness in misbehaving clusters. The identifier is randomly
+--   generated. When there is also a debug_transaction_identifier, both IDs
+--   are logged together.
+serverRequestTracing :: TransactionOption
 
 -- | Set a timeout in milliseconds which, when elapsed, will cause the
 --   transaction automatically to be cancelled. Valid parameter values are
@@ -589,7 +615,7 @@ snapshotRywEnable :: TransactionOption
 snapshotRywDisable :: TransactionOption
 
 -- | The transaction can read and write to locked databases, and is
---   resposible for checking that it took the lock.
+--   responsible for checking that it took the lock.
 lockAware :: TransactionOption
 
 -- | By default, operations that are performed on a transaction while it is
@@ -611,6 +637,27 @@ firstInBatch :: TransactionOption
 -- | This option should only be used by tools which change the database
 --   configuration.
 useProvisionalProxies :: TransactionOption
+
+-- | The transaction can retrieve keys that are conflicting with other
+--   transactions.
+reportConflictingKeys :: TransactionOption
+
+-- | By default, the special key space will only allow users to read from
+--   exactly one module (a subspace in the special key space). Use this
+--   option to allow reading from zero or more modules. Users who set this
+--   option should be prepared for new modules, which may have different
+--   behaviors than the modules they're currently reading. For example, a
+--   new module might block or return an error.
+specialKeySpaceRelaxed :: TransactionOption
+
+-- | Adds a tag to the transaction that can be used to apply manual
+--   targeted throttling. At most 5 tags can be set on a transaction.
+tag :: String -> TransactionOption
+
+-- | Adds a tag to the transaction that can be used to apply manual or
+--   automatic targeted throttling. At most 5 tags can be set on a
+--   transaction.
+autoThrottleTag :: String -> TransactionOption
 instance GHC.Classes.Ord FoundationDB.Options.TransactionOption.TransactionOption
 instance GHC.Classes.Eq FoundationDB.Options.TransactionOption.TransactionOption
 instance GHC.Read.Read FoundationDB.Options.TransactionOption.TransactionOption
@@ -910,8 +957,9 @@ toError :: CFDBError -> Maybe CError
 toCFDBError :: CError -> CFDBError
 
 -- | Returns true if the given error indicates that the erroring
---   transaction can be tried, but the transaction might have already been
---   committed. The transaction should only be retried if it is idempotent.
+--   transaction can be retried, but the transaction might have already
+--   been committed. In such cases, the transaction should only be retried
+--   if it is idempotent.
 retryable :: Error -> Bool
 
 -- | Returns true if the given error indicates that the transaction was
@@ -931,6 +979,8 @@ instance GHC.Classes.Eq FoundationDB.Error.Internal.DirLayerUserError
 instance GHC.Show.Show FoundationDB.Error.Internal.DirLayerUserError
 instance GHC.Exception.Exception FoundationDB.Error.Internal.Error
 
+
+-- | Types for all errors that can be thrown while using this library.
 module FoundationDB.Error
 
 -- | Represents all errors that can occur when running a
@@ -1062,8 +1112,9 @@ OtherError :: CFDBError -> CError
 [getOtherError] :: CError -> CFDBError
 
 -- | Returns true if the given error indicates that the erroring
---   transaction can be tried, but the transaction might have already been
---   committed. The transaction should only be retried if it is idempotent.
+--   transaction can be retried, but the transaction might have already
+--   been committed. In such cases, the transaction should only be retried
+--   if it is idempotent.
 retryable :: Error -> Bool
 
 -- | Returns true if the given error indicates that the transaction was
@@ -1082,6 +1133,14 @@ Incomplete :: VersionstampCompleteness
 -- | Represents a version stamp. Version stamps consist of * An 8-byte
 --   transaction version * A 2-byte transaction batch order * A 2-byte user
 --   version
+--   
+--   The first ten bytes are assigned by FoundationDB to each transaction
+--   in such a way that each transaction is numbered in a
+--   <a>serializable</a> order.
+--   
+--   The last two bytes can be used by the user to further distinguish
+--   between multiple entities or keys that were committed in one
+--   transaction.
 data Versionstamp (a :: VersionstampCompleteness)
 
 -- | A complete version stamp, consisting of
@@ -1096,7 +1155,7 @@ data Versionstamp (a :: VersionstampCompleteness)
 
 -- | A <a>TransactionVersionstamp</a> consists of a
 --   monotonically-increasing 8-byte transaction version and a 2-byte
---   transaction batch order. Each transaction has an associated
+--   transaction batch order. Each committed transaction has an associated
 --   <a>TransactionVersionstamp</a>.
 data TransactionVersionstamp
 TransactionVersionstamp :: Word64 -> Word16 -> TransactionVersionstamp
@@ -1137,6 +1196,14 @@ module FoundationDB.Versionstamp
 -- | Represents a version stamp. Version stamps consist of * An 8-byte
 --   transaction version * A 2-byte transaction batch order * A 2-byte user
 --   version
+--   
+--   The first ten bytes are assigned by FoundationDB to each transaction
+--   in such a way that each transaction is numbered in a
+--   <a>serializable</a> order.
+--   
+--   The last two bytes can be used by the user to further distinguish
+--   between multiple entities or keys that were committed in one
+--   transaction.
 data Versionstamp (a :: VersionstampCompleteness)
 
 -- | A complete version stamp, consisting of
@@ -1158,7 +1225,7 @@ Incomplete :: VersionstampCompleteness
 
 -- | A <a>TransactionVersionstamp</a> consists of a
 --   monotonically-increasing 8-byte transaction version and a 2-byte
---   transaction batch order. Each transaction has an associated
+--   transaction batch order. Each committed transaction has an associated
 --   <a>TransactionVersionstamp</a>.
 data TransactionVersionstamp
 TransactionVersionstamp :: Word64 -> Word16 -> TransactionVersionstamp
@@ -1174,10 +1241,40 @@ encodeTransactionVersionstamp :: TransactionVersionstamp -> ByteString
 --   flexible alternative.
 decodeVersionstamp :: ByteString -> Maybe (Versionstamp  'Complete)
 decodeTransactionVersionstamp :: ByteString -> Maybe TransactionVersionstamp
+
+-- | Extracts the transaction version from the versionstamp. This is the
+--   database version at which the versionstamp was committed.
 transactionVersion :: TransactionVersionstamp -> Word64
+
+-- | Extracts the batch order from the versionstamp.
 transactionBatchOrder :: TransactionVersionstamp -> Word16
 userVersion :: Versionstamp a -> Word16
 
+
+-- | This module contains the core of the FoundationDB transaction API,
+--   including all the basic functionality to create and run transactions.
+--   <a>Transaction</a> is a monad, and you will generally want to use it
+--   with do-notation.
+--   
+--   <pre>
+--   {-# LANGUAGE OverloadedStrings #-}
+--   import FoundationDB.Transaction
+--   import Data.ByteString
+--   
+--   -- | Sets and gets a key in one transaction. Returns the ByteString
+--   -- "world".
+--   myTransaction :: Transaction ByteString
+--   myTransaction = do
+--     let mykey = "hello"
+--     set mykey "world"
+--     get mykey
+--   </pre>
+--   
+--   Run your transactions with <a>runTransaction</a> in the IO monad.
+--   
+--   The documentation in this library assumes that you already have some
+--   understanding of how to work with FoundationDB. If you don't, check
+--   out the <a>official tutorial</a>.
 module FoundationDB.Transaction
 
 -- | A transaction monad. This is currently exported with a <a>MonadIO</a>
@@ -1234,8 +1331,13 @@ defaultConfig :: TransactionConfig
 
 -- | Attempt to commit a transaction against the given database. If an
 --   unretryable error occurs, throws an <a>Error</a>. Attempts to retry
---   the transaction for retryable errors.
+--   the transaction for retryable errors according to the
+--   <a>maxRetries</a> setting in the provided <a>TransactionConfig</a>.
 runTransactionWithConfig :: TransactionConfig -> Database -> Transaction a -> IO a
+
+-- | Attempt to commit a transaction against the given database. If an
+--   unretryable error occurs, returns <a>Left</a>. Attempts to retry the
+--   transaction for retryable errors.
 runTransactionWithConfig' :: TransactionConfig -> Database -> Transaction a -> IO (Either Error a)
 
 -- | Cancel a transaction. The transaction will not be committed, and will
@@ -1407,8 +1509,8 @@ await :: Future a -> Transaction a
 --   <a>await</a>, but can be interrupted more easily.
 awaitInterruptible :: Future a -> Transaction a
 
--- | Cancel a future. Attempts to await the future after cancellation will
---   throw <a>OperationCancelled</a>.
+-- | Cancel a future. Attempting to await the future after cancellation
+--   will throw <a>OperationCancelled</a>.
 cancelFuture :: Future a -> Transaction ()
 
 -- | Returns True if the future is ready. If so, calling <a>await</a> will
@@ -1433,6 +1535,9 @@ awaitInterruptibleIO :: FutureIO a -> IO (Either Error a)
 -- | Cancel a future. Attempts to await the future after cancellation will
 --   throw <a>OperationCancelled</a>.
 cancelFutureIO :: FutureIO a -> IO ()
+
+-- | Returns <a>True</a> if calling <a>awaitIO</a> will return immediately,
+--   without blocking.
 futureIsReadyIO :: FutureIO a -> IO Bool
 
 -- | Specifies a key in the database. See the official <a>docs</a> for more
@@ -1507,8 +1612,30 @@ instance GHC.Base.Applicative FoundationDB.Transaction.Future
 instance GHC.Show.Show (FoundationDB.Transaction.FutureIO a)
 instance GHC.Base.Functor FoundationDB.Transaction.FutureIO
 
+module FoundationDB.Layer.Directory.Internal.Error
+throwDirInternalError :: String -> Transaction a
+throwDirUserError :: DirLayerUserError -> Transaction a
 
--- | WIP interface for constructing and running transactions.
+
+-- | This module contains all of the basics needed to build a program that
+--   interacts with <a>FoundationDB</a>. The documentation throughout this
+--   library assumes that you have already read the official <a>developer
+--   guide</a>.
+--   
+--   <h1>Quick start</h1>
+--   
+--   <ul>
+--   <li><pre>import qualified FoundationDB as FDB</pre></li>
+--   <li>Use <a>withFoundationDB</a> to get a handle to the database.</li>
+--   <li>Use <a>runTransaction</a> and its variants to run a transaction in
+--   the IO monad.</li>
+--   <li>Read the docs in <a>FoundationDB.Transaction</a> to learn how to
+--   use the <a>Transaction</a> monad.</li>
+--   <li><a>runTransaction</a> throws exceptions. <a>runTransaction'</a>
+--   returns a sum type. Whichever you choose, all errors you can encounter
+--   are defined in <a>FoundationDB.Error</a>.</li>
+--   <li>See <a>the tests</a> for basic usage examples.</li>
+--   </ul>
 module FoundationDB
 
 -- | Current version of the installed FDB library.
@@ -1516,7 +1643,7 @@ currentAPIVersion :: Int
 
 -- | Handles correctly starting up the network connection to the DB. Can
 --   only be called once per process! Throws an <a>Error</a> if any part of
---   setting up the connection FoundationDB fails.
+--   setting up the connection to FoundationDB fails.
 withFoundationDB :: FoundationDBOptions -> (Database -> IO a) -> IO a
 
 -- | Options set at the connection level for FoundationDB.
@@ -1544,360 +1671,6 @@ defaultOptions :: FoundationDBOptions
 -- | Handle to the underlying C API client state.
 data Database
 
--- | A transaction monad. This is currently exported with a <a>MonadIO</a>
---   instance, but using it comes with caveats:
---   
---   <ul>
---   <li><a>runTransaction</a> will retry your transaction in some cases,
---   which means any IO in your transaction will be repeated. You can
---   disable retries by setting <a>maxRetries</a> in
---   <a>TransactionConfig</a> to 0.</li>
---   <li>Transactions have strict time limits, so slow IO operations should
---   be avoided.</li>
---   </ul>
-data Transaction a
-
--- | Attempts to commit a transaction against the given database. If an
---   unretryable error occurs, throws an <a>Error</a>. Attempts to retry
---   the transaction for retryable errors.
-runTransaction :: Database -> Transaction a -> IO a
-
--- | Like <a>runTransaction</a>, but returns a sum instead of throwing an
---   exception on errors.
-runTransaction' :: Database -> Transaction a -> IO (Either Error a)
-
--- | Contains useful options that are not directly exposed by the C API
---   (for options that are, see <a>setOption</a>).
-data TransactionConfig
-TransactionConfig :: Bool -> Bool -> Int -> Int -> TransactionConfig
-
--- | When set to <a>True</a> (default is <a>False</a>), running the
---   transaction will retry even on errors where the transaction may have
---   completed successfully. When <a>False</a>, the transaction will retry
---   only when it is guaranteed that the transaction was not committed.
-[idempotent] :: TransactionConfig -> Bool
-
--- | When set to <a>True</a> (default is <a>False</a>), reads will see the
---   effects of concurrent transactions, removing the default serializable
---   isolation guarantee. To enable this feature selectively within a
---   transaction, see <a>withSnapshot</a>.
-[snapshotReads] :: TransactionConfig -> Bool
-
--- | Max number of times to retry retryable errors. After this many
---   retries, <a>MaxRetriesExceeded</a> will be thrown to the caller of
---   <a>runTransaction</a>.
-[maxRetries] :: TransactionConfig -> Int
-
--- | Max number of milliseconds the transaction is allowed to run. If this
---   number is exceeded, the transaction fails with an error.
-[timeout] :: TransactionConfig -> Int
-
--- | A config for a non-idempotent transaction, allowing 5 retries, with a
---   time limit of 500 milliseconds.
-defaultConfig :: TransactionConfig
-
--- | Attempt to commit a transaction against the given database. If an
---   unretryable error occurs, throws an <a>Error</a>. Attempts to retry
---   the transaction for retryable errors.
-runTransactionWithConfig :: TransactionConfig -> Database -> Transaction a -> IO a
-runTransactionWithConfig' :: TransactionConfig -> Database -> Transaction a -> IO (Either Error a)
-
--- | Cancel a transaction. The transaction will not be committed, and will
---   throw <a>TransactionCanceled</a>.
-cancel :: Transaction ()
-
--- | Reset the transaction. All operations prior to this will be discarded.
-reset :: Transaction ()
-
--- | Runs a transaction using snapshot reads, which means that the
---   transaction will see the results of concurrent transactions, removing
---   the default serializable isolation guarantee.
-withSnapshot :: Transaction a -> Transaction a
-
--- | Set one of the transaction options from the underlying C API.
-setOption :: TransactionOption -> Transaction ()
-
--- | Sets the read version on the current transaction. As the FoundationDB
---   docs state, "this is not needed in simple cases".
-setReadVersion :: Word64 -> Transaction ()
-
--- | Gets the read version of the current transaction, representing all
---   transactions that were reported committed before this one.
-getReadVersion :: Transaction (Future Word64)
-
--- | Returns a <a>FutureIO</a> that will resolve to the versionstamp of the
---   committed transaction. Most applications won't need this.
-getVersionstamp :: Transaction (FutureIO (Either Error TransactionVersionstamp))
-
--- | Returns a future that will return the size, in bytes, of the
---   transaction so far, as a summation of the estimated size of mutations,
---   read conflict ranges, and write conflict ranges. This can be used to
---   decide how to split a large task into smaller transactions.
-getApproximateSize :: Transaction (Future Word64)
-
--- | Get the value of a key. If the key does not exist, returns
---   <a>Nothing</a>.
-get :: ByteString -> Transaction (Future (Maybe ByteString))
-
--- | Set a bytestring key to a bytestring value.
-set :: ByteString -> ByteString -> Transaction ()
-
--- | Delete a key from the DB.
-clear :: ByteString -> Transaction ()
-
--- | <tt>clearRange k l</tt> deletes all keys in the half-open range [k,l).
-clearRange :: ByteString -> ByteString -> Transaction ()
-
--- | Tells FoundationDB to consider the given range to have been read by
---   this transaction.
-addConflictRange :: ByteString -> ByteString -> FDBConflictRangeType -> Transaction ()
-data FDBConflictRangeType
-ConflictRangeTypeRead :: FDBConflictRangeType
-ConflictRangeTypeWrite :: FDBConflictRangeType
-
--- | Gets the key specified by the given <tt>KeySelector</tt>.
-getKey :: KeySelector -> Transaction (Future ByteString)
-
--- | Get the public network addresses of all nodes responsible for storing
---   the given key.
-getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
-
--- | Perform an atomic operation of <a>MutationType</a> on the given key. A
---   transaction that performs only atomic operations is guaranteed not to
---   conflict. However, it may cause other concurrent transactions to
---   conflict.
-atomicOp :: ByteString -> MutationType -> Transaction ()
-
--- | Reads all key-value pairs in the specified <a>Range</a> which are
---   lexicographically greater than or equal to the <a>rangeBegin</a>
---   <tt>KeySelector</tt> and lexicographically less than the
---   <a>rangeEnd</a> <tt>KeySelector</tt>. Uses
---   <tt>StreamingModeIterator</tt>, which assumes that you don't know
---   ahead of time exactly how many pairs in the range you actually need.
---   If you need them all (and they are expected to fit in memory), use
---   <a>getEntireRange</a>. For more advanced usage, use <a>getRange'</a>.
-getRange :: Range -> Transaction (Future RangeResult)
-
--- | Like <a>getRange</a>, but allows you to specify the streaming mode as
---   desired.
-getRange' :: Range -> FDBStreamingMode -> Transaction (Future RangeResult)
-data FDBStreamingMode
-StreamingModeWantAll :: FDBStreamingMode
-StreamingModeIterator :: FDBStreamingMode
-StreamingModeExact :: FDBStreamingMode
-StreamingModeSmall :: FDBStreamingMode
-StreamingModeMedium :: FDBStreamingMode
-StreamingModeLarge :: FDBStreamingMode
-StreamingModeSerial :: FDBStreamingMode
-
--- | Wrapper around <a>getRange</a> that reads the entire range into
---   memory.
-getEntireRange :: Range -> Transaction (Seq (ByteString, ByteString))
-
--- | Return True iff the given range is empty.
-isRangeEmpty :: Range -> Transaction Bool
-
--- | Specifies a range of keys to be iterated over by <a>getRange</a>.
-data Range
-Range :: KeySelector -> KeySelector -> Maybe Int -> Bool -> Range
-
--- | The beginning of the range, including the key specified by this
---   <tt>KeySelector</tt>.
-[rangeBegin] :: Range -> KeySelector
-
--- | The end of the range, not including the key specified by this
---   <tt>KeySelector</tt>.
-[rangeEnd] :: Range -> KeySelector
-
--- | If the range contains more than <tt>n</tt> items, return only <tt>Just
---   n</tt>. If <tt>Nothing</tt> is provided, returns the entire range.
-[rangeLimit] :: Range -> Maybe Int
-
--- | If <a>True</a>, return the range in reverse order.
-[rangeReverse] :: Range -> Bool
-rangeKeys :: Range -> (ByteString, ByteString)
-
--- | <tt>keyRange begin end</tt> is the range of keys <tt>[begin,
---   end)</tt>.
-keyRange :: ByteString -> ByteString -> Range
-
--- | <tt>keyRange begin end</tt> is the range of keys <tt>[begin,
---   end]</tt>.
-keyRangeInclusive :: ByteString -> ByteString -> Range
-
--- | <tt>prefixRange prefix</tt> is the range of all keys of which
---   <tt>prefix</tt> is a prefix. Returns <tt>Nothing</tt> if
---   <tt>prefix</tt> is empty or contains only <tt>0xff</tt>.
-prefixRange :: ByteString -> Maybe Range
-
--- | Structure for returning the result of <a>getRange</a> in chunks.
-data RangeResult
-RangeDone :: (Seq (ByteString, ByteString)) -> RangeResult
-RangeMore :: (Seq (ByteString, ByteString)) -> (Future RangeResult) -> RangeResult
-
--- | Creates a future that will be fulfilled when the value associated with
---   the given key is changed, relative to the value it had as of the
---   current transaction's read version, or the last value to which the key
---   was previously set within the current transaction. This future is safe
---   to return from the transaction and await in IO. If the transaction in
---   which it was created fails to commit, awaiting it will return the same
---   error as running the transaction did.
-watch :: ByteString -> Transaction (FutureIO ())
-
--- | A future result of a FoundationDB call. You can block on a future with
---   <a>await</a>. WARNING: returning a value of this type from
---   <a>runTransaction</a> and then calling <a>await</a> on the value in
---   another transaction will cause a segfault! Future versions of this
---   library may use more sophisticated types to prevent this.
-data Future a
-
--- | Block until a future is ready. Unfortunately, does not seem to be
---   interruptible by SIGPIPE (the interrupt sent by
---   Control.Conccurent.Async to cancel), even when using InterruptibleFFI.
-await :: Future a -> Transaction a
-
--- | Polls a future for readiness in a loop until it is ready, then returns
---   the value in the future. This is less resource efficient than
---   <a>await</a>, but can be interrupted more easily.
-awaitInterruptible :: Future a -> Transaction a
-
--- | Cancel a future. Attempts to await the future after cancellation will
---   throw <a>OperationCancelled</a>.
-cancelFuture :: Future a -> Transaction ()
-
--- | Returns True if the future is ready. If so, calling <a>await</a> will
---   not block.
-futureIsReady :: Future a -> Transaction Bool
-
--- | A future that can only be awaited after its transaction has committed.
---   That is, in contrast to <a>Future</a>, this <b>must</b> be returned
---   from <a>runTransaction</a> before it can safely be awaited. Use
---   <a>awaitIO</a> to await it. This future type is not needed frequently.
---   
---   All <a>FutureIO</a> functions work similarly to their <a>Future</a>
---   counterparts.
-data FutureIO a
-
--- | IO analogue to <a>await</a>.
-awaitIO :: FutureIO a -> IO (Either Error a)
-
--- | IO analogue to <a>awaitInterruptible</a>.
-awaitInterruptibleIO :: FutureIO a -> IO (Either Error a)
-
--- | Cancel a future. Attempts to await the future after cancellation will
---   throw <a>OperationCancelled</a>.
-cancelFutureIO :: FutureIO a -> IO ()
-futureIsReadyIO :: FutureIO a -> IO Bool
-
--- | Specifies a key in the database. See the official <a>docs</a> for more
---   information. These can be supplied to <tt>getKey</tt> or used to build
---   a <tt>Range</tt>.
-data KeySelector
-
--- | Selects the lexicographically greatest key less than the specified
---   key.
-LastLessThan :: ByteString -> KeySelector
-
--- | Selects the lexicographically greatest less than or equal to the
---   specified key.
-LastLessOrEq :: ByteString -> KeySelector
-
--- | Selects the lexicographically least key greater than the specified
---   key.
-FirstGreaterThan :: ByteString -> KeySelector
-
--- | Selects the lexicographically least key greater than or equal to the
---   specified key.
-FirstGreaterOrEq :: ByteString -> KeySelector
-
--- | Increase the offset of the given <tt>KeySelector</tt>.
-offset :: Int -> KeySelector -> KeySelector
-
--- | Represents all errors that can occur when running a
---   <tt>Transaction</tt>.
-data Error
-CError :: CError -> Error
-Error :: FDBHsError -> Error
-
--- | Errors that can come from the underlying C library. Most error names
---   are self-explanatory. See
---   <a>https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes</a>
---   for a description of these errors.
-data CError
-OperationFailed :: CError
-TimedOut :: CError
-TransactionTooOld :: CError
-FutureVersion :: CError
-
--- | Returned if a transaction failed because of a conflict.
-NotCommitted :: CError
-CommitUnknownResult :: CError
-TransactionCanceled :: CError
-TransactionTimedOut :: CError
-TooManyWatches :: CError
-WatchesDisabled :: CError
-AccessedUnreadable :: CError
-DatabaseLocked :: CError
-ClusterVersionChanged :: CError
-ExternalClientAlreadyLoaded :: CError
-OperationCancelled :: CError
-FutureReleased :: CError
-PlatformError :: CError
-LargeAllocFailed :: CError
-PerformanceCounterError :: CError
-IOError :: CError
-FileNotFound :: CError
-BindFailed :: CError
-FileNotReadable :: CError
-FileNotWritable :: CError
-NoClusterFileFound :: CError
-FileTooLarge :: CError
-ClientInvalidOperation :: CError
-CommitReadIncomplete :: CError
-TestSpecificationInvalid :: CError
-KeyOutsideLegalRange :: CError
-InvertedRange :: CError
-InvalidOptionValue :: CError
-InvalidOption :: CError
-NetworkNotSetup :: CError
-NetworkAlreadySetup :: CError
-ReadVersionAlreadySet :: CError
-VersionInvalid :: CError
-RangeLimitsInvalid :: CError
-InvalidDatabaseName :: CError
-AttributeNotFound :: CError
-FutureNotSet :: CError
-FutureNotError :: CError
-UsedDuringCommit :: CError
-InvalidMutationType :: CError
-TransactionInvalidVersion :: CError
-NoCommitVersion :: CError
-EnvironmentVariableNetworkOptionFailed :: CError
-TransactionReadOnly :: CError
-IncompatibleProtocolVersion :: CError
-TransactionTooLarge :: CError
-KeyTooLarge :: CError
-ValueTooLarge :: CError
-ConnectionStringInvalid :: CError
-AddressInUse :: CError
-InvalidLocalAddress :: CError
-TLSError :: CError
-UnsupportedOperation :: CError
-APIVersionUnset :: CError
-APIVersionAlreadySet :: CError
-APIVersionInvalid :: CError
-APIVersionNotSupported :: CError
-ExactModeWithoutLimits :: CError
-UnknownError :: CError
-InternalError :: CError
-OtherError :: CFDBError -> CError
-[getOtherError] :: CError -> CFDBError
-
--- | Returns true if the given error indicates that the erroring
---   transaction can be tried, but the transaction might have already been
---   committed. The transaction should only be retried if it is idempotent.
-retryable :: Error -> Bool
-
 -- | Starts up FoundationDB. You must call <a>stopFoundationDB</a> before
 --   your program terminates. It's recommended that you use
 --   <a>withFoundationDB</a> instead, since it handles cleanup. This
@@ -1905,14 +1678,12 @@ retryable :: Error -> Bool
 --   per process! Throws an <a>Error</a> if any part of setting up the
 --   connection FoundationDB fails.
 startFoundationDB :: FoundationDBOptions -> IO Database
+
+-- | Stops FoundationDB. For use with <a>startFoundationDB</a>.
 stopFoundationDB :: IO ()
 instance GHC.Classes.Ord FoundationDB.FoundationDBOptions
 instance GHC.Classes.Eq FoundationDB.FoundationDBOptions
 instance GHC.Show.Show FoundationDB.FoundationDBOptions
-
-module FoundationDB.Layer.Directory.Internal.Error
-throwDirInternalError :: String -> Transaction a
-throwDirUserError :: DirLayerUserError -> Transaction a
 
 module FoundationDB.Layer.Tuple.Internal
 
@@ -1954,7 +1725,7 @@ sizeLimits :: Array Int Integer
 bisectSize :: Integer -> Int
 
 -- | Returns the minimum number of bits needed to encode the given int.
-bitLen :: Integral a => a -> Int
+bitLen :: Integer -> Int
 nullCode :: Word8
 bytesCode :: Word8
 stringCode :: Word8
@@ -1988,6 +1759,8 @@ putWord64be :: Word64 -> PutTuple ()
 putByteString :: ByteString -> PutTuple ()
 encodeBytes :: ByteString -> PutTuple ()
 truncatedInt :: Int -> Integer -> ByteString
+encodeLargePosInt :: Integer -> PutTuple ()
+encodeLargeNegInt :: Integer -> PutTuple ()
 encodePosInt :: Integer -> PutTuple ()
 encodeNegInt :: Integer -> PutTuple ()
 
@@ -2074,6 +1847,13 @@ instance GHC.Show.Show FoundationDB.Layer.Tuple.Internal.Elem
 instance Control.Monad.State.Class.MonadState FoundationDB.Layer.Tuple.Internal.SerializationState FoundationDB.Layer.Tuple.Internal.PutTuple
 instance Control.DeepSeq.NFData FoundationDB.Layer.Tuple.Internal.Elem
 
+
+-- | The tuple layer is the most fundamental layer shared by all language
+--   bindings. It is responsible for implementing a key encoding scheme
+--   that ensures that many common types (and tuples composed of them) can
+--   be written to FoundationDB with a sensible lexicographical ordering.
+--   This enables many powerful query patterns. See the <a>official
+--   docs</a> for more information.
 module FoundationDB.Layer.Tuple
 
 -- | Elements of tuples. A tuple is represented as a list of these. Note
@@ -2158,6 +1938,14 @@ decodeTupleElems :: ByteString -> Either String [Elem]
 --   input prefix is not actually a prefix of the encoded tuple.
 decodeTupleElemsWPrefix :: ByteString -> ByteString -> Either String [Elem]
 
+
+-- | Subspaces allow you to easily attach a common prefix to tuple-encoded
+--   keys (See <a>FoundationDB.Layer.Tuple</a>) so that you can perform
+--   range reads and deletes over a set of related keys.
+--   
+--   The subspace layer is one of the standard layers supported by all
+--   language bindings. See <a>the official documentation</a> for more
+--   information.
 module FoundationDB.Layer.Subspace
 
 -- | Represents a subspace of <a>Tuple</a> keys. A subspace is just a
@@ -2171,20 +1959,30 @@ subspace :: [Elem] -> Subspace
 
 -- | Create a subspace from a raw bytestring prefix and a tuple.
 prefixedSubspace :: ByteString -> [Elem] -> Subspace
-subspaceKey :: Subspace -> ByteString
 
 -- | Create a subsubspace by extending the prefix of a subspace by the
 --   given tuple.
 extend :: Subspace -> [Elem] -> Subspace
+
+-- | Encode a tuple prefixed with a subspace.
 pack :: Subspace -> [Elem] -> ByteString
+
+-- | Decode a tuple that was encoded by <a>pack</a>.
 unpack :: Subspace -> ByteString -> Either String [Elem]
 
 -- | Returns <a>True</a> iff the subspace contains the given key.
 contains :: Subspace -> ByteString -> Bool
+
+-- | Construct a range query that covers an entire subspace.
 subspaceRange :: Subspace -> Range
 
 -- | Get the last key,value pair in the subspace, if it exists.
 getLast :: Subspace -> Transaction (Maybe (ByteString, ByteString))
+
+-- | Returns the bytestring prefix of the subspace. Equivalent to
+--   <a>rawPrefix</a>. This function is provided for consistency with other
+--   language bindings.
+subspaceKey :: Subspace -> ByteString
 instance GHC.Classes.Ord FoundationDB.Layer.Subspace.Subspace
 instance GHC.Classes.Eq FoundationDB.Layer.Subspace.Subspace
 instance GHC.Show.Show FoundationDB.Layer.Subspace.Subspace
@@ -2303,6 +2101,8 @@ exists :: DirectoryLayer -> Path -> Transaction Bool
 -- | List the names of the immediate subdirectories of a directory. Returns
 --   an empty list if the directory does not exist.
 list :: DirectoryLayer -> Path -> Transaction (Seq Text)
+
+-- | Represents all ways <a>move</a> may fail.
 data MoveError
 
 -- | returned by <a>move</a> if you attempt to move a directory into a
@@ -2326,12 +2126,15 @@ DestinationParentDoesNotExist :: MoveError
 -- | Returned by <a>move</a> if the destination path is the root path.
 CannotMoveToRoot :: MoveError
 
--- | Move a directory from one path to another.
+-- | Move a directory from one path to another. Returns <tt>Just err</tt>
+--   if an error occurred. If an error is returned, the directory structure
+--   is left unchanged.
 move :: DirectoryLayer -> Path -> Path -> Transaction (Maybe MoveError)
 
 -- | Remove a directory path, its contents, and all subdirectories. Returns
 --   <a>True</a> if removal succeeds. Fails for nonexistent paths and the
---   root directory.
+--   root directory. In cases of failure, the directory structure is
+--   unchanged.
 remove :: DirectoryLayer -> Path -> Transaction Bool
 
 -- | Internal helper function that removes all subdirectories of the given
@@ -2369,9 +2172,11 @@ instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.DirectoryLayer
 instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.DirectoryLayer
 
 
--- | The directory layer. The directory layer provides tools for creating a
---   hierarchy of <tt>Subspace</tt>s, which can be operated on efficiently
---   with a directory-like API.
+-- | The directory layer provides tools for creating a hierarchy of
+--   <tt>Subspace</tt>s, which can be operated on efficiently with a
+--   directory-like API. This is one of the official layers supported by
+--   all language bindings. See the <a>official FoundationDB
+--   documentation</a> for more information.
 --   
 --   This implementation of the directory layer does not yet support
 --   directory partitions. They will be added in the future.
@@ -2413,12 +2218,15 @@ open :: DirectoryLayer -> Path -> Transaction (Maybe Directory)
 --   it is created.
 createOrOpen :: DirectoryLayer -> Path -> Transaction Directory
 
--- | Move a directory from one path to another.
+-- | Move a directory from one path to another. Returns <tt>Just err</tt>
+--   if an error occurred. If an error is returned, the directory structure
+--   is left unchanged.
 move :: DirectoryLayer -> Path -> Path -> Transaction (Maybe MoveError)
 
 -- | Remove a directory path, its contents, and all subdirectories. Returns
 --   <a>True</a> if removal succeeds. Fails for nonexistent paths and the
---   root directory.
+--   root directory. In cases of failure, the directory structure is
+--   unchanged.
 remove :: DirectoryLayer -> Path -> Transaction Bool
 
 -- | Returns <a>True</a> iff the given path exists.
