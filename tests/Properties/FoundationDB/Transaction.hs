@@ -12,6 +12,7 @@ import FoundationDB.Options.MutationType (setVersionstampedKey)
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 
+import Control.Concurrent.Async (async, wait)
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.MVar
 import Control.Monad
@@ -27,8 +28,8 @@ import GHC.Exts(IsList(..))
 import Test.Hspec
 
 
-transactionProps :: Subspace -> Database -> SpecWith ()
-transactionProps testSS db = do
+transactionSpecs :: Subspace -> Database -> SpecWith ()
+transactionSpecs testSS db = do
     setting testSS db
     futures testSS db
     cancellation testSS db
@@ -44,6 +45,7 @@ transactionProps testSS db = do
 #if FDB_API_VERSION >= 620
     approximateSize testSS db
 #endif
+    testGetConflictingKeys testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -274,9 +276,9 @@ retries :: Subspace -> Database -> SpecWith ()
 retries testSS db = describe "retry logic" $ do
   it "eventually bails out" $ do
     res <- runTransaction' db $ do
-      void $ throwError $ CError NotCommitted
+      void $ throwError $ CError (NotCommitted [])
       set (SS.pack testSS [Bytes "foo"]) "bar"
-    res `shouldBe` Left (Error (MaxRetriesExceeded (CError NotCommitted)))
+    res `shouldSatisfy` isNotCommitted
   it "doesn't retry unretryable errors" $ do
     res <- runTransaction' db $ do
       let bigk = BSL.toStrict $
@@ -313,7 +315,7 @@ timeouts testSS db = describe "timeouts" $
 #if FDB_API_VERSION >= 620
 approximateSize :: Subspace -> Database -> SpecWith ()
 approximateSize testSS db = describe "approximate size" $
-  it "Returns some number" $ do
+  it "returns some number" $ do
     let k1 = SS.pack testSS [Bytes "foo"]
     let k2 = SS.pack testSS [Bytes "bar"]
     s <- runTransaction db $ do
@@ -322,3 +324,39 @@ approximateSize testSS db = describe "approximate size" $
       getApproximateSize >>= await
     s `shouldSatisfy` (>100)
 #endif
+
+isNotCommitted :: Either Error a -> Bool
+isNotCommitted (Left (Error (MaxRetriesExceeded (CError (NotCommitted _))))) = True
+isNotCommitted _ = False
+
+getConflicts :: Either Error a -> [ConflictRange]
+getConflicts (Left (Error (MaxRetriesExceeded (CError (NotCommitted xs))))) = xs
+getConflicts _ = []
+
+testGetConflictingKeys :: Subspace -> Database -> SpecWith ()
+testGetConflictingKeys testSS db = describe "getConflictingKeys" $
+  it "returns NotCommitted with conflicting keys when enabled" $ do
+    let k1 = SS.pack testSS [Bytes "conflictor"]
+    let config = defaultConfig {maxRetries = 0, getConflictingKeys = True}
+    t1Started <- newEmptyMVar
+    t2Finished <- newEmptyMVar
+    -- Run two transactions:
+    -- t1 starts, tries to read k1, then waits to commit until after t2 commits.
+    -- t2 starts, writes to k1, commits, then allows t1 to try to commit.
+    t1 <- async $ runTransactionWithConfig' config db $ do
+            -- Since we don't actually read, we need to explicitly get a
+            -- read version.
+            _ <- getReadVersion >>= await
+            addReadConflictKey k1
+            addWriteConflictKey k1
+            liftIO $ putMVar t1Started ()
+            liftIO $ takeMVar t2Finished
+    _ <- takeMVar t1Started
+    runTransaction db $ addWriteConflictKey k1
+    putMVar t2Finished ()
+    t1Result <- wait t1
+    t1Result `shouldSatisfy` isNotCommitted
+    when (currentAPIVersion >= 630) $ do
+      let expectedRangeStart = k1
+      let expectedRangeEnd = BS.snoc k1 '\NUL'
+      getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]

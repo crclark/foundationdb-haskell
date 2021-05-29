@@ -56,6 +56,13 @@ fdbThrowing' a = do
     Just x -> throwIO $ CError x
     Nothing -> return ()
 
+-- | Represents a range of keys that conflicted with another transaction.
+-- @ConflictRange x y@ corresponds to a range of keys that share the prefix @x@
+-- (including @x@) up to the prefix @y@  (not including @y@). It is always the
+-- case that @x <= y@.
+data ConflictRange = ConflictRange ByteString ByteString
+  deriving (Show, Read, Eq, Ord)
+
 -- | Represents all errors that can occur when running a 'Transaction'.
 data Error = CError CError | Error FDBHsError
   deriving (Show, Eq, Ord)
@@ -101,6 +108,10 @@ data FDBHsError =
   -- support the desired API version. This can happen even if the underlying C
   -- library does support the desired version -- we sometimes drop support
   -- for older versions sooner than the C API.
+  | ConflictRangeParseFailure [(ByteString, ByteString)]
+  -- ^ The structure of keys returned by the transaction module of the special
+  -- keys keyspace was not in the expected format. The raw key/values
+  -- are returned, unparsed.
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.
@@ -112,8 +123,10 @@ data CError =
   | TimedOut
   | TransactionTooOld
   | FutureVersion
-  | NotCommitted
-  -- ^ Returned if a transaction failed because of a conflict.
+  | NotCommitted [ConflictRange]
+  -- ^ Returned if a transaction failed because of a conflict. If
+  -- 'FoundationDB.Transaction.getConflictingKeys' is set, returns conflicting
+  -- key ranges.
   | CommitUnknownResult
   | TransactionCanceled
   | TransactionTimedOut
@@ -184,7 +197,7 @@ toError 1000 = Just OperationFailed
 toError 1004 = Just TimedOut
 toError 1007 = Just TransactionTooOld
 toError 1009 = Just FutureVersion
-toError 1020 = Just NotCommitted
+toError 1020 = Just (NotCommitted [])
 toError 1021 = Just CommitUnknownResult
 toError 1025 = Just TransactionCanceled
 toError 1031 = Just TransactionTimedOut
@@ -251,7 +264,7 @@ toCFDBError OperationFailed = 1000
 toCFDBError TimedOut = 1004
 toCFDBError TransactionTooOld = 1007
 toCFDBError FutureVersion = 1009
-toCFDBError NotCommitted = 1020
+toCFDBError (NotCommitted _) = 1020
 toCFDBError CommitUnknownResult = 1021
 toCFDBError TransactionCanceled = 1025
 toCFDBError TransactionTimedOut = 1031
