@@ -669,7 +669,8 @@ instance GHC.Show.Show FoundationDB.Options.TransactionOption.TransactionOption
 --   <a>https://apple.github.io/foundationdb/api-c.html</a>.
 module FoundationDB.Internal.Bindings
 
--- | Current version of the installed FDB library.
+-- | Current version of the installed FDB library. For example, returns 630
+--   if you are using FoundationDB client 6.3.x.
 currentAPIVersion :: Int
 selectAPIVersion :: (Int) -> IO ((CFDBError))
 setupNetwork :: IO ((CFDBError))
@@ -822,6 +823,14 @@ liftFDBError :: MonadError Error m => Either CFDBError a -> m a
 fdbThrowing :: IO (CFDBError, a) -> IO a
 fdbThrowing' :: IO CFDBError -> IO ()
 
+-- | Represents a range of keys that conflicted with another transaction.
+--   <tt>ConflictRange x y</tt> corresponds to a range of keys that share
+--   the prefix <tt>x</tt> (including <tt>x</tt>) up to the prefix
+--   <tt>y</tt> (not including <tt>y</tt>). It is always the case that
+--   <tt>x &lt;= y</tt>.
+data ConflictRange
+ConflictRange :: ByteString -> ByteString -> ConflictRange
+
 -- | Represents all errors that can occur when running a
 --   <tt>Transaction</tt>.
 data Error
@@ -876,6 +885,11 @@ MaxRetriesExceeded :: Error -> FDBHsError
 --   drop support for older versions sooner than the C API.
 UnsupportedAPIVersion :: FDBHsError
 
+-- | The structure of keys returned by the transaction module of the
+--   special keys keyspace was not in the expected format. The raw
+--   key/values are returned, unparsed.
+ConflictRangeParseFailure :: [(ByteString, ByteString)] -> FDBHsError
+
 -- | Errors that can come from the underlying C library. Most error names
 --   are self-explanatory. See
 --   <a>https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes</a>
@@ -886,8 +900,9 @@ TimedOut :: CError
 TransactionTooOld :: CError
 FutureVersion :: CError
 
--- | Returned if a transaction failed because of a conflict.
-NotCommitted :: CError
+-- | Returned if a transaction failed because of a conflict. If
+--   <a>getConflictingKeys</a> is set, returns conflicting key ranges.
+NotCommitted :: [ConflictRange] -> CError
 CommitUnknownResult :: CError
 TransactionCanceled :: CError
 TransactionTimedOut :: CError
@@ -977,6 +992,10 @@ instance GHC.Show.Show FoundationDB.Error.Internal.CError
 instance GHC.Classes.Ord FoundationDB.Error.Internal.DirLayerUserError
 instance GHC.Classes.Eq FoundationDB.Error.Internal.DirLayerUserError
 instance GHC.Show.Show FoundationDB.Error.Internal.DirLayerUserError
+instance GHC.Classes.Ord FoundationDB.Error.Internal.ConflictRange
+instance GHC.Classes.Eq FoundationDB.Error.Internal.ConflictRange
+instance GHC.Read.Read FoundationDB.Error.Internal.ConflictRange
+instance GHC.Show.Show FoundationDB.Error.Internal.ConflictRange
 instance GHC.Exception.Exception FoundationDB.Error.Internal.Error
 
 
@@ -1037,6 +1056,11 @@ MaxRetriesExceeded :: Error -> FDBHsError
 --   drop support for older versions sooner than the C API.
 UnsupportedAPIVersion :: FDBHsError
 
+-- | The structure of keys returned by the transaction module of the
+--   special keys keyspace was not in the expected format. The raw
+--   key/values are returned, unparsed.
+ConflictRangeParseFailure :: [(ByteString, ByteString)] -> FDBHsError
+
 -- | Errors that can come from the underlying C library. Most error names
 --   are self-explanatory. See
 --   <a>https://apple.github.io/foundationdb/api-error-codes.html#developer-guide-error-codes</a>
@@ -1047,8 +1071,9 @@ TimedOut :: CError
 TransactionTooOld :: CError
 FutureVersion :: CError
 
--- | Returned if a transaction failed because of a conflict.
-NotCommitted :: CError
+-- | Returned if a transaction failed because of a conflict. If
+--   <a>getConflictingKeys</a> is set, returns conflicting key ranges.
+NotCommitted :: [ConflictRange] -> CError
 CommitUnknownResult :: CError
 TransactionCanceled :: CError
 TransactionTimedOut :: CError
@@ -1110,6 +1135,14 @@ UnknownError :: CError
 InternalError :: CError
 OtherError :: CFDBError -> CError
 [getOtherError] :: CError -> CFDBError
+
+-- | Represents a range of keys that conflicted with another transaction.
+--   <tt>ConflictRange x y</tt> corresponds to a range of keys that share
+--   the prefix <tt>x</tt> (including <tt>x</tt>) up to the prefix
+--   <tt>y</tt> (not including <tt>y</tt>). It is always the case that
+--   <tt>x &lt;= y</tt>.
+data ConflictRange
+ConflictRange :: ByteString -> ByteString -> ConflictRange
 
 -- | Returns true if the given error indicates that the erroring
 --   transaction can be retried, but the transaction might have already
@@ -1302,7 +1335,7 @@ runTransaction' :: Database -> Transaction a -> IO (Either Error a)
 -- | Contains useful options that are not directly exposed by the C API
 --   (for options that are, see <a>setOption</a>).
 data TransactionConfig
-TransactionConfig :: Bool -> Bool -> Int -> Int -> TransactionConfig
+TransactionConfig :: Bool -> Bool -> Bool -> Int -> Int -> TransactionConfig
 
 -- | When set to <a>True</a> (default is <a>False</a>), running the
 --   transaction will retry even on errors where the transaction may have
@@ -1315,6 +1348,14 @@ TransactionConfig :: Bool -> Bool -> Int -> Int -> TransactionConfig
 --   isolation guarantee. To enable this feature selectively within a
 --   transaction, see <a>withSnapshot</a>.
 [snapshotReads] :: TransactionConfig -> Bool
+
+-- | When set to <a>True</a> (default is <a>False</a>), if a transaction
+--   fails due to a conflict, the returned <tt>NotCommittedException</tt>
+--   will include a list of key ranges that caused the transaction to
+--   conflict. This has a performance impact on both the client and the
+--   cluster. Only supported on clients and clusters running v 6.3 and
+--   later. On earlier versions, the list will always be empty.
+[getConflictingKeys] :: TransactionConfig -> Bool
 
 -- | Max number of times to retry retryable errors. After this many
 --   retries, <a>MaxRetriesExceeded</a> will be thrown to the caller of
@@ -1476,7 +1517,7 @@ keyRangeInclusive :: ByteString -> ByteString -> Range
 --   <tt>prefix</tt> is a prefix. Returns <tt>Nothing</tt> if
 --   <tt>prefix</tt> is empty or contains only <tt>0xff</tt>.
 prefixRange :: ByteString -> Maybe Range
-prefixRangeEnd :: ByteString -> ByteString
+prefixRangeEnd :: ByteString -> Maybe ByteString
 
 -- | Structure for returning the result of <a>getRange</a> in chunks.
 data RangeResult
@@ -1638,7 +1679,8 @@ throwDirUserError :: DirLayerUserError -> Transaction a
 --   </ul>
 module FoundationDB
 
--- | Current version of the installed FDB library.
+-- | Current version of the installed FDB library. For example, returns 630
+--   if you are using FoundationDB client 6.3.x.
 currentAPIVersion :: Int
 
 -- | Handles correctly starting up the network connection to the DB. Can
