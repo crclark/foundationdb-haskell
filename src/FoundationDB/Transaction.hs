@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | This module contains the core of the FoundationDB transaction API,
 -- including all the basic functionality to create and run transactions.
@@ -104,6 +105,7 @@ module FoundationDB.Transaction (
 
 import Control.Concurrent (threadDelay)
 import Control.Exception (throwIO)
+import Control.Monad (when)
 import Control.Monad.Base (MonadBase (..))
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.Error.Class (MonadError(..))
@@ -114,6 +116,7 @@ import Control.Monad.Trans.Control (MonadBaseControl(..)
                                    , liftBaseOp)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Foldable (toList)
 import Data.Maybe (fromMaybe, fromJust)
 import Data.Semigroup ((<>))
 import qualified Data.Sequence as Seq
@@ -500,7 +503,7 @@ runTransaction' = runTransactionWithConfig' defaultConfig
 -- | A config for a non-idempotent transaction, allowing 5 retries, with a time
 -- limit of 500 milliseconds.
 defaultConfig :: TransactionConfig
-defaultConfig = TransactionConfig False False 5 500
+defaultConfig = TransactionConfig False False False 5 500
 
 -- | Contains useful options that are not directly exposed by the C API (for
 --   options that are, see 'setOption').
@@ -515,6 +518,13 @@ data TransactionConfig = TransactionConfig {
   -- concurrent transactions, removing the default serializable isolation
   -- guarantee. To enable this feature selectively within a transaction,
   -- see 'withSnapshot'.
+  , getConflictingKeys :: Bool
+  -- ^ When set to 'True' (default is 'False'), if a transaction fails due to
+  -- a conflict, the returned 'NotCommittedException' will include a list of
+  -- key ranges that caused the transaction to conflict. This has a
+  -- performance impact on both the client and the cluster. Only
+  -- supported on clients and clusters running v 6.3 and later. On earlier
+  -- versions, the list will always be empty.
   , maxRetries :: Int
   -- ^ Max number of times to retry retryable errors. After this many retries,
   -- 'MaxRetriesExceeded' will be thrown to the caller of 'runTransaction'.
@@ -535,11 +545,52 @@ runTransactionWithConfig conf db t = do
     Left  err -> throwIO err
     Right x   -> return x
 
+setConflictingKeysOption :: Transaction ()
+setConflictingKeysOption
+  | FDB.currentAPIVersion >= 630 =
+    setOption (TransactionOpt.reportConflictingKeys)
+  | otherwise = return ()
+
+conflictingKeysPrefix :: ByteString
+conflictingKeysPrefix = "\xff\xff/transaction/conflicting_keys/"
+
+-- | Parse a sequence of key/value pairs in the format of the transaction
+-- module of the special keys space. See
+-- <https://apple.github.io/foundationdb/developer-guide.html#special-keys the official docs>
+-- for details. The docs say that an even number of k/vs will always be
+-- returned. If that is not the case, this function returns 'Nothing'.
+parseConflictRanges :: [(ByteString, ByteString)] -> Maybe [ConflictRange]
+parseConflictRanges rawKVs = case (length rawKVs `mod` 2, rawKVs) of
+  (_, []) -> Just []
+  (0, _)  -> Just (go rawKVs)
+  (_, _)  -> Nothing
+
+  where
+    go :: [(ByteString, ByteString)] -> [ConflictRange]
+    go [] = []
+    go ((k1, _):(k2, _):xs) =
+      ConflictRange (BS.drop prefixLen k1) (BS.drop prefixLen k2) : go xs
+    go _ = [] -- impossible
+
+    prefixLen = BS.length conflictingKeysPrefix
+
+fetchConflictingKeys :: Transaction [ConflictRange]
+fetchConflictingKeys
+  | FDB.currentAPIVersion >= 630 = do
+    let r = fromJust $ prefixRange conflictingKeysPrefix
+    rawKVs <- toList <$> getEntireRange r
+    case parseConflictRanges rawKVs of
+      Just ranges -> return ranges
+      Nothing     -> throwError (Error (ConflictRangeParseFailure rawKVs))
+
+  | otherwise = return []
+
 -- | Handles the retry logic described in the FDB docs.
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
 withRetry :: Transaction a -> Transaction a
 withRetry t = catchError t $ \err -> do
   idem <- asks (idempotent . envConf)
+  getConflicts <- asks (getConflictingKeys . envConf)
   retriesRemaining <- asks (maxRetries . envConf)
   let shouldRetry = if idem then retryable else retryableNotCommitted
   if shouldRetry err && retriesRemaining > 0
@@ -548,9 +599,18 @@ withRetry t = catchError t $ \err -> do
       -- onError re-throws unretryable errors, so if we reach here, we can retry
       local (\e -> e {envConf = (envConf e) {maxRetries = retriesRemaining - 1} })
             (withRetry t)
-    else if retriesRemaining == 0
-            then throwError $ Error $ MaxRetriesExceeded err
-            else throwError err
+    else do
+      err' <- addConflictRanges getConflicts err
+      if retriesRemaining == 0
+            then throwError $ Error $ MaxRetriesExceeded err'
+            else throwError err'
+
+  where
+    addConflictRanges :: Bool -> Error -> Transaction Error
+    addConflictRanges True (CError (NotCommitted _)) = do
+      conflicts <- fetchConflictingKeys
+      return $ CError $ NotCommitted conflicts
+    addConflictRanges _ err = return err
 
 -- | Attempt to commit a transaction against the given database. If an unretryable
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
@@ -560,6 +620,7 @@ runTransactionWithConfig'
 runTransactionWithConfig' conf db t = runExceptT $ do
   trans <- createTransactionEnv db conf
   flip runReaderT trans $ unTransaction $ withRetry $ do
+    when (getConflictingKeys conf) setConflictingKeysOption
     setOption (TransactionOpt.timeout (timeout conf))
     res    <- t
     commit <- commitFuture

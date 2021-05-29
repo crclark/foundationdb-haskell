@@ -179,6 +179,7 @@ executable generate-options
 test-suite tests
   build-depends:       base >=4.10 && <5
                        , foundationdb-haskell
+                       , async
                        , hspec
                        , bytestring >= 0.10.8.2 && <0.12
                        , QuickCheck

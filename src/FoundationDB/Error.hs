@@ -4,6 +4,7 @@ module FoundationDB.Error (
   DirLayerUserError(..),
   FDBHsError(..),
   CError(..),
+  ConflictRange(..),
   retryable,
   retryableNotCommitted
 ) where
