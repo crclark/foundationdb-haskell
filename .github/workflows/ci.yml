@@ -8,7 +8,7 @@ on:
 
 jobs:
   cabal:
-    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }} / FDB ${{ matrix.fdb-version }} / API ${{ matrix.fdb-api-version }}
+    name: cabal / ghc ${{ matrix.ghc }} / FDB ${{ matrix.fdb-version }} / API ${{ matrix.fdb-api-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
