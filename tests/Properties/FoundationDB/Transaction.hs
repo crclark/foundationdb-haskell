@@ -356,7 +356,9 @@ testGetConflictingKeys testSS db = describe "getConflictingKeys" $
     putMVar t2Finished ()
     t1Result <- wait t1
     t1Result `shouldSatisfy` isNotCommitted
-    when (currentAPIVersion >= 630) $ do
-      let expectedRangeStart = k1
-      let expectedRangeEnd = BS.snoc k1 '\NUL'
-      getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]
+    if currentAPIVersion >= 630 && apiVersionInUse db >= 630
+       then do
+         let expectedRangeStart = k1
+         let expectedRangeEnd = BS.snoc k1 '\NUL'
+         getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]
+       else getConflicts t1Result `shouldBe` []

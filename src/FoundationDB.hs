@@ -19,6 +19,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module FoundationDB (
   -- * Initialization
@@ -26,7 +27,8 @@ module FoundationDB (
   , withFoundationDB
   , FoundationDBOptions(..)
   , defaultOptions
-  , FDB.Database
+  , Database
+  , apiVersionInUse
   -- * Transactions
   , module FoundationDB.Transaction
   -- * Errors
@@ -45,8 +47,7 @@ import Data.Maybe (fromMaybe)
 import FoundationDB.Error
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
-import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
-import FoundationDB.Options.NetworkOption (NetworkOption(..))
+import FoundationDB.Internal.Database
 import FoundationDB.Transaction
 import System.IO.Unsafe (unsafePerformIO)
 
@@ -69,63 +70,46 @@ withCluster mfp =
   bracket (initCluster (fromMaybe "" mfp))
           FDB.clusterDestroy
 
-initDB :: FDB.Cluster -> IO FDB.Database
+initDB :: FDB.Cluster -> IO FDB.DatabasePtr
 initDB cluster = do
   futureDB <- FDB.clusterCreateDatabase cluster
   fdbThrowing' $ FDB.futureBlockUntilReady futureDB
   fdbThrowing $ FDB.futureGetDatabase futureDB
 
-withDatabase :: Maybe FilePath -> (FDB.Database -> IO a) -> IO a
-withDatabase clusterFile f =
+withDatabase :: FoundationDBOptions -> (Database -> IO a) -> IO a
+withDatabase opts@FoundationDBOptions{clusterFile} f =
   withCluster clusterFile $ \ cluster ->
-    bracket (initDB cluster)
-            FDB.databaseDestroy
+    bracket (fmap (flip Database opts) $ initDB cluster)
+            (FDB.databaseDestroy . databasePtr)
             f
 #else
-withDatabase :: Maybe FilePath -> (FDB.Database -> IO a) -> IO a
-withDatabase clusterFile =
-  bracket (fdbThrowing $ FDB.createDatabase (fromMaybe "" clusterFile))
-          FDB.databaseDestroy
+withDatabase :: FoundationDBOptions -> (Database -> IO a) -> IO a
+withDatabase opts@FoundationDBOptions{clusterFile} =
+  bracket (fmap (flip Database opts)
+           $ fdbThrowing
+           $ FDB.createDatabase (fromMaybe "" clusterFile))
+          (FDB.databaseDestroy . databasePtr)
 #endif
-
--- | Options set at the connection level for FoundationDB.
-data FoundationDBOptions = FoundationDBOptions
-  { apiVersion :: Int
-    -- ^ Desired API version. See 'currentAPIVersion' for the latest
-    -- version installed on your system.
-  , clusterFile :: Maybe FilePath
-  -- ^ Path to your @fdb.cluster@ file. If 'Nothing', uses
-  -- default location.
-  , networkOptions :: [NetworkOption]
-  -- ^ Additional network options. Each will be set in order.
-  , databaseOptions :: [DatabaseOption]
-  -- ^ Additional database options. Each will be set in order.
-  } deriving (Show, Eq, Ord)
-
--- | Uses the current API version, the default cluster file location, and no
--- additional options.
-defaultOptions :: FoundationDBOptions
-defaultOptions = FoundationDBOptions FDB.currentAPIVersion Nothing [] []
 
 -- | Handles correctly starting up the network connection to the DB.
 -- Can only be called once per process! Throws an 'Error' if any part of
 -- setting up the connection to FoundationDB fails.
 withFoundationDB :: FoundationDBOptions
-                 -> (FDB.Database -> IO a)
+                 -> (Database -> IO a)
                  -> IO a
-withFoundationDB FoundationDBOptions{..} m = do
+withFoundationDB opts@FoundationDBOptions{..} m = do
   validateVersion apiVersion
   done <- newEmptyMVar
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
   forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
   fdbThrowing' FDB.setupNetwork
   start done
-  finally (withDatabase clusterFile run) (stop done)
+  finally (withDatabase opts run) (stop done)
   where
     start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
     stop done = FDB.stopNetwork >> takeMVar done
-    run db = do
-        forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
+    run db@Database{databasePtr} = do
+        forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption databasePtr)
         m db
 
 startFoundationDBGlobalLock :: MVar ()
@@ -138,8 +122,8 @@ startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 -- Can only be called once per process! Throws an 'Error' if any part of
 -- setting up the connection FoundationDB fails.
 startFoundationDB :: FoundationDBOptions
-                  -> IO FDB.Database
-startFoundationDB FoundationDBOptions{..} = do
+                  -> IO Database
+startFoundationDB opts@FoundationDBOptions{..} = do
   validateVersion apiVersion
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
   forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
@@ -153,7 +137,7 @@ startFoundationDB FoundationDBOptions{..} = do
   db <- fdbThrowing $ FDB.createDatabase (fromMaybe "" clusterFile)
 #endif
   forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption db)
-  return db
+  return (Database {databasePtr = db, databaseFoundationDBOptions = opts})
 
 -- | Stops FoundationDB. For use with 'startFoundationDB'.
 stopFoundationDB :: IO ()
