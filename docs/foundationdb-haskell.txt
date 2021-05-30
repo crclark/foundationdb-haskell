@@ -699,11 +699,11 @@ FDBKeyValue :: Ptr () -> Int -> Ptr () -> Int -> FDBKeyValue
 futureGetKeyValueArray :: Future [(ByteString, ByteString)] -> IO (Either CFDBError ([(ByteString, ByteString)], Bool))
 
 -- | Handle to the underlying C API client state.
-data Database
-createDatabase :: (String) -> IO ((CFDBError), (Database))
-databaseDestroy :: (Database) -> IO ()
-databaseSetOption :: Database -> DatabaseOption -> IO CFDBError
-databaseCreateTransaction :: (Database) -> IO ((CFDBError), (Transaction))
+data DatabasePtr
+createDatabase :: (String) -> IO ((CFDBError), (DatabasePtr))
+databaseDestroy :: (DatabasePtr) -> IO ()
+databaseSetOption :: DatabasePtr -> DatabaseOption -> IO CFDBError
+databaseCreateTransaction :: (DatabasePtr) -> IO ((CFDBError), (Transaction))
 newtype Transaction
 Transaction :: (Ptr (Transaction)) -> Transaction
 
@@ -795,8 +795,8 @@ instance GHC.Classes.Eq FoundationDB.Internal.Bindings.CFDBError
 instance GHC.Show.Show FoundationDB.Internal.Bindings.CFDBError
 instance GHC.Show.Show (FoundationDB.Internal.Bindings.Future a)
 instance Foreign.Storable.Storable (FoundationDB.Internal.Bindings.Future a)
-instance GHC.Show.Show FoundationDB.Internal.Bindings.Database
-instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.Database
+instance GHC.Show.Show FoundationDB.Internal.Bindings.DatabasePtr
+instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.DatabasePtr
 instance GHC.Show.Show FoundationDB.Internal.Bindings.Transaction
 instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.Transaction
 instance GHC.Classes.Eq FoundationDB.Internal.Bindings.FDBStreamingMode
@@ -813,6 +813,45 @@ instance GHC.Enum.Enum FoundationDB.Internal.Bindings.FDBErrorPredicate
 instance GHC.Enum.Enum FoundationDB.Internal.Bindings.FDBConflictRangeType
 instance GHC.Enum.Enum FoundationDB.Internal.Bindings.FDBStreamingMode
 instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.FDBKeyValue
+
+module FoundationDB.Internal.Database
+
+-- | Options set at the connection level for FoundationDB.
+data FoundationDBOptions
+FoundationDBOptions :: Int -> Maybe FilePath -> [NetworkOption] -> [DatabaseOption] -> FoundationDBOptions
+
+-- | Desired API version. See <tt>currentAPIVersion</tt> for the latest
+--   version installed on your system. The C API (and this library) allow
+--   you to choose any version earlier than <tt>currentAPIVersion</tt> to
+--   get the client behavior of that version of the FoundationDB client
+--   library.
+[apiVersion] :: FoundationDBOptions -> Int
+
+-- | Path to your <tt>fdb.cluster</tt> file. If <a>Nothing</a>, uses
+--   default location.
+[clusterFile] :: FoundationDBOptions -> Maybe FilePath
+
+-- | Additional network options. Each will be set in order.
+[networkOptions] :: FoundationDBOptions -> [NetworkOption]
+
+-- | Additional database options. Each will be set in order.
+[databaseOptions] :: FoundationDBOptions -> [DatabaseOption]
+
+-- | Uses the current API version, the default cluster file location, and
+--   no additional options.
+defaultOptions :: FoundationDBOptions
+data Database
+Database :: DatabasePtr -> FoundationDBOptions -> Database
+[databasePtr] :: Database -> DatabasePtr
+[databaseFoundationDBOptions] :: Database -> FoundationDBOptions
+
+-- | Returns the API version that was specified in the <a>apiVersion</a>
+--   field when the FDB client was initialized.
+apiVersionInUse :: Database -> Int
+instance GHC.Show.Show FoundationDB.Internal.Database.Database
+instance GHC.Classes.Ord FoundationDB.Internal.Database.FoundationDBOptions
+instance GHC.Classes.Eq FoundationDB.Internal.Database.FoundationDBOptions
+instance GHC.Show.Show FoundationDB.Internal.Database.FoundationDBOptions
 
 module FoundationDB.Error.Internal
 fdbEither :: MonadIO m => m (CFDBError, a) -> m (Either Error a)
@@ -1693,7 +1732,10 @@ data FoundationDBOptions
 FoundationDBOptions :: Int -> Maybe FilePath -> [NetworkOption] -> [DatabaseOption] -> FoundationDBOptions
 
 -- | Desired API version. See <tt>currentAPIVersion</tt> for the latest
---   version installed on your system.
+--   version installed on your system. The C API (and this library) allow
+--   you to choose any version earlier than <tt>currentAPIVersion</tt> to
+--   get the client behavior of that version of the FoundationDB client
+--   library.
 [apiVersion] :: FoundationDBOptions -> Int
 
 -- | Path to your <tt>fdb.cluster</tt> file. If <a>Nothing</a>, uses
@@ -1709,9 +1751,11 @@ FoundationDBOptions :: Int -> Maybe FilePath -> [NetworkOption] -> [DatabaseOpti
 -- | Uses the current API version, the default cluster file location, and
 --   no additional options.
 defaultOptions :: FoundationDBOptions
-
--- | Handle to the underlying C API client state.
 data Database
+
+-- | Returns the API version that was specified in the <a>apiVersion</a>
+--   field when the FDB client was initialized.
+apiVersionInUse :: Database -> Int
 
 -- | Starts up FoundationDB. You must call <a>stopFoundationDB</a> before
 --   your program terminates. It's recommended that you use
@@ -1723,9 +1767,6 @@ startFoundationDB :: FoundationDBOptions -> IO Database
 
 -- | Stops FoundationDB. For use with <a>startFoundationDB</a>.
 stopFoundationDB :: IO ()
-instance GHC.Classes.Ord FoundationDB.FoundationDBOptions
-instance GHC.Classes.Eq FoundationDB.FoundationDBOptions
-instance GHC.Show.Show FoundationDB.FoundationDBOptions
 
 module FoundationDB.Layer.Tuple.Internal
 
