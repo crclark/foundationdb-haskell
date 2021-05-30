@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DataKinds #-}
@@ -130,6 +131,7 @@ import Foreign.Ptr (Ptr, castPtr)
 
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
+import qualified FoundationDB.Internal.Database as DB
 import FoundationDB.Options.MutationType (MutationType)
 import qualified FoundationDB.Options.TransactionOption as TransactionOpt
 import FoundationDB.Versionstamp
@@ -492,12 +494,12 @@ atomicOp k op =
 -- | Attempts to commit a transaction against the given database. If an
 -- unretryable error occurs, throws an 'Error'. Attempts to retry the
 -- transaction for retryable errors.
-runTransaction :: FDB.Database -> Transaction a -> IO a
+runTransaction :: DB.Database -> Transaction a -> IO a
 runTransaction = runTransactionWithConfig defaultConfig
 
 -- | Like 'runTransaction', but returns a sum instead of throwing an exception
 -- on errors.
-runTransaction' :: FDB.Database -> Transaction a -> IO (Either Error a)
+runTransaction' :: DB.Database -> Transaction a -> IO (Either Error a)
 runTransaction' = runTransactionWithConfig' defaultConfig
 
 -- | A config for a non-idempotent transaction, allowing 5 retries, with a time
@@ -538,7 +540,7 @@ data TransactionConfig = TransactionConfig {
 -- transaction for retryable errors according to the 'maxRetries' setting
 -- in the provided 'TransactionConfig'.
 runTransactionWithConfig
-  :: TransactionConfig -> FDB.Database -> Transaction a -> IO a
+  :: TransactionConfig -> DB.Database -> Transaction a -> IO a
 runTransactionWithConfig conf db t = do
   res <- runTransactionWithConfig' conf db t
   case res of
@@ -574,9 +576,10 @@ parseConflictRanges rawKVs = case (length rawKVs `mod` 2, rawKVs) of
 
     prefixLen = BS.length conflictingKeysPrefix
 
-fetchConflictingKeys :: Transaction [ConflictRange]
-fetchConflictingKeys
-  | FDB.currentAPIVersion >= 630 = do
+fetchConflictingKeys :: DB.Database -> Transaction [ConflictRange]
+fetchConflictingKeys db
+  | FDB.currentAPIVersion >= 630
+    && DB.apiVersionInUse db >= 630 = do
     let r = fromJust $ prefixRange conflictingKeysPrefix
     rawKVs <- toList <$> getEntireRange r
     case parseConflictRanges rawKVs of
@@ -587,8 +590,8 @@ fetchConflictingKeys
 
 -- | Handles the retry logic described in the FDB docs.
 -- https://apple.github.io/foundationdb/api-c.html#c.fdb_transaction_on_error
-withRetry :: Transaction a -> Transaction a
-withRetry t = catchError t $ \err -> do
+withRetry :: DB.Database -> Transaction a -> Transaction a
+withRetry db t = catchError t $ \err -> do
   idem <- asks (idempotent . envConf)
   getConflicts <- asks (getConflictingKeys . envConf)
   retriesRemaining <- asks (maxRetries . envConf)
@@ -598,7 +601,7 @@ withRetry t = catchError t $ \err -> do
       onError err
       -- onError re-throws unretryable errors, so if we reach here, we can retry
       local (\e -> e {envConf = (envConf e) {maxRetries = retriesRemaining - 1} })
-            (withRetry t)
+            (withRetry db t)
     else do
       err' <- addConflictRanges getConflicts err
       if retriesRemaining == 0
@@ -608,7 +611,7 @@ withRetry t = catchError t $ \err -> do
   where
     addConflictRanges :: Bool -> Error -> Transaction Error
     addConflictRanges True (CError (NotCommitted _)) = do
-      conflicts <- fetchConflictingKeys
+      conflicts <- fetchConflictingKeys db
       return $ CError $ NotCommitted conflicts
     addConflictRanges _ err = return err
 
@@ -616,10 +619,10 @@ withRetry t = catchError t $ \err -> do
 -- error occurs, returns 'Left'. Attempts to retry the transaction for retryable
 -- errors.
 runTransactionWithConfig'
-  :: TransactionConfig -> FDB.Database -> Transaction a -> IO (Either Error a)
+  :: TransactionConfig -> DB.Database -> Transaction a -> IO (Either Error a)
 runTransactionWithConfig' conf db t = runExceptT $ do
   trans <- createTransactionEnv db conf
-  flip runReaderT trans $ unTransaction $ withRetry $ do
+  flip runReaderT trans $ unTransaction $ withRetry db $ do
     when (getConflictingKeys conf) setConflictingKeysOption
     setOption (TransactionOpt.timeout (timeout conf))
     res    <- t
@@ -731,11 +734,11 @@ data TransactionEnv = TransactionEnv {
   } deriving (Show)
 
 createTransactionEnv
-  :: FDB.Database
+  :: DB.Database
   -> TransactionConfig
   -> ExceptT Error IO TransactionEnv
-createTransactionEnv db config = ExceptT $
-  fdbEither (FDB.databaseCreateTransaction db) >>= \case
+createTransactionEnv DB.Database{databasePtr} config = ExceptT $
+  fdbEither (FDB.databaseCreateTransaction databasePtr) >>= \case
     Left e -> return $ Left e
     Right (FDB.Transaction p) -> do
       fp <- newForeignPtr FDB.transactionDestroyPtr p

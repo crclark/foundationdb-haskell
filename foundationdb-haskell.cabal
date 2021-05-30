@@ -84,6 +84,7 @@ library
                      , FoundationDB.Error
                      , FoundationDB.Error.Internal
                      , FoundationDB.Internal.Bindings
+                     , FoundationDB.Internal.Database
                      , FoundationDB.Layer.Directory
                      , FoundationDB.Layer.Directory.Internal
                      , FoundationDB.Layer.Directory.Internal.Error

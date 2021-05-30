@@ -30,7 +30,7 @@ module FoundationDB.Internal.Bindings (
   , FDBKeyValue (..)
   , futureGetKeyValueArray
   -- * Database
-  , Database
+  , DatabasePtr
 #if FDB_API_VERSION >= 610
   , createDatabase
 #endif
@@ -201,10 +201,10 @@ futureGetKey f = do
             return $ Right bs
 
 -- | Handle to the underlying C API client state.
-{#pointer *FDBDatabase as Database newtype #}
+{#pointer *FDBDatabase as DatabasePtr newtype #}
 
-deriving instance Show Database
-deriving instance Storable Database
+deriving instance Show DatabasePtr
+deriving instance Storable DatabasePtr
 
 {#fun unsafe future_get_value as futureGetValue_
   {inFuture `Future a'
@@ -302,16 +302,16 @@ futureGetKeyValueArray f = do
             return $ Right $ (kvs, more)
 
 #if FDB_API_VERSION >= 610
-{#fun unsafe create_database as ^ {`String', alloca- `Database' peek*} -> `CFDBError' CFDBError #}
+{#fun unsafe create_database as ^ {`String', alloca- `DatabasePtr' peek*} -> `CFDBError' CFDBError #}
 #endif
 
-{#fun unsafe database_destroy as ^ {`Database'} -> `()'#}
+{#fun unsafe database_destroy as ^ {`DatabasePtr'} -> `()'#}
 
 {#fun unsafe database_set_option as databaseSetOption_
-  {`Database', `Int', id `Ptr CUChar', `Int'}
+  {`DatabasePtr', `Int', id `Ptr CUChar', `Int'}
   -> `CFDBError' CFDBError#}
 
-databaseSetOption :: Database -> DatabaseOption -> IO CFDBError
+databaseSetOption :: DatabasePtr -> DatabaseOption -> IO CFDBError
 databaseSetOption db (DatabaseOptionString enum str) =
   withCStringLen str $ \(arr,len) ->
     databaseSetOption_ db enum (castPtr arr) len
@@ -330,7 +330,7 @@ deriving instance Show Transaction
 deriving instance Storable Transaction
 
 {#fun unsafe database_create_transaction as ^
-  {`Database', alloca- `Transaction' peek*} -> `CFDBError' CFDBError#}
+  {`DatabasePtr', alloca- `Transaction' peek*} -> `CFDBError' CFDBError#}
 
 
 foreign import ccall "fdbc_wrapper.h &fdb_transaction_destroy"
@@ -634,7 +634,7 @@ deriving instance Storable Cluster
   {inFuture `Future Cluster', alloca- `Cluster' peek*} -> `CFDBError' CFDBError#}
 
 {#fun unsafe future_get_database as ^
-  {inFuture `Future Database', alloca- `Database' peek*}
+  {inFuture `Future DatabasePtr', alloca- `DatabasePtr' peek*}
   -> `CFDBError' CFDBError#}
 
 {#fun unsafe create_cluster as ^
@@ -645,7 +645,7 @@ deriving instance Storable Cluster
 {#fun unsafe cluster_create_database as clusterCreateDatabase_
   {`Cluster', id `Ptr CUChar', `Int'} -> `Future a' outFuture #}
 
-clusterCreateDatabase :: Cluster -> IO (Future Database)
+clusterCreateDatabase :: Cluster -> IO (Future DatabasePtr)
 clusterCreateDatabase cluster =
   withCStringLen "DB" $ \(arr,len) ->
     clusterCreateDatabase_ cluster (castPtr arr) len
