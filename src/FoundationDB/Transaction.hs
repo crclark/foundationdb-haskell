@@ -227,9 +227,9 @@ await (Future fp e) = do
     $ \f -> FDB.futureBlockUntilReady (FDB.Future (castPtr f))
   e
 
--- | Polls a future for readiness in a loop until it is ready, then returns
--- the value in the future. This is less resource efficient than 'await', but
--- can be interrupted more easily.
+-- | Polls a future for readiness roughly every millisecond in a loop until it
+-- is ready, then returns the value in the future. This is less resource
+-- efficient than 'await', but can be interrupted more easily.
 awaitInterruptible :: Future a -> Transaction a
 awaitInterruptible (PureFuture x) = return x
 awaitInterruptible fut@(Future _f e) = futureIsReady fut >>= \case
