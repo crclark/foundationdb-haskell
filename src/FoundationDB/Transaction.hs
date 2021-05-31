@@ -69,10 +69,10 @@ module FoundationDB.Transaction (
   , getEntireRange
   , getEntireRange'
   , isRangeEmpty
-  , Range(..)
+  , RangeQuery(..)
   , rangeKeys
-  , keyRange
-  , keyRangeInclusive
+  , keyRangeQuery
+  , keyRangeQueryInclusive
   , prefixRange
   , prefixRangeEnd
   , RangeResult(..)
@@ -301,8 +301,6 @@ commitFuture :: Transaction (Future ())
 commitFuture =
   withTransactionPtr $ \t ->
     allocFuture (FDB.transactionCommit t)
-                -- TODO: might need to touch the transaction pointer
-                -- in this callback
                 (const $ return ())
 
 -- | Get the value of a key. If the key does not exist, returns 'Nothing'.
@@ -378,7 +376,7 @@ getKeyAddresses k =
 
 -- TODO: rename to RangeQuery?
 -- | Specifies a range of keys to be iterated over by 'getRange'.
-data Range = Range {
+data RangeQuery = RangeQuery {
   rangeBegin :: FDB.KeySelector
   -- ^ The beginning of the range, including the key specified by this
   -- 'KeySelector'.
@@ -392,30 +390,31 @@ data Range = Range {
   -- ^ If 'True', return the range in reverse order.
 } deriving (Show, Eq, Ord)
 
--- | @keyRange begin end@ is the range of keys @[begin, end)@.
-keyRange :: ByteString -> ByteString -> Range
-keyRange begin end =
-  Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterOrEq end) Nothing False
+-- | @keyRangeQuery begin end@ is the range of keys @[begin, end)@.
+keyRangeQuery :: ByteString -> ByteString -> RangeQuery
+keyRangeQuery begin end =
+  RangeQuery (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterOrEq end) Nothing False
 
--- | @keyRange begin end@ is the range of keys @[begin, end]@.
-keyRangeInclusive :: ByteString -> ByteString -> Range
-keyRangeInclusive begin end =
-  Range (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterThan end) Nothing False
+-- | @keyRangeQuery begin end@ is the range of keys @[begin, end]@.
+keyRangeQueryInclusive :: ByteString -> ByteString -> RangeQuery
+keyRangeQueryInclusive begin end =
+  RangeQuery (FDB.FirstGreaterOrEq begin) (FDB.FirstGreaterThan end) Nothing False
 
 -- | @prefixRange prefix@ is the range of all keys of which @prefix@ is a
 --   prefix. Returns @Nothing@ if @prefix@ is empty or contains only @0xff@.
-prefixRange :: ByteString -> Maybe Range
+prefixRange :: ByteString -> Maybe RangeQuery
 prefixRange prefix = do
    end <- prefixRangeEnd prefix
-   return $ Range
+   return $ RangeQuery
     { rangeBegin   = FDB.FirstGreaterOrEq prefix
     , rangeEnd     = FDB.FirstGreaterOrEq end
     , rangeLimit   = Nothing
     , rangeReverse = False
     }
 
-rangeKeys :: Range -> (ByteString, ByteString)
-rangeKeys (Range b e _ _) = (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
+rangeKeys :: RangeQuery -> (ByteString, ByteString)
+rangeKeys (RangeQuery b e _ _) =
+  (FDB.keySelectorBytes b, FDB.keySelectorBytes e)
 
 -- | Structure for returning the result of 'getRange' in chunks.
 data RangeResult =
@@ -424,8 +423,8 @@ data RangeResult =
   deriving Show
 
 -- | Like 'getRange', but allows you to specify the streaming mode as desired.
-getRange' :: Range -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
-getRange' Range {..} mode = do
+getRange' :: RangeQuery -> FDB.FDBStreamingMode -> Transaction (Future RangeResult)
+getRange' RangeQuery {..} mode = do
   isSnapshot <- asks (snapshotReads . envConf)
   withTransactionPtr $ \t -> do
     let getR b e lim i = FDB.transactionGetRange t b e lim 0 mode i isSnapshot rangeReverse
@@ -455,11 +454,11 @@ getRange' Range {..} mode = do
 --   time exactly how many pairs in the range you actually need. If you need
 --   them all (and they are expected to fit in memory), use 'getEntireRange'.
 --   For more advanced usage, use 'getRange''.
-getRange :: Range -> Transaction (Future RangeResult)
+getRange :: RangeQuery -> Transaction (Future RangeResult)
 getRange r = getRange' r FDB.StreamingModeIterator
 
 getEntireRange' :: FDB.FDBStreamingMode
-                -> Range
+                -> RangeQuery
                 -> Transaction (Seq (ByteString, ByteString))
 getEntireRange' mode r = do
   rr <- getRange' r mode >>= await
@@ -472,11 +471,11 @@ getEntireRange' mode r = do
     return (xs <> ys)
 
 -- | Wrapper around 'getRange' that reads the entire range into memory.
-getEntireRange :: Range -> Transaction (Seq (ByteString, ByteString))
+getEntireRange :: RangeQuery -> Transaction (Seq (ByteString, ByteString))
 getEntireRange = getEntireRange' FDB.StreamingModeWantAll
 
 -- | Return True iff the given range is empty.
-isRangeEmpty :: Range -> Transaction Bool
+isRangeEmpty :: RangeQuery -> Transaction Bool
 isRangeEmpty r = do
   rr <- getRange r >>= await
   case rr of
