@@ -12,10 +12,12 @@
 
 module FoundationDB.Layer.Tuple.Internal where
 
+import FoundationDB.Error.Internal (Error(Error), FDBHsError(TupleIntTooLarge))
 import FoundationDB.Versionstamp hiding (decodeVersionstamp)
 
 import Control.Applicative
 import Control.DeepSeq (NFData)
+import Control.Exception (throw)
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans (lift)
@@ -90,6 +92,10 @@ bisectSize n = go 0
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integer -> Int
 bitLen x = 1 + I# (integerLog2# (abs x))
+
+-- | Returns the minimum number of bytes needed to encode the given int.
+byteLen :: Integer -> Int
+byteLen x = (bitLen x + 7) `div` 8
 
 nullCode, bytesCode, stringCode, nestedCode :: Word8
 zeroCode, posEndCode, negStartCode, floatCode :: Word8
@@ -172,16 +178,16 @@ truncatedInt n v = BS.drop (8-n) (Put.runPut (Put.putWord64be $ fromIntegral v))
 
 encodeLargePosInt :: Integer -> PutTuple ()
 encodeLargePosInt v = do
-  let l = fromIntegral ((bitLen v + 7) `div` 8)
-  when (l > 255) (error "integer too large to encode")
-  putWord8 l
+  let l = byteLen v
+  when (l > 255) (throw (Error TupleIntTooLarge))
+  putWord8 (fromIntegral l)
   forM_ [l-1,l-2..0] $ \i ->
     putWord8 (fromIntegral (v `shiftR` (8 * fromIntegral i)))
 
 encodeLargeNegInt :: Integer -> PutTuple ()
 encodeLargeNegInt v = do
-  let l = ((bitLen v + 7) `div` 8)
-  when (l > 255) (error "integer too large to encode")
+  let l = byteLen v
+  when (l > 255) (throw (Error TupleIntTooLarge))
   let v' = v + (1 `shiftL` (8*l)) - 1 :: Integer
   putWord8 (fromIntegral l `xor` 0xff)
   forM_ [l-1,l-2..0] $ \i ->
@@ -260,6 +266,11 @@ encodeElem _ (IncompleteVS (IncompleteVersionstamp uv)) = do
 
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
 -- tuple.
+--
+-- Warning: this function can throw an 'Error' with 'TupleIntTooLarge' if you
+-- pass an Int element that requires more than 255 bytes to serialize. Since
+-- the smallest such number is 614 decimal digits long, we deemed this situation
+-- unlikely enough that it wasn't worth returning a sum type from this function.
 --
 -- Note: this encodes to the format expected by FoundationDB as input, which
 -- is slightly different from the format returned by FoundationDB as output. The

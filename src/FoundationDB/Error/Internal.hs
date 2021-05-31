@@ -112,6 +112,9 @@ data FDBHsError =
   -- ^ The structure of keys returned by the transaction module of the special
   -- keys keyspace was not in the expected format. The raw key/values
   -- are returned, unparsed.
+  | TupleIntTooLarge
+  -- ^ Thrown when an integer to be encoded by the tuple layer would take more
+  -- than 255 bytes to encode.
   deriving (Show, Eq, Ord)
 
 -- | Errors that can come from the underlying C library.
