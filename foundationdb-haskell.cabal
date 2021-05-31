@@ -16,7 +16,21 @@ version:             0.1.0.0
 synopsis:            FoundationDB C client bindings
 
 -- A longer description of the package.
--- description:
+description:
+  FoundationDB client bindings to the FoundationDB C API. Strives for feature
+  parity with the official language bindings, but with an idiomatic Haskell
+  interface.
+  .
+  Full support for the tuple and subspace layers is included. The directory
+  layer is also supported, with the exception of directory partitions.
+  .
+  A few additional facilities are provided in addition to what is provided by
+  other languages' client libraries, such as optionally reporting which key
+  ranges were involved in a transaction conflict.
+  .
+  See the documentation of the root module, "FoundationDB", to get started.
+  .
+  For more info, see the README on Github: <https://github.com/crclark/foundationdb-haskell/blob/master/README.md>
 
 -- The license under which the package is released.
 license:             BSD3
@@ -32,7 +46,7 @@ author:              Connor Clark
 maintainer:          connor.r.clark@gmail.com
 
 -- A copyright notice.
--- copyright:
+copyright:           Copyright (c) Connor Clark 2018-2021
 
 category:            Database
 
@@ -44,6 +58,14 @@ extra-source-files:  ChangeLog.md
 
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
+
+homepage:            https://github.com/crclark/foundationdb-haskell
+
+bug-reports:         https://github.com/crclark/foundationdb-haskell/issues
+
+source-repository head
+  type:     git
+  location: https://github.com/crclark/foundationdb-haskell
 
 flag with-generate-options
   description:       Also build generate-options executable.
