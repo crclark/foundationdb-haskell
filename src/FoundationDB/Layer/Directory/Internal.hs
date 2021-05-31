@@ -11,7 +11,6 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Foldable (forM_)
 import Data.Maybe (isJust)
-import Data.Monoid
 import Data.Sequence(Seq(Empty,(:<|)))
 import Data.Serialize.Get (runGet, getWord32le)
 import Data.Serialize.Put (runPut, putWord32le)
@@ -310,7 +309,7 @@ subdirNameNodes
   -> Subspace
   -- ^ node
   -> Transaction (Seq (Text, Subspace))
-subdirNameNodes dl@DirectoryLayer {..} node = do
+subdirNameNodes dl node = do
   let sd = extend node [Tuple.Int _SUBDIRS]
   kvs <- getEntireRange (subspaceRangeQuery sd)
   let unpackKV (k, v) = case unpack sd k of

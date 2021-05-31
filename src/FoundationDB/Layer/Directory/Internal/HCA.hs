@@ -11,7 +11,6 @@ import Control.Monad.Catch (bracket_)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Monoid hiding (getLast)
 import Data.Serialize.Get (runGet, getWord64le)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Random (getStdRandom, randomR)
@@ -117,7 +116,7 @@ initStart HCA{..} = do
     Nothing -> return 0
 
 allocate :: HCA -> Subspace -> Transaction Subspace
-allocate hca@HCA{..} s = do
+allocate hca s = do
   start <- initStart hca
   (start', window) <- findStartAndWindow hca False start
   msub <- findSubspaceLoop hca s start' window
