@@ -46,7 +46,6 @@ data DirectoryLayer = DirectoryLayer
     -- ^ Subspace for directory content.
   , allocator :: HCA
   , rootNode :: Subspace
-  -- TODO: allowManualPrefixes is only used in createOrOpen. Eliminate?
   , allowManualPrefixes :: Bool
   , dlPath :: [Text]
   } deriving (Show, Eq, Ord)
@@ -116,13 +115,6 @@ createOrOpen :: DirectoryLayer
              -> Transaction Directory
 createOrOpen dl p = createOrOpen' dl p "" Nothing
 
--- TODO: why not combine open with newDirectoryLayer?
--- then we don't have the clumsiness of always passing a prefix and having
--- to check the allowManualPrefixes bool. Could just pass Maybe Prefix instead.
--- Or is this creating or opening a subdirectory of the input DL?
-
-
-
 -- | Open a directory, with optional custom prefix and layer.
 -- Returns 'Nothing' if the directory doesn't exist.
 open'
@@ -167,7 +159,7 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
       prefixToUse <- case prefix of
         Nothing -> do
           newDirPrefix  <- allocate allocator contentSS
-          isPrefixEmpty <- isRangeEmpty (subspaceRange newDirPrefix)
+          isPrefixEmpty <- isRangeEmpty (subspaceRangeQuery newDirPrefix)
           unless isPrefixEmpty
                (throwDirInternalError
                  "Failed to alloc new dir: prefix not empty.")
@@ -186,7 +178,6 @@ createOrOpen' dl@DirectoryLayer {..} path layer prefix = do
           let pdk = subspaceKey (directorySubspace pd)
           return $ nodeWithPrefix dl pdk
         else return rootNode
-      --TODO: null check of parentNode here in Go code
       let node = nodeWithPrefix dl prefixToUse
       set
         (pack parentNode [Tuple.Int _SUBDIRS, Tuple.Text (last path)])
@@ -302,7 +293,7 @@ removeRecursive dl@DirectoryLayer {..} node = do
           $  "removeRecursive: couldn't make prefix range:"
           ++ show p'
     Right _ -> throwDirInternalError "node unpacked to non-bytes tuple element"
-  uncurry clearRange (rangeKeys (subspaceRange node))
+  uncurry clearRange (rangeKeys (subspaceRangeQuery node))
 
 -- | Internal helper function that removes a path from its parent. Does not
 -- remove the children of the removed path.
@@ -321,7 +312,7 @@ subdirNameNodes
   -> Transaction (Seq (Text, Subspace))
 subdirNameNodes dl@DirectoryLayer {..} node = do
   let sd = extend node [Tuple.Int _SUBDIRS]
-  kvs <- getEntireRange (subspaceRange sd)
+  kvs <- getEntireRange (subspaceRangeQuery sd)
   let unpackKV (k, v) = case unpack sd k of
         Right [Tuple.Text t] -> return (t, nodeWithPrefix dl v)
         _ -> throwDirInternalError "failed to unpack node name in subdirNameNodes"
@@ -338,16 +329,13 @@ nodeContainingKey
 nodeContainingKey dl@DirectoryLayer {..} k
   | BS.isPrefixOf (pack nodeSS []) k = return $ Just rootNode
   | otherwise = do
-    let r = Range
-          (rangeBegin $ subspaceRange nodeSS)
+    let r = RangeQuery
+          (rangeBegin $ subspaceRangeQuery nodeSS)
           (FirstGreaterOrEq (pack nodeSS [Tuple.Bytes k] <> "\x00"))
           (Just 1)
           True
     rr <- getEntireRange r
     case rr of
-      -- TODO: consider dropping [] from RangeDone constructor. Looks like
-      -- underlying function is returning RangeMore [x] when there is only one
-      -- item in the range.
       Empty       -> return Nothing
       (kv :<| _)  -> processKV kv
  where
@@ -358,8 +346,6 @@ nodeContainingKey dl@DirectoryLayer {..} k
       Right (Tuple.Bytes prevPrefix : _) -> if BS.isPrefixOf prevPrefix k
         then return (Just $ nodeWithPrefix dl prevPrefix)
         else return Nothing
-      --TODO: there are two cases where we fail this way. Is this correct?
-      -- Is this case actually possible?
       Right _ -> throwDirInternalError "node unpacked to non-bytes element"
 
 
@@ -374,8 +360,8 @@ isPrefixFree dl@DirectoryLayer {..} prefix
         Nothing -> return False
         Just r  -> do
           let (bk, ek) = rangeKeys r
-          let r' = keyRange (pack nodeSS [Tuple.Bytes bk])
-                            (pack nodeSS [Tuple.Bytes ek])
+          let r' = keyRangeQuery (pack nodeSS [Tuple.Bytes bk])
+                                 (pack nodeSS [Tuple.Bytes ek])
           isRangeEmpty r'
 
 

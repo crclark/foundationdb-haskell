@@ -182,10 +182,11 @@ ranges testSS db = describe "range ops" $ do
   let kvs = fromList [ (SS.pack rangeSS [Bytes $ BS.singleton k], "a")
                      | k <- ['a'..'z']]
   let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-  let range = Range (FirstGreaterOrEq (SS.pack rangeSS [Bytes "a"]))
-                    (FirstGreaterOrEq (SS.pack rangeSS [Bytes "z\x00"]))
-                    Nothing
-                    False
+  let range = RangeQuery
+                (FirstGreaterOrEq (SS.pack rangeSS [Bytes "a"]))
+                (FirstGreaterOrEq (SS.pack rangeSS [Bytes "z\x00"]))
+                Nothing
+                False
   describe "getEntireRange" $
     it "Should return entire range" $ do
       putKeys
@@ -209,13 +210,13 @@ ranges testSS db = describe "range ops" $ do
       putKeys
       let begin = SS.pack rangeSS [Bytes "a"]
       let end = SS.pack rangeSS [Bytes "z"]
-      result <- runTransaction db $ getEntireRange (keyRange begin end)
+      result <- runTransaction db $ getEntireRange (keyRangeQuery begin end)
       result `shouldBe` Seq.take (Seq.length kvs - 1) kvs
     it "includes last key when using keyRangeInclusive" $ do
       putKeys
       let begin = SS.pack rangeSS [Bytes "a"]
       let end = SS.pack rangeSS [Bytes "z"]
-      result <- runTransaction db $ getEntireRange (keyRangeInclusive begin end)
+      result <- runTransaction db $ getEntireRange (keyRangeQueryInclusive begin end)
       result `shouldBe` kvs
     it "excludes first key when using FirstGreaterThan" $ do
       putKeys
@@ -255,7 +256,7 @@ streamingModes testSS db = do
   let kvs = fromList @(Seq _) [ (SS.pack rangeSS [Int k], "a")
                               | k <- [1..100]]
   let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-  let range = subspaceRange rangeSS
+  let range = subspaceRangeQuery rangeSS
   forM_ normalModes $ \mode -> describe (show mode) $
     it "Works as expected with getEntireRange'" $ do
       putKeys

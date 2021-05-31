@@ -43,7 +43,9 @@ windowSize start
   | otherwise     = 8192
 
 -- | global lock used for allocating. We use this simply because the other
--- clients have it. It's not yet clear to me why it's needed. TODO: find out.
+-- clients have it. It appears to exist in order to reduce contention on the HCA
+-- counter at the transaction level by pushing some of the contention to the
+-- client level instead.
 globalAllocateLock :: MVar ()
 globalAllocateLock = unsafePerformIO (newMVar ())
 {-# NOINLINE globalAllocateLock #-}

@@ -23,7 +23,7 @@ testSS = subspace [ Bytes "foundationdb-haskell-test-"]
 
 cleanup :: Database -> Subspace -> IO ()
 cleanup db ss = runTransaction db $ do
-  let ssRange = subspaceRange ss
+  let ssRange = subspaceRangeQuery ss
   let (begin,end) = rangeKeys ssRange
   clearRange begin end
 

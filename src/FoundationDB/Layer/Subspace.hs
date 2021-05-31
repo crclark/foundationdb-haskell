@@ -16,7 +16,7 @@ module FoundationDB.Layer.Subspace (
   pack,
   unpack,
   contains,
-  subspaceRange,
+  subspaceRangeQuery,
   getLast,
   subspaceKey
 ) where
@@ -77,8 +77,8 @@ contains :: Subspace
 contains sub = BS.isPrefixOf (rawPrefix sub)
 
 -- | Construct a range query that covers an entire subspace.
-subspaceRange :: Subspace -> Range
-subspaceRange s = Range
+subspaceRangeQuery :: Subspace -> RangeQuery
+subspaceRangeQuery s = RangeQuery
   { rangeBegin   = FirstGreaterOrEq (k <> BS.pack [0x00])
   , rangeEnd     = FirstGreaterOrEq (k <> BS.pack [0xff])
   , rangeLimit   = Nothing
@@ -89,7 +89,7 @@ subspaceRange s = Range
 -- | Get the last key,value pair in the subspace, if it exists.
 getLast :: Subspace -> Transaction (Maybe (ByteString, ByteString))
 getLast sub = do
-  rr <- getRange (subspaceRange sub) { rangeLimit = Just 1,
+  rr <- getRange (subspaceRangeQuery sub) { rangeLimit = Just 1,
                                        rangeReverse = True
                                      }
   kvs <- await rr
