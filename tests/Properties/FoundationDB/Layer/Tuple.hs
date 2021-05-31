@@ -6,8 +6,11 @@
 module Properties.FoundationDB.Layer.Tuple where
 
 import FoundationDB.Layer.Tuple.Internal
+import FoundationDB.Error.Internal (Error(Error), FDBHsError(TupleIntTooLarge))
 import FoundationDB.Versionstamp
 
+import Control.DeepSeq (force)
+import Control.Exception (evaluate)
 import Control.Monad (forM_)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -118,6 +121,9 @@ exampleIncompleteVersionstamp :: ByteString
 exampleIncompleteVersionstamp = BS.pack
   [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0, 0 ,0]
 
+exampleTooLargeInt :: Integer
+exampleTooLargeInt = 9 * 10^(700 :: Integer)
+
 encodeDecode :: [Elem] -> ByteString -> String -> SpecWith ()
 encodeDecode elems encoded desc = do
   it ("encodes " ++ desc) $
@@ -186,6 +192,15 @@ encodeLargeIntegers = describe "encode roundtrips with large integers" $ do
     decodeTupleElems (encodeTupleElems negLargeIntegerTuple)
       `shouldBe` Right negLargeIntegerTuple
 
+encodeTooLargeIntegers :: SpecWith ()
+encodeTooLargeIntegers = describe "encode with very large integers throws" $ do
+  it "throws with large positive integers" $
+    (evaluate $ force $ encodeTupleElems [Int exampleTooLargeInt])
+      `shouldThrow` (== (Error TupleIntTooLarge))
+  it "throws with negative large integers" $
+    (evaluate $ force $ encodeTupleElems [Int $ negate exampleTooLargeInt])
+      `shouldThrow` (== (Error TupleIntTooLarge))
+
 encodeDecodeSpecs :: SpecWith ()
 encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [] exampleEmpty "empty tuples"
@@ -221,6 +236,7 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   issue12
   decodeInvalidBytes
   encodeLargeIntegers
+  encodeTooLargeIntegers
 
 encodeDecodeProps :: SpecWith ()
 encodeDecodeProps = prop "decode . encode == id" $
