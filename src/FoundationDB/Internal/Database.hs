@@ -33,7 +33,7 @@ defaultOptions = FoundationDBOptions FDB.currentAPIVersion Nothing [] []
 data Database = Database
   { databasePtr :: FDB.DatabasePtr
   , databaseFoundationDBOptions :: FoundationDBOptions
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 -- | Returns the API version that was specified in the 'apiVersion' field when
 -- the FDB client was initialized.

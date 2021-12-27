@@ -203,6 +203,7 @@ futureGetKey f = do
 -- | Handle to the underlying C API client state.
 {#pointer *FDBDatabase as DatabasePtr newtype #}
 
+deriving instance Eq DatabasePtr
 deriving instance Show DatabasePtr
 deriving instance Storable DatabasePtr
 
