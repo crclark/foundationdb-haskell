@@ -154,7 +154,7 @@ library
   -- Base language which the package is written in.
   default-language:    Haskell2010
 
-  default-extensions: CPP
+  default-extensions: CPP, CApiFFI
 
   include-dirs:        include
 
