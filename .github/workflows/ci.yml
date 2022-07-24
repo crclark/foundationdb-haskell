@@ -6,6 +6,10 @@ on:
   push:
     branches: [master]
 
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cabal:
     name: cabal / ghc ${{ matrix.ghc }} / FDB ${{ matrix.fdb-version }} / API ${{ matrix.fdb-api-version }}
