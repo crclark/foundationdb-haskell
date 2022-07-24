@@ -22,6 +22,9 @@ then
   export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-620'
 elif [[ ${FDB_VER} = "6.3.12" ]]
 then
+  export FDB_VER_FLAG='--flag foundationdb-haskell:fdb-version-630'
+elif [[ ${FDB_VER} = "7.1.15" ]]
+then
   # latest is the default, so no flag is specified
   export FDB_VER_FLAG=''
 else

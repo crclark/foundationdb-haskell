@@ -75,28 +75,42 @@ flag with-generate-options
 flag fdb-version-520
   description: Indicates that we are building against version 5.2.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               6.3.x is assumed.
+               7.1.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-600
   description: Indicates that we are building against version 6.0.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               6.3.x is assumed.
+               7.1.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-610
   description: Indicates that we are building against version 6.1.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               6.3.x is assumed.
+               7.1.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-620
   description: Indicates that we are building against version 6.2.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               6.3.x is assumed.
+               7.1.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-630
+  description: Indicates that we are building against version 6.3.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               7.1.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-700
+  description: Indicates that we are building against version 6.3.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               7.1.x is assumed.
   Manual:      True
   Default:     False
 
@@ -167,9 +181,10 @@ library
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
                        -Widentities
+                       -fobject-code
 
-  CC-Options: -std=c99 -DFDB_API_VERSION=630
-  CPP-Options: -DFDB_API_VERSION=630
+  CC-Options: -std=c99 -DFDB_API_VERSION=710
+  CPP-Options: -DFDB_API_VERSION=710
 
   if flag(fdb-version-520)
     CC-Options: -std=c99 -DFDB_API_VERSION=520
@@ -183,6 +198,12 @@ library
   if flag(fdb-version-620)
     CC-Options: -std=c99 -DFDB_API_VERSION=620
     CPP-Options: -DFDB_API_VERSION=620
+  if flag(fdb-version-630)
+    CC-Options: -std=c99 -DFDB_API_VERSION=630
+    CPP-Options: -DFDB_API_VERSION=630
+  if flag(fdb-version-700)
+    CC-Options: -std=c99 -DFDB_API_VERSION=700
+    CPP-Options: -DFDB_API_VERSION=700
 
 executable generate-options
   if flag(with-generate-options)
@@ -222,8 +243,8 @@ test-suite tests
                        Properties.FoundationDB.Layer.Subspace,
                        Properties.FoundationDB.Transaction,
                        Properties.FoundationDB.Versionstamp.Internal
-  CC-Options: -std=c99 -DFDB_API_VERSION=630
-  CPP-Options: -DFDB_API_VERSION=630
+  CC-Options: -std=c99 -DFDB_API_VERSION=710
+  CPP-Options: -DFDB_API_VERSION=710
 
   if flag(fdb-version-520)
     CC-Options: -std=c99 -DFDB_API_VERSION=520
@@ -237,6 +258,12 @@ test-suite tests
   if flag(fdb-version-620)
     CC-Options: -std=c99 -DFDB_API_VERSION=620
     CPP-Options: -DFDB_API_VERSION=620
+  if flag(fdb-version-630)
+    CC-Options: -std=c99 -DFDB_API_VERSION=630
+    CPP-Options: -DFDB_API_VERSION=630
+  if flag(fdb-version-700)
+    CC-Options: -std=c99 -DFDB_API_VERSION=700
+    CPP-Options: -DFDB_API_VERSION=700
 
 benchmark tuple-bench
   type:                exitcode-stdio-1.0

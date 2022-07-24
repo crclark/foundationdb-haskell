@@ -16,10 +16,12 @@ jobs:
         os: [ubuntu-latest]
         cabal: ["3.4"]
         ghc:
-          - "8.8.3"
-          - "8.10.3"
-          - "9.0.1"
+          - "8.10.7"
+          - "9.0.2"
+          - "9.2.3"
         fdb-version:
+          - "7.1.15"
+          - "7.0.0"
           - "6.3.12"
           - "6.2.20"
           - "6.1.13"
@@ -31,10 +33,29 @@ jobs:
           - "610"
           - "620"
           - "630"
+          - "700"
+          - "710"
         # For a given installed FDB version, the client can choose to connect
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
+          - {fdb-version: "7.0.0", fdb-api-version: "710"}
+          - {fdb-version: "6.3.12", fdb-api-version: "710"}
+          - {fdb-version: "6.2.20", fdb-api-version: "710"}
+          - {fdb-version: "6.1.13", fdb-api-version: "710"}
+          - {fdb-version: "6.1.13", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "5.2.8", fdb-api-version: "710"}
+          - {fdb-version: "6.3.12", fdb-api-version: "700"}
+          - {fdb-version: "6.2.20", fdb-api-version: "700"}
+          - {fdb-version: "6.1.13", fdb-api-version: "700"}
+          - {fdb-version: "6.1.13", fdb-api-version: "700"}
+          - {fdb-version: "6.0.18", fdb-api-version: "700"}
+          - {fdb-version: "6.0.18", fdb-api-version: "700"}
+          - {fdb-version: "6.0.18", fdb-api-version: "700"}
+          - {fdb-version: "5.2.8", fdb-api-version: "700"}
           - {fdb-version: "6.2.20", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
@@ -88,6 +109,7 @@ jobs:
         stack: ["2.1.3"]
         ghc: ["8.8.3"]
         fdb-version:
+          - "7.1.15"
           - "6.3.12"
           - "6.2.20"
           - "6.1.13"
@@ -98,10 +120,22 @@ jobs:
           - "600"
           - "610"
           - "620"
+          - "630"
+          - "710"
         # For a given installed FDB version, the client can choose to connect
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
+          - {fdb-version: "6.2.20", fdb-api-version: "710"}
+          - {fdb-version: "6.1.13", fdb-api-version: "710"}
+          - {fdb-version: "6.1.13", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "6.0.18", fdb-api-version: "710"}
+          - {fdb-version: "5.2.8", fdb-api-version: "710"}
+          - {fdb-version: "5.2.8", fdb-api-version: "710"}
+          - {fdb-version: "5.2.8", fdb-api-version: "710"}
+          - {fdb-version: "5.2.8", fdb-api-version: "710"}
           - {fdb-version: "6.2.20", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
