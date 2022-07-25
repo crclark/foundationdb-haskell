@@ -93,14 +93,6 @@ futures testSS db = describe "futures" $ do
       let t = (,,) <$> f1 <*> f2 <*> pure True
       awaitInterruptible t
     tuple `shouldBe` (Just v1, Just v2, True)
-  it "cancellation" $ do
-    let k = SS.pack testSS [Bytes "foo"]
-    runTransaction db $ set k "hello"
-    result <- runTransaction' db $ do
-      f <- get k
-      cancelFuture f
-      awaitInterruptible f
-    result `shouldBe` Left (CError OperationCancelled)
   it "FutureIO" $ do
     let k = SS.pack testSS [Bytes "foo"]
     w1 <- runTransaction db $ watch k
