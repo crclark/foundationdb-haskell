@@ -7,28 +7,26 @@
 --
 -- This implementation of the directory layer does not yet support directory
 -- partitions. They will be added in the future.
-module FoundationDB.Layer.Directory (
-  DirectoryLayer
-  , defaultDirLayer
-  , newDirectoryLayer
-  , Directory
-  , Path
-  , dirSubspace
-  , dirPath
-  , dirLayer
-  , open
-  , createOrOpen
-  , move
-  , remove
-  , exists
-  , list
-  -- * Advanced usage
-  , open'
-  , createOrOpen'
-) where
+module FoundationDB.Layer.Directory
+  ( DirectoryLayer,
+    defaultDirLayer,
+    newDirectoryLayer,
+    Directory,
+    Path,
+    dirSubspace,
+    dirPath,
+    dirLayer,
+    open,
+    createOrOpen,
+    move,
+    remove,
+    exists,
+    list,
+
+    -- * Advanced usage
+    open',
+    createOrOpen',
+  )
+where
 
 import FoundationDB.Layer.Directory.Internal
-
-
-
-

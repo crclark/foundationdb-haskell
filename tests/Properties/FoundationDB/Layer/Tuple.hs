@@ -5,20 +5,19 @@
 
 module Properties.FoundationDB.Layer.Tuple where
 
-import FoundationDB.Layer.Tuple.Internal
-import FoundationDB.Error.Internal (Error(Error), FDBHsError(TupleIntTooLarge))
-import FoundationDB.Versionstamp
-
 import Control.DeepSeq (force)
 import Control.Exception (evaluate)
 import Control.Monad (forM_)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
+import FoundationDB.Error.Internal (Error (Error), FDBHsError (TupleIntTooLarge))
+import FoundationDB.Layer.Tuple.Internal
+import FoundationDB.Versionstamp
 import Test.Hspec
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (forAll)
-import Test.QuickCheck.Arbitrary (Arbitrary(..), genericShrink)
+import Test.QuickCheck.Arbitrary (Arbitrary (..), genericShrink)
 import Test.QuickCheck.Gen (Gen, oneof, sized, vectorOf)
 
 instance Arbitrary TransactionVersionstamp where
@@ -40,15 +39,18 @@ instance Arbitrary Elem where
   arbitrary = sized go
     where
       go :: Int -> Gen Elem
-      go 0 = oneof [ return None
-                   , Bytes <$> arbitrary
-                   , Text <$> arbitrary
-                   , Int <$> arbitrary
-                   , Float <$> arbitrary
-                   , Double <$> arbitrary
-                   , Bool <$> arbitrary
-                   , UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                   , CompleteVS <$> arbitrary]
+      go 0 =
+        oneof
+          [ return None,
+            Bytes <$> arbitrary,
+            Text <$> arbitrary,
+            Int <$> arbitrary,
+            Float <$> arbitrary,
+            Double <$> arbitrary,
+            Bool <$> arbitrary,
+            UUID <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary,
+            CompleteVS <$> arbitrary
+          ]
       go n = Tuple <$> vectorOf 3 (go (n `div` 8))
   shrink = genericShrink
 
@@ -110,19 +112,22 @@ exampleFalse :: ByteString
 exampleFalse = "&"
 
 exampleUUID :: ByteString
-exampleUUID = BS.pack
-  [48, 135, 36, 87, 101, 200, 209, 66, 248, 133, 41, 255, 47, 94, 32, 226, 252]
+exampleUUID =
+  BS.pack
+    [48, 135, 36, 87, 101, 200, 209, 66, 248, 133, 41, 255, 47, 94, 32, 226, 252]
 
 exampleCompleteVersionstamp :: ByteString
-exampleCompleteVersionstamp = BS.pack
-  [51, 222, 173, 190, 239, 222, 173, 190, 239, 190, 239, 0, 12]
+exampleCompleteVersionstamp =
+  BS.pack
+    [51, 222, 173, 190, 239, 222, 173, 190, 239, 190, 239, 0, 12]
 
 exampleIncompleteVersionstamp :: ByteString
-exampleIncompleteVersionstamp = BS.pack
-  [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0, 0 ,0]
+exampleIncompleteVersionstamp =
+  BS.pack
+    [51, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 12, 1, 0, 0, 0]
 
 exampleTooLargeInt :: Integer
-exampleTooLargeInt = 9 * 10^(700 :: Integer)
+exampleTooLargeInt = 9 * 10 ^ (700 :: Integer)
 
 encodeDecode :: [Elem] -> ByteString -> String -> SpecWith ()
 encodeDecode elems encoded desc = do
@@ -133,44 +138,47 @@ encodeDecode elems encoded desc = do
 
 describeIntegerTypeCodes :: SpecWith ()
 describeIntegerTypeCodes = do
-  let codes = [0x0c..0x1c]
-  let byteLengths = [-8..8]
+  let codes = [0x0c .. 0x1c]
+  let byteLengths = [-8 .. 8]
   forM_ (zip codes byteLengths) go
-
   where
     go (code, 0) = do
       let encoded = encodeTupleElems [Int 0]
       describe "Encoding 0" $
-        it ("Uses expected code " ++ show code)
-           (BS.unpack encoded `shouldBe` [code])
-
+        it
+          ("Uses expected code " ++ show code)
+          (BS.unpack encoded `shouldBe` [code])
     go (code, byteLength) = do
       let sign = fromIntegral $ signum byteLength
       let numBits = 8 * abs byteLength - 1
-      let num = sign * 2^numBits - 1 :: Integer
+      let num = sign * 2 ^ numBits - 1 :: Integer
       let encoded = encodeTupleElems [Int num]
-      describe ("Encoding "
-                ++ (if sign > 0 then "positive " else "negative ")
-                ++ show (abs byteLength)
-                ++ "-byte int: "
-                ++ show sign
-                ++ " * 2^"
-                ++ show numBits
-                ++ " - 1"
-                ++ " = "
-                ++ show num) $ do
-        it ("Uses expected code " ++ show code)
-           (BS.head encoded `shouldBe` code)
-        it "Uses correct number of bytes" $
-          BS.length encoded `shouldBe` abs byteLength + 1
+      describe
+        ( "Encoding "
+            ++ (if sign > 0 then "positive " else "negative ")
+            ++ show (abs byteLength)
+            ++ "-byte int: "
+            ++ show sign
+            ++ " * 2^"
+            ++ show numBits
+            ++ " - 1"
+            ++ " = "
+            ++ show num
+        )
+        $ do
+          it
+            ("Uses expected code " ++ show code)
+            (BS.head encoded `shouldBe` code)
+          it "Uses correct number of bytes" $
+            BS.length encoded `shouldBe` abs byteLength + 1
 
 issue12 :: SpecWith ()
 issue12 = describe "Max 8-byte encoded ints" $ do
   it "encodes 2^64 - 1 correctly" $
-    encodeTupleElems [Int $ 2^(64 :: Integer) - 1]
+    encodeTupleElems [Int $ 2 ^ (64 :: Integer) - 1]
       `shouldBe` "\x1c\xff\xff\xff\xff\xff\xff\xff\xff"
   it "encodes - (2^64 - 1) correctly" $
-    encodeTupleElems [Int $ negate $ 2^(64 :: Integer) - 1]
+    encodeTupleElems [Int $ negate $ 2 ^ (64 :: Integer) - 1]
       `shouldBe` "\x0c\x00\x00\x00\x00\x00\x00\x00\x00"
 
 decodeInvalidBytes :: SpecWith ()
@@ -217,18 +225,18 @@ encodeDecodeSpecs = describe "Tuple encoding" $ do
   encodeDecode [Bool True] exampleTrue "True"
   encodeDecode [Bool False] exampleFalse "False"
   -- This is @UUID.fromString "87245765-c8d1-42f8-8529-ff2f5e20e2fc"@
-  let (w1,w2,w3,w4) = (2267305829,3369157368,2234122031,1579213564)
+  let (w1, w2, w3, w4) = (2267305829, 3369157368, 2234122031, 1579213564)
   encodeDecode [UUID w1 w2 w3 w4] exampleUUID "UUID"
   let tvs = TransactionVersionstamp 0xdeadbeefdeadbeef 0xbeef
   let vs = CompleteVersionstamp tvs 12
-  encodeDecode [CompleteVS vs]
-               exampleCompleteVersionstamp
-               "complete version stamp"
+  encodeDecode
+    [CompleteVS vs]
+    exampleCompleteVersionstamp
+    "complete version stamp"
   let ivs = IncompleteVersionstamp 12
   it "encodes incomplete version stamp" $
     encodeTupleElems [IncompleteVS ivs]
-    `shouldBe`
-    exampleIncompleteVersionstamp
+      `shouldBe` exampleIncompleteVersionstamp
   -- no encodeDecode for incomplete version stamps because the encoding adds
   -- two bytes at the end that the C FFI bindings remove. The Python code
   -- doesn't roundtrip either.

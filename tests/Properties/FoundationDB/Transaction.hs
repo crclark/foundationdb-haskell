@@ -14,15 +14,12 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
-import Data.Maybe (fromJust)
-import Data.Monoid ((<>))
 import Data.Sequence (Seq (Empty))
 import qualified Data.Sequence as Seq
 import FoundationDB
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Options.MutationType (setVersionstampedKey)
-import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
 import GHC.Exts (IsList (..))
 import Test.Hspec
@@ -379,11 +376,11 @@ testGetConflictingKeys testSS db = describe "getConflictingKeys" $
 
 #if FDB_API_VERSION >= 710
 testGetMappedRange :: Subspace -> Database -> SpecWith ()
-testGetMappedRange subspace db = describe "getMappedRange" $
+testGetMappedRange testSS db = describe "getMappedRange" $
   it "works" $ do
     -- test based on https://github.com/foundationdb-rs/foundationdb-rs/pull/61/files#diff-973f2b62dd7045ff9b764489e9e32ac3a0a3544a58ff96baeec4ce04896b3979R282
-    let dataSS = SS.extend subspace [Bytes "data"]
-    let indexSS = SS.extend subspace [Bytes "index"]
+    let dataSS = SS.extend testSS [Bytes "data"]
+    let indexSS = SS.extend testSS [Bytes "index"]
     let num_records = 20
     let kvs = zip [0..num_records] (cycle ["blue", "green", "brown"])
     void $ runTransaction db $ forM_ kvs $ \(primaryKey, eyeColor) -> do

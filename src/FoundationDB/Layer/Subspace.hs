@@ -6,26 +6,26 @@
 -- language bindings. See
 -- <https://apple.github.io/foundationdb/developer-guide.html#subspaces the official documentation>
 -- for more information.
-module FoundationDB.Layer.Subspace (
-  -- * Creating subspaces
-  Subspace(..),
-  subspace,
-  prefixedSubspace,
-  -- * Using subspaces
-  extend,
-  pack,
-  unpack,
-  contains,
-  subspaceRangeQuery,
-  getLast,
-  subspaceKey
-) where
+module FoundationDB.Layer.Subspace
+  ( -- * Creating subspaces
+    Subspace (..),
+    subspace,
+    prefixedSubspace,
+
+    -- * Using subspaces
+    extend,
+    pack,
+    unpack,
+    contains,
+    subspaceRangeQuery,
+    getLast,
+    subspaceKey,
+  )
+where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Monoid ((<>))
-import Data.Sequence(Seq(Empty,(:<|)))
-
+import Data.Sequence (Seq (Empty, (:<|)))
 import FoundationDB
 import FoundationDB.Layer.Tuple
 
@@ -35,17 +35,19 @@ newtype Subspace = Subspace {rawPrefix :: ByteString}
   deriving (Show, Eq, Ord)
 
 -- | Create a subspace from a tuple.
-subspace :: [Elem]
-         -- ^ Tuple with which to prefix the subspace. May not contain
-         -- incomplete version stamps.
-         -> Subspace
+subspace ::
+  -- | Tuple with which to prefix the subspace. May not contain
+  -- incomplete version stamps.
+  [Elem] ->
+  Subspace
 subspace es = Subspace (encodeTupleElems es)
 
 -- | Create a subspace from a raw bytestring prefix and a tuple.
-prefixedSubspace :: ByteString
-                 -- ^ prefix
-                 -> [Elem]
-                 -> Subspace
+prefixedSubspace ::
+  -- | prefix
+  ByteString ->
+  [Elem] ->
+  Subspace
 prefixedSubspace prefix tuple = Subspace (encodeTupleElemsWPrefix prefix tuple)
 
 -- | Returns the bytestring prefix of the subspace. Equivalent to 'rawPrefix'.
@@ -55,9 +57,10 @@ subspaceKey = rawPrefix
 
 -- | Create a subsubspace by extending the prefix of a subspace by the
 -- given tuple.
-extend :: Subspace
-       -> [Elem]
-       -> Subspace
+extend ::
+  Subspace ->
+  [Elem] ->
+  Subspace
 extend (Subspace prfx) =
   prefixedSubspace prfx
 
@@ -70,31 +73,37 @@ unpack :: Subspace -> ByteString -> Either String [Elem]
 unpack sub = decodeTupleElemsWPrefix (rawPrefix sub)
 
 -- | Returns 'True' iff the subspace contains the given key.
-contains :: Subspace
-         -> ByteString
-         -- ^ encoded key
-         -> Bool
+contains ::
+  Subspace ->
+  -- | encoded key
+  ByteString ->
+  Bool
 contains sub = BS.isPrefixOf (rawPrefix sub)
 
 -- | Construct a range query that covers an entire subspace.
 subspaceRangeQuery :: Subspace -> RangeQuery
-subspaceRangeQuery s = RangeQuery
-  { rangeBegin   = FirstGreaterOrEq (k <> BS.pack [0x00])
-  , rangeEnd     = FirstGreaterOrEq (k <> BS.pack [0xff])
-  , rangeLimit   = Nothing
-  , rangeReverse = False
-  }
-  where k = pack s []
+subspaceRangeQuery s =
+  RangeQuery
+    { rangeBegin = FirstGreaterOrEq (k <> BS.pack [0x00]),
+      rangeEnd = FirstGreaterOrEq (k <> BS.pack [0xff]),
+      rangeLimit = Nothing,
+      rangeReverse = False
+    }
+  where
+    k = pack s []
 
 -- | Get the last key,value pair in the subspace, if it exists.
 getLast :: Subspace -> Transaction (Maybe (ByteString, ByteString))
 getLast sub = do
-  rr <- getRange (subspaceRangeQuery sub) { rangeLimit = Just 1,
-                                       rangeReverse = True
-                                     }
+  rr <-
+    getRange
+      (subspaceRangeQuery sub)
+        { rangeLimit = Just 1,
+          rangeReverse = True
+        }
   kvs <- await rr
   case kvs of
-    RangeDone Empty      -> return Nothing
-    RangeDone (kv:<|_)   -> return (Just kv)
-    RangeMore (kv:<|_) _ -> return (Just kv)
-    RangeMore Empty _    -> return Nothing --NOTE: impossible case
+    RangeDone Empty -> return Nothing
+    RangeDone (kv :<| _) -> return (Just kv)
+    RangeMore (kv :<| _) _ -> return (Just kv)
+    RangeMore Empty _ -> return Nothing --NOTE: impossible case

@@ -1,18 +1,18 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module FoundationDB.Versionstamp.Internal where
 
-import Control.DeepSeq (NFData(..))
+import Control.DeepSeq (NFData (..))
 import Data.ByteString (ByteString)
-import Data.Word (Word16, Word64)
 import Data.Serialize.Get
 import Data.Serialize.Put
+import Data.Word (Word16, Word64)
 import GHC.Generics (Generic)
 
 -- | Represents whether a versionstamp is complete (has been written to FDB and
@@ -34,15 +34,15 @@ data VersionstampCompleteness = Complete | Incomplete
 data Versionstamp (a :: VersionstampCompleteness) where
   -- | A complete version stamp, consisting of 'TransactionVersionstamp', and a
   -- user version set by the user.
-  CompleteVersionstamp :: TransactionVersionstamp
-                       -> Word16
-                       -> Versionstamp 'Complete
+  CompleteVersionstamp ::
+    TransactionVersionstamp ->
+    Word16 ->
+    Versionstamp 'Complete
   -- | A version stamp that has not yet been associated with a completed
   -- transaction. Such a version stamp does not yet have an associated
   -- transaction version and transaction batch order, but does have a user
   -- version.
   IncompleteVersionstamp :: Word16 -> Versionstamp 'Incomplete
-
 
 deriving instance Show (Versionstamp a)
 

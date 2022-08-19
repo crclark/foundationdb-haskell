@@ -1,9 +1,8 @@
 module FoundationDB.Layer.Directory.Internal.Error where
 
-import Control.Monad.Error.Class (MonadError(..))
-
+import Control.Monad.Error.Class (MonadError (..))
+import FoundationDB.Error (DirLayerUserError, Error (..), FDBHsError (..))
 import FoundationDB.Transaction (Transaction)
-import FoundationDB.Error (Error(..), DirLayerUserError, FDBHsError(..))
 
 throwDirInternalError :: String -> Transaction a
 throwDirInternalError = throwError . Error . DirectoryLayerInternalError
