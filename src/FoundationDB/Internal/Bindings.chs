@@ -87,6 +87,11 @@ module FoundationDB.Internal.Bindings (
   , futureGetCluster
   , futureGetDatabase
 #endif
+#if FDB_API_VERSION >= 710
+  , MappedKeyValue(..)
+  , getMappedRangeResult
+  , transactionGetMappedRange
+#endif
 ) where
 
 import FoundationDB.Options.DatabaseOption (DatabaseOption(..))
@@ -276,6 +281,11 @@ peekCastFDBKeyValue p = do
   p' <- peek p
   return p'
 
+peekCastFDBKeyValue' :: Ptr (Ptr ()) -> IO (Ptr FDBKeyValue)
+peekCastFDBKeyValue' p = do
+  p' <- peek p
+  return (castPtr p')
+
 peekFDBBool :: Ptr CInt -> IO Bool
 peekFDBBool p = peek (castPtr p)
 
@@ -304,6 +314,203 @@ futureGetKeyValueArray f = do
     then return $ Left err
     else do kvs <- peekArray n arr >>= mapM packKeyValue
             return $ Right $ (kvs, more)
+
+
+#if FDB_API_VERSION >= 710
+
+-- | The result of a mapped key value query, containing the
+-- parent key and value (i.e., the key and value in the secondary index),
+-- and the range of key-value pairs retrieved based on the range query
+-- generated from the mapper's operation on the parent key and value.
+--
+-- WARNING: FDB's docs warn that the returned KeySelector fields have not yet
+-- been tested. Use them at your own risk!
+data MappedKeyValue = MappedKeyValue
+  {
+    parentKey :: B.ByteString,
+    parentValue :: B.ByteString,
+    mappedKeySelectorBegin :: KeySelector,
+    mappedKeySelectorEnd :: KeySelector,
+    mappedKeyValues :: [(B.ByteString, B.ByteString)]
+  } deriving (Show, Eq)
+
+-- GHC's C FFI doesn't support nested structs, so we have a function in
+-- fdbc_wrapper.h and fdbc_wrapper.c that fetches
+-- everything we need to construct the above value.
+--
+-- This also means we can't define a Storable instance for MappedKeyValue.
+
+{#pointer *FDBMappedKeyValue as MappedKeyValuePtr newtype #}
+
+deriving instance Eq MappedKeyValuePtr
+deriving instance Show MappedKeyValuePtr
+deriving instance Storable MappedKeyValuePtr
+
+{#fun unsafe get_mapped_range_result as getMappedRangeResult_
+{`MappedKeyValuePtr'
+, alloca- `Ptr CUChar' peek*
+, alloca- `Int' peekIntegral*
+, alloca- `Ptr CUChar' peek*
+, alloca- `Int' peekIntegral*
+, alloca- `Ptr CUChar' peek*
+, alloca- `Int' peekIntegral*
+, alloca- `Bool' peekBool*
+, alloca- `Int' peekIntegral*
+, alloca- `Ptr CUChar' peek*
+, alloca- `Int' peekIntegral*
+, alloca- `Bool' peekBool*
+, alloca- `Int' peekIntegral*
+, alloca- `Ptr FDBKeyValue' peekCastFDBKeyValue'*
+, alloca- `Int' peekIntegral*
+} -> `()' #}
+
+{#fun unsafe future_get_mappedkeyvalue_array as ^
+{inFuture `Future [MappedKeyValue]'
+, alloca- `MappedKeyValuePtr' peek*
+, alloca- `Int' peekIntegral*
+, alloca- `Bool' peekBool*}
+-> `CFDBError' CFDBError
+#}
+
+{#fun unsafe get_mapped_key_value_size as ^
+{} -> `Int' fromIntegral
+#}
+
+packMappedKeyValue :: MappedKeyValuePtr -> IO MappedKeyValue
+packMappedKeyValue mappedKVPtr = do
+  ( parentKeyPtr
+    , parentKeyLen
+
+    , parentValuePtr
+    , parentValueLen
+
+    , beginKeySelKeyPtr
+    , beginKeySelKeyLen
+    , beginKeySelOrEqual
+    , beginKeySelOffset
+
+    , endKeySelKeyPtr
+    , endKeySelKeyLen
+    , endKeySelOrEqual
+    , endKeySelOffset
+
+    , kvsPtr
+    , kvsLen) <- getMappedRangeResult_ mappedKVPtr
+  parentKey <- B.packCStringLen (castPtr parentKeyPtr, parentKeyLen)
+  parentValue <- B.packCStringLen (castPtr parentValuePtr, parentValueLen)
+
+  beginKeySelKey <- B.packCStringLen (castPtr beginKeySelKeyPtr, beginKeySelKeyLen)
+  let mappedKeySelectorBegin = tupleKeySelector (beginKeySelKey, beginKeySelOrEqual, beginKeySelOffset)
+
+  endKeySelKey <- B.packCStringLen (castPtr endKeySelKeyPtr, endKeySelKeyLen)
+  let mappedKeySelectorEnd = tupleKeySelector (endKeySelKey, endKeySelOrEqual, endKeySelOffset)
+  mappedKeyValues <- peekArray kvsLen kvsPtr >>= mapM packKeyValue
+  return MappedKeyValue{..}
+
+
+-- | Extracts the mappedKeyValue results from the future, along with a bool
+-- indicating whether more results are available.
+getMappedRangeResult :: Future [MappedKeyValue] -> IO (Either CFDBError ([MappedKeyValue], Bool))
+getMappedRangeResult future = do
+  (err, (MappedKeyValuePtr mappedKVPtr), len, more) <- futureGetMappedkeyvalueArray future
+  if err == 0
+    then do
+      size <- getMappedKeyValueSize
+      -- If we could define Storable for MappedKeyValue, we could use
+      -- peekArray here, but it's a weird nested struct.
+      let ptrs = [ MappedKeyValuePtr (plusPtr mappedKVPtr (size * i))
+                 | i <- [0..len - 1]]
+      mappedKVs <- mapM packMappedKeyValue ptrs
+      return (Right (mappedKVs, more))
+    else return (Left err)
+
+-- NOTE: c2hs was generating incorrect code by somehow not figuring out the
+-- correct marshallers automatically like it did for transactionGetRange,
+-- so I ran
+-- c2hs --cppopts='-Iinclude/' --cppopts='-DFDB_API_VERSION=710' src/FoundationDB/Internal/Bindings.chs
+-- grabbed the broken output from the Bindings.hs it generated, then pasted it
+-- here and fixed it manually. I needed to manually write the
+-- {a14' = (fromIntegral . fromEnum) a14}
+-- because it wasn't generating the (fromIntegral . fromEnum) that it does for
+-- transactionGetRange. Very odd.
+
+foreign import ccall unsafe "src/FoundationDB/Internal/Bindings.chs.h fdb_transaction_get_mapped_range"
+  transactionGetMappedRange_'_ :: ((C2HSImp.Ptr ()) -> ((C2HSImp.Ptr C2HSImp.CUChar) -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> ((C2HSImp.Ptr C2HSImp.CUChar) -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> ((C2HSImp.Ptr C2HSImp.CUChar) -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> (C2HSImp.CInt -> (IO (C2HSImp.Ptr ())))))))))))))))))))
+
+transactionGetMappedRange_ :: (Transaction) -> (Ptr CUChar) -> (Int) -> (Bool) -> (Int) -> (Ptr CUChar) -> (Int) -> (Bool) -> (Int) -> (Ptr CUChar) -> (Int) -> (Int) -> (Int) -> (FDBStreamingMode) -> (Int) -> (Bool) -> (Bool) -> IO ((Future a))
+transactionGetMappedRange_ (Transaction a1) a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 =
+  let {a2' = id a2} in
+  let {a3' = fromIntegral a3} in
+  let {a4' = C2HSImp.fromBool a4} in
+  let {a5' = fromIntegral a5} in
+  let {a6' = id a6} in
+  let {a7' = fromIntegral a7} in
+  let {a8' = C2HSImp.fromBool a8} in
+  let {a9' = fromIntegral a9} in
+  let {a10' = id a10} in
+  let {a11' = fromIntegral a11} in
+  let {a12' = fromIntegral a12} in
+  let {a13' = fromIntegral a13} in
+  let {a14' = (fromIntegral . fromEnum) a14} in
+  let {a15' = fromIntegral a15} in
+  let {a16' = C2HSImp.fromBool a16} in
+  let {a17' = C2HSImp.fromBool a17} in
+  transactionGetMappedRange_'_ (castPtr a1) a2' a3' a4' a5' a6' a7' a8' a9' a10' a11' a12' a13' a14' a15' a16' a17' >>= \res ->
+  let {res' = outFuture res} in
+  return (res')
+
+transactionGetMappedRange
+  :: Transaction
+  -> KeySelector
+  -- ^ begin
+  -> KeySelector
+  -- ^ end
+  -> B.ByteString
+  -- ^ Mapper name
+  -> Int
+  -- ^ max number of pairs to return
+  -> Int
+  -- ^ max number of bytes to return
+  -> FDBStreamingMode
+  -> Int
+  -- ^ if FDBStreamingMode is FdbStreamingModeIterator,
+  -- start this at 1 and increment by for each successive
+  -- call reading this range. Otherwise, ignored.
+  -> Bool
+  -- ^ isSnapshotRead
+  -> Bool
+  -- ^ whether to return pairs in reverse order
+  -> IO (Future [MappedKeyValue])
+transactionGetMappedRange
+  t
+  rangeBegin
+  rangeEnd
+  mapper
+  pairLimit
+  byteLimit
+  streamMode
+  iteratorI
+  isSnapshotRead
+  isReverse =
+  let (bk, bOrEqual, bOffset) = keySelectorTuple rangeBegin
+      (ek, eOrEqual, eOffset) = keySelectorTuple rangeEnd
+  in
+  B.useAsCStringLen bk $ \(bstr, blen) ->
+  B.useAsCStringLen ek $ \(estr, elen) ->
+  B.useAsCStringLen mapper $ \(mapperstr, mapperlen) ->
+    transactionGetMappedRange_
+      t
+      (castPtr bstr) blen bOrEqual bOffset
+      (castPtr estr) elen eOrEqual eOffset
+      (castPtr mapperstr) mapperlen
+      pairLimit
+      byteLimit
+      streamMode
+      iteratorI
+      isSnapshotRead
+      isReverse
+#endif
+
 
 #if FDB_API_VERSION >= 610
 {#fun unsafe create_database as ^ {`String', alloca- `DatabasePtr' peek*} -> `CFDBError' CFDBError #}

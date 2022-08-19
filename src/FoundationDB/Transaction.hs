@@ -77,6 +77,16 @@ module FoundationDB.Transaction
     prefixRangeEnd,
     RangeResult (..),
     watch,
+#if FDB_API_VERSION >= 710
+    -- * Mapped ranges
+    FDB.MappedKeyValue (..),
+    MappedRangeResult (..),
+    Mapper (..),
+    getMappedRange,
+    getMappedRange',
+    getEntireMappedRange,
+    getEntireMappedRange',
+#endif
 
     -- * Futures
     Future,
@@ -97,6 +107,7 @@ module FoundationDB.Transaction
         FirstGreaterThan,
         FirstGreaterOrEq
       ),
+    FDB.keySelectorBytes,
     offset,
 
     -- * Advanced Usage
@@ -511,6 +522,76 @@ isRangeEmpty r = do
   case rr of
     RangeDone Empty -> return True
     _ -> return False
+
+#if FDB_API_VERSION >= 710
+
+-- | Structure for returning the result of 'getRange' in chunks.
+data MappedRangeResult
+  = MappedRangeDone (Seq FDB.MappedKeyValue)
+  | MappedRangeMore (Seq FDB.MappedKeyValue) (Future MappedRangeResult)
+  deriving (Show)
+
+newtype Mapper = Mapper ByteString
+  deriving (Show, Eq, Ord)
+
+-- | Given a range of keys in a secondary index, fetc the corresponding
+-- key/values they refer to by using a mapper.
+-- See <https://github.com/apple/foundationdb/wiki/Everything-about-GetMappedRange the docs>
+-- for more information.
+--
+-- Important: you must have read-your-writes enabled, but you must not read
+-- anything you have written in the same transaction. Snapshot isolation is not
+-- supported. See the docs linked above.
+--
+-- These functions are only available for FDB >= 7.1
+getMappedRange' :: RangeQuery -> Mapper -> FDB.FDBStreamingMode -> Transaction (Future MappedRangeResult)
+getMappedRange' RangeQuery {..} (Mapper mapper) mode = do
+  isSnapshot <- asks (snapshotReads . envConf)
+  withTransactionPtr $ \t -> do
+    let getR b e lim i = FDB.transactionGetMappedRange t b e mapper lim 0 mode i isSnapshot rangeReverse
+    let mk = getR rangeBegin rangeEnd (fromMaybe 0 rangeLimit) 1
+    let handler bsel esel i lim fut = do
+          -- more doesn't take into account our count limit, so we check below
+          (kvs, more) <- liftIO (FDB.getMappedRangeResult fut) >>= liftFDBError
+          let kvs' = Seq.fromList kvs
+          case kvs' of
+            (_ :|> mkv) | more && maybe True (length kvs' <) lim -> do
+              let parentK = FDB.parentKey mkv
+              let bsel' = if not rangeReverse then FDB.FirstGreaterThan parentK else bsel
+              let esel' = if rangeReverse then FDB.FirstGreaterOrEq parentK else esel
+              let lim' = fmap (\x -> x - length kvs') lim
+              let mk' = getR bsel' esel' (fromMaybe 0 lim') (i + 1)
+              res <- allocFuture mk' (handler bsel' esel' (i + 1) lim')
+              return $ MappedRangeMore kvs' res
+            _ -> return $
+              MappedRangeDone $ case lim of
+                Nothing -> kvs'
+                Just n -> Seq.take n kvs'
+    allocFuture mk (handler rangeBegin rangeEnd 1 rangeLimit)
+
+getMappedRange :: RangeQuery -> Mapper -> Transaction (Future MappedRangeResult)
+getMappedRange r mapper = getMappedRange' r mapper FDB.StreamingModeIterator
+
+getEntireMappedRange' ::
+  FDB.FDBStreamingMode ->
+  RangeQuery ->
+  Mapper ->
+  Transaction (Seq FDB.MappedKeyValue)
+getEntireMappedRange' mode r mapper = do
+  rr <- getMappedRange' r mapper mode >>= await
+  go rr
+  where
+    go (MappedRangeDone xs) = return xs
+    go (MappedRangeMore xs fut) = do
+      more <- await fut
+      ys <- go more
+      return (xs <> ys)
+
+-- | Wrapper around 'getRange' that reads the entire range into memory.
+getEntireMappedRange :: RangeQuery -> Mapper -> Transaction (Seq FDB.MappedKeyValue)
+getEntireMappedRange = getEntireMappedRange' FDB.StreamingModeWantAll
+
+#endif
 
 -- | Perform an atomic operation of 'MutationType' on the given key. A
 -- transaction that performs only atomic operations is guaranteed not to
