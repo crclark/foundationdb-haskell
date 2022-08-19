@@ -36,13 +36,13 @@ includePortInAddress = TransactionOptionFlag (23)
 -- | The next write performed on this transaction will not generate a write conflict range. As a result, other transactions which read the key(s) being modified by the next write will not conflict with this transaction. Care needs to be taken when using this option on a transaction that is shared between multiple threads. When setting this option, write conflict ranges will be disabled on the next write operation, regardless of what thread it is on.
 nextWriteNoWriteConflictRange = TransactionOptionFlag (30)
 
--- | Committing this transaction will bypass the normal load balancing across proxies and go directly to the specifically nominated 'first proxy'.
+-- | Committing this transaction will bypass the normal load balancing across commit proxies and go directly to the specifically nominated 'first commit proxy'.
 commitOnFirstProxy = TransactionOptionFlag (40)
 
 -- | 
 checkWritesEnable = TransactionOptionFlag (50)
 
--- | Reads performed by a transaction will not see any prior mutations that occured in that transaction, instead seeing the value which was in the database at the transaction's read version. This option may provide a small performance benefit for the client, but also disables a number of client-side optimizations which are beneficial for transactions which tend to read and write the same keys within a single transaction.
+-- | Reads performed by a transaction will not see any prior mutations that occured in that transaction, instead seeing the value which was in the database at the transaction's read version. This option may provide a small performance benefit for the client, but also disables a number of client-side optimizations which are beneficial for transactions which tend to read and write the same keys within a single transaction. It is an error to set this option after performing any reads or writes on the transaction.
 readYourWritesDisable = TransactionOptionFlag (51)
 
 -- | Deprecated
@@ -66,11 +66,14 @@ priorityBatch = TransactionOptionFlag (201)
 -- | This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.
 initializeNewDatabase = TransactionOptionFlag (300)
 
--- | Allows this transaction to read and modify system keys (those that start with the byte 0xFF)
+-- | Allows this transaction to read and modify system keys (those that start with the byte 0xFF). Implies raw_access.
 accessSystemKeys = TransactionOptionFlag (301)
 
--- | Allows this transaction to read system keys (those that start with the byte 0xFF)
+-- | Allows this transaction to read system keys (those that start with the byte 0xFF). Implies raw_access.
 readSystemKeys = TransactionOptionFlag (302)
+
+-- | Allows this transaction to access the raw key-space when tenant mode is on.
+rawAccess = TransactionOptionFlag (303)
 
 -- | 
 debugDump = TransactionOptionFlag (400)
@@ -132,9 +135,27 @@ reportConflictingKeys = TransactionOptionFlag (712)
 -- | By default, the special key space will only allow users to read from exactly one module (a subspace in the special key space). Use this option to allow reading from zero or more modules. Users who set this option should be prepared for new modules, which may have different behaviors than the modules they're currently reading. For example, a new module might block or return an error.
 specialKeySpaceRelaxed = TransactionOptionFlag (713)
 
+-- | By default, users are not allowed to write to special keys. Enable this option will implicitly enable all options required to achieve the configuration change.
+specialKeySpaceEnableWrites = TransactionOptionFlag (714)
+
 -- | Adds a tag to the transaction that can be used to apply manual targeted throttling. At most 5 tags can be set on a transaction.
 tag str = TransactionOptionString (800) str
 
 -- | Adds a tag to the transaction that can be used to apply manual or automatic targeted throttling. At most 5 tags can be set on a transaction.
 autoThrottleTag str = TransactionOptionString (801) str
+
+-- | Adds a parent to the Span of this transaction. Used for transaction tracing. A span can be identified with any 16 bytes
+spanParent bs = TransactionOptionBytes (900) bs
+
+-- | Asks storage servers for how many bytes a clear key range contains. Otherwise uses the location cache to roughly estimate this.
+expensiveClearCostEstimationEnable = TransactionOptionFlag (1000)
+
+-- | Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. These reads will view versionstamp operations as if they were set operations that did not fill in the versionstamp.
+bypassUnreadable = TransactionOptionFlag (1100)
+
+-- | Allows this transaction to use cached GRV from the database context. Defaults to off. Upon first usage, starts a background updater to periodically update the cache to avoid stale read versions.
+useGrvCache = TransactionOptionFlag (1101)
+
+-- | Specifically instruct this transaction to NOT use cached GRV. Primarily used for the read version cache's background updater to avoid attempting to read a cached entry in specific situations.
+skipGrvCache = TransactionOptionFlag (1102)
 
