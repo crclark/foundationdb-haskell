@@ -51,6 +51,9 @@ traceClockSource str = NetworkOptionString (35) str
 -- | Once provided, this string will be used to replace the port/PID in the log file names.
 traceFileIdentifier str = NetworkOptionString (36) str
 
+-- | Set file suffix for partially written log files.
+tracePartialFileSuffix str = NetworkOptionString (39) str
+
 -- | Set internal tuning or debugging knobs
 knob str = NetworkOptionString (40) str
 
@@ -132,6 +135,9 @@ clientBuggifySectionActivatedProbability i
 
 -- | Set the probability of an active CLIENT_BUGGIFY section being fired. A section will only fire if it was activated
 clientBuggifySectionFiredProbability i = NetworkOptionInt (83) i
+
+-- | Set a tracer to run on the client. Should be set to the same value as the tracer set on the server.
+distributedClientTracer str = NetworkOptionString (90) str
 
 -- | This option is set automatically to communicate the list of supported clients to the active client.
 supportedClientVersions str = NetworkOptionString (1000) str

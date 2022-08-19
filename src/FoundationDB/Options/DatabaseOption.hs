@@ -48,6 +48,15 @@ transactionSizeLimit i = DatabaseOptionInt (503) i
 -- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.
 transactionCausalReadRisky = DatabaseOptionFlag (504)
 
--- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
+-- | Deprecated. Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.
 transactionIncludePortInAddress = DatabaseOptionFlag (505)
+
+-- | Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. This sets the ``bypass_unreadable`` option of each transaction created by this database. See the transaction option description for more information.
+transactionBypassUnreadable = DatabaseOptionFlag (700)
+
+-- | Use configuration database.
+useConfigDatabase = DatabaseOptionFlag (800)
+
+-- | An integer between 0 and 100 (default is 0) expressing the probability that a client will verify it can't read stale data whenever it detects a recovery.
+testCausalReadRisky = DatabaseOptionFlag (900)
 
