@@ -5,12 +5,13 @@
 -- powerful query patterns. See the
 -- <https://apple.github.io/foundationdb/data-modeling.html#data-modeling-tuples official docs>
 -- for more information.
-module FoundationDB.Layer.Tuple (
-  Elem (..)
-  , encodeTupleElems
-  , encodeTupleElemsWPrefix
-  , decodeTupleElems
-  , decodeTupleElemsWPrefix
-) where
+module FoundationDB.Layer.Tuple
+  ( Elem (..),
+    encodeTupleElems,
+    encodeTupleElemsWPrefix,
+    decodeTupleElems,
+    decodeTupleElemsWPrefix,
+  )
+where
 
 import FoundationDB.Layer.Tuple.Internal

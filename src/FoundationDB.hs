@@ -1,3 +1,8 @@
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- | This module contains all of the basics needed to build a program that
 -- interacts with <https://apple.github.io/foundationdb/index.html FoundationDB>.
 -- The documentation throughout this library assumes that you have already read
@@ -15,35 +20,32 @@
 --   Whichever you choose, all errors you can encounter are defined in
 --   "FoundationDB.Error".
 -- * See <https://github.com/crclark/foundationdb-haskell/blob/master/tests/Properties/FoundationDB/Transaction.hs#L48 the tests> for basic usage examples.
+module FoundationDB
+  ( -- * Initialization
+    FDB.currentAPIVersion,
+    withFoundationDB,
+    FoundationDBOptions (..),
+    defaultOptions,
+    Database,
+    apiVersionInUse,
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE NamedFieldPuns #-}
+    -- * Transactions
+    module FoundationDB.Transaction,
 
-module FoundationDB (
-  -- * Initialization
-  FDB.currentAPIVersion
-  , withFoundationDB
-  , FoundationDBOptions(..)
-  , defaultOptions
-  , Database
-  , apiVersionInUse
-  -- * Transactions
-  , module FoundationDB.Transaction
-  -- * Errors
-  , module FoundationDB.Error
-  -- * Helpers for ghci
-  , startFoundationDB
-  , stopFoundationDB
-) where
+    -- * Errors
+    module FoundationDB.Error,
+
+    -- * Helpers for ghci
+    startFoundationDB,
+    stopFoundationDB,
+  )
+where
 
 import Control.Concurrent (forkFinally)
-import Control.Concurrent.MVar (newEmptyMVar, takeMVar, putMVar, MVar)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Exception
 import Control.Monad.Except
 import Data.Maybe (fromMaybe)
-
 import FoundationDB.Error
 import FoundationDB.Error.Internal
 import qualified FoundationDB.Internal.Bindings as FDB
@@ -55,8 +57,9 @@ import System.IO.Unsafe (unsafePerformIO)
 -- open source release).
 validateVersion :: Int -> IO ()
 validateVersion v =
-  when (v < 520)
-       (throw (Error UnsupportedAPIVersion))
+  when
+    (v < 520)
+    (throw (Error UnsupportedAPIVersion))
 
 #if FDB_API_VERSION < 610
 initCluster :: FilePath -> IO FDB.Cluster
@@ -94,10 +97,11 @@ withDatabase opts@FoundationDBOptions{clusterFile} =
 -- | Handles correctly starting up the network connection to the DB.
 -- Can only be called once per process! Throws an 'Error' if any part of
 -- setting up the connection to FoundationDB fails.
-withFoundationDB :: FoundationDBOptions
-                 -> (Database -> IO a)
-                 -> IO a
-withFoundationDB opts@FoundationDBOptions{..} m = do
+withFoundationDB ::
+  FoundationDBOptions ->
+  (Database -> IO a) ->
+  IO a
+withFoundationDB opts@FoundationDBOptions {..} m = do
   validateVersion apiVersion
   done <- newEmptyMVar
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
@@ -108,9 +112,9 @@ withFoundationDB opts@FoundationDBOptions{..} m = do
   where
     start done = void $ forkFinally FDB.runNetwork (\_ -> putMVar done ())
     stop done = FDB.stopNetwork >> takeMVar done
-    run db@Database{databasePtr} = do
-        forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption databasePtr)
-        m db
+    run db@Database {databasePtr} = do
+      forM_ databaseOptions (fdbThrowing' . FDB.databaseSetOption databasePtr)
+      m db
 
 startFoundationDBGlobalLock :: MVar ()
 startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
@@ -121,15 +125,18 @@ startFoundationDBGlobalLock = unsafePerformIO newEmptyMVar
 -- since it handles cleanup. This function is only intended to be used in GHCi.
 -- Can only be called once per process! Throws an 'Error' if any part of
 -- setting up the connection FoundationDB fails.
-startFoundationDB :: FoundationDBOptions
-                  -> IO Database
-startFoundationDB opts@FoundationDBOptions{..} = do
+startFoundationDB ::
+  FoundationDBOptions ->
+  IO Database
+startFoundationDB opts@FoundationDBOptions {..} = do
   validateVersion apiVersion
   fdbThrowing' $ FDB.selectAPIVersion apiVersion
   forM_ networkOptions (fdbThrowing' . FDB.networkSetOption)
   fdbThrowing' FDB.setupNetwork
-  void $ forkFinally FDB.runNetwork
-                     (\_ -> putMVar startFoundationDBGlobalLock ())
+  void $
+    forkFinally
+      FDB.runNetwork
+      (\_ -> putMVar startFoundationDBGlobalLock ())
 #if FDB_API_VERSION < 610
   cluster <- initCluster (fromMaybe "" clusterFile)
   db <- initDB cluster

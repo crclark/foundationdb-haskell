@@ -138,7 +138,6 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.Foldable (toList)
 import Data.Maybe (fromJust, fromMaybe)
-import Data.Semigroup ((<>))
 import Data.Sequence (Seq (Empty, (:|>)))
 import qualified Data.Sequence as Seq
 import Data.Word (Word64)

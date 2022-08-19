@@ -1,16 +1,19 @@
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
+
 -- | NOTE: This file is generated from <https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options>
 -- by the generate-options executable in this project.
 -- All documentation on the individual options in this namespace comes
 -- from FoundationDB's documentation in @fdb.options@.
 module FoundationDB.Options.DatabaseOption where
+
 import Data.ByteString.Char8 (ByteString)
 
-data DatabaseOption = DatabaseOptionString Int String
-                    | DatabaseOptionInt Int Int
-                    | DatabaseOptionBytes Int ByteString
-                    | DatabaseOptionFlag Int
-                        deriving (Show, Read, Eq, Ord)
+data DatabaseOption
+  = DatabaseOptionString Int String
+  | DatabaseOptionInt Int Int
+  | DatabaseOptionBytes Int ByteString
+  | DatabaseOptionFlag Int
+  deriving (Show, Read, Eq, Ord)
 
 -- | Set the size of the client location cache. Raising this value can boost performance in very large databases where clients access data in a near-random pattern. Defaults to 100000.
 locationCacheSize i = DatabaseOptionInt (10) i
@@ -59,4 +62,3 @@ useConfigDatabase = DatabaseOptionFlag (800)
 
 -- | An integer between 0 and 100 (default is 0) expressing the probability that a client will verify it can't read stale data whenever it detects a recovery.
 testCausalReadRisky = DatabaseOptionFlag (900)
-

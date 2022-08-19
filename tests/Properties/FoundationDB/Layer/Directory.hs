@@ -1,24 +1,24 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Properties.FoundationDB.Layer.Directory where
 
-import FoundationDB.Layer.Directory.Internal
-import FoundationDB
-import FoundationDB.Layer.Subspace as SS
-import FoundationDB.Layer.Tuple
-
 import Control.Monad (forM_, void)
 import qualified Data.Text as T
-import GHC.Exts(IsList(..))
-
+import FoundationDB
+import FoundationDB.Layer.Directory.Internal
+import FoundationDB.Layer.Subspace as SS
+import FoundationDB.Layer.Tuple
+import GHC.Exts (IsList (..))
 import Test.Hspec
 
 directorySpecs :: Database -> Subspace -> SpecWith ()
 directorySpecs db testSS = do
-  let dl = newDirectoryLayer (SS.extend testSS [Int 1])
-                             (SS.extend testSS [Int 2])
-                             False
+  let dl =
+        newDirectoryLayer
+          (SS.extend testSS [Int 1])
+          (SS.extend testSS [Int 2])
+          False
   describeCreateOrOpen db dl
   describeRemoveFromParent db dl
   describeMove db dl
@@ -97,11 +97,11 @@ describeList db dl = describe "list" $ do
       void $ createOrOpen' dl ["abc", "def", "ghi"] "" Nothing
       void $ createOrOpen' dl ["abc", "foo", "bar"] "" Nothing
       list dl ["abc"]
-    res `shouldBe` ["def","foo"]
+    res `shouldBe` ["def", "foo"]
   it "can list a larger number of subdirectories" $ do
-    let subdirs = fromList [T.pack [a] | a <- ['A'..'z']]
-    forM_ subdirs $ \subdir -> runTransaction db $
-      void $ createOrOpen' dl ["subdirs", subdir] "" Nothing
+    let subdirs = fromList [T.pack [a] | a <- ['A' .. 'z']]
+    forM_ subdirs $ \subdir ->
+      runTransaction db $
+        void $ createOrOpen' dl ["subdirs", subdir] "" Nothing
     res <- runTransaction db $ list dl ["subdirs"]
     res `shouldBe` subdirs
-
