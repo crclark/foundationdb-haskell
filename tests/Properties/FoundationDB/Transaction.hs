@@ -14,6 +14,7 @@ import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Maybe (fromJust)
 import Data.Monoid ((<>))
 import Data.Sequence (Seq (Empty))
 import qualified Data.Sequence as Seq
@@ -44,6 +45,10 @@ transactionSpecs testSS db = do
   approximateSize testSS db
 #endif
   testGetConflictingKeys testSS db
+
+#if FDB_API_VERSION >= 710
+  testGetMappedRange testSS db
+#endif
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
@@ -371,3 +376,36 @@ testGetConflictingKeys testSS db = describe "getConflictingKeys" $
         let expectedRangeEnd = BS.snoc k1 '\NUL'
         getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]
       else getConflicts t1Result `shouldBe` []
+
+#if FDB_API_VERSION >= 710
+testGetMappedRange :: Subspace -> Database -> SpecWith ()
+testGetMappedRange subspace db = describe "getMappedRange" $
+  it "works" $ do
+    -- test based on https://github.com/foundationdb-rs/foundationdb-rs/pull/61/files#diff-973f2b62dd7045ff9b764489e9e32ac3a0a3544a58ff96baeec4ce04896b3979R282
+    let dataSS = SS.extend subspace [Bytes "data"]
+    let indexSS = SS.extend subspace [Bytes "index"]
+    let num_records = 20
+    let kvs = zip [0..num_records] (cycle ["blue", "green", "brown"])
+    void $ runTransaction db $ forM_ kvs $ \(primaryKey, eyeColor) -> do
+      -- write into the data subspace
+      set (SS.pack dataSS [Int primaryKey, Bytes "eye_color", Bytes eyeColor]) eyeColor
+      set (SS.pack dataSS [Int primaryKey, Bytes "some_data"]) "fdb-hs"
+      -- and the secondary index
+      set (SS.pack indexSS [Bytes eyeColor, Int primaryKey]) ""
+
+    let range = SS.subspaceRangeQuery (SS.extend indexSS [Bytes "blue"])
+    let mapper = Mapper $ SS.pack dataSS [Bytes "{K[3]}", Bytes "{...}"]
+    mappedKVs <- runTransaction db $ getEntireMappedRange range mapper
+    length mappedKVs `shouldBe` 7
+    forM_ (zip [0,3..num_records] (toList mappedKVs)) $ \(primaryKey, mappedKV) -> do
+      SS.unpack indexSS (parentKey mappedKV) `shouldBe` Right [Bytes "blue", Int primaryKey]
+      length (mappedKeyValues mappedKV) `shouldBe` 2
+      let (_, v1) = mappedKeyValues mappedKV !! 0
+      v1 `shouldBe` "blue"
+      let (_, v2) = mappedKeyValues mappedKV !! 1
+      v2 `shouldBe` "fdb-hs"
+
+
+    fmap (length . mappedKeyValues) mappedKVs `shouldBe` Seq.fromList [2,2,2,2,2,2,2]
+
+#endif
