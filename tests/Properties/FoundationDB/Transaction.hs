@@ -1,55 +1,52 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 
 module Properties.FoundationDB.Transaction where
 
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.Async (async, wait)
+import Control.Concurrent.MVar
+import Control.Monad
+import Control.Monad.Except (throwError)
+import Control.Monad.IO.Class (liftIO)
+import qualified Data.ByteString.Builder as BS
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy as BSL
+import Data.Monoid ((<>))
+import Data.Sequence (Seq (Empty))
+import qualified Data.Sequence as Seq
 import FoundationDB
 import FoundationDB.Layer.Subspace as SS
 import FoundationDB.Layer.Tuple
 import FoundationDB.Options.MutationType (setVersionstampedKey)
 import FoundationDB.Transaction (getEntireRange')
 import FoundationDB.Versionstamp
-
-import Control.Concurrent.Async (async, wait)
-import Control.Concurrent (forkIO, threadDelay)
-import Control.Concurrent.MVar
-import Control.Monad
-import Control.Monad.Except ( throwError )
-import Control.Monad.IO.Class(liftIO)
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Builder as BS
-import qualified Data.ByteString.Lazy as BSL
-import Data.Monoid((<>))
-import Data.Sequence(Seq(Empty))
-import qualified Data.Sequence as Seq
-import GHC.Exts(IsList(..))
+import GHC.Exts (IsList (..))
 import Test.Hspec
-
 
 transactionSpecs :: Subspace -> Database -> SpecWith ()
 transactionSpecs testSS db = do
-    setting testSS db
-    futures testSS db
-    cancellation testSS db
-    versionstamps testSS db
+  setting testSS db
+  futures testSS db
+  cancellation testSS db
+  versionstamps testSS db
 #if FDB_API_VERSION > 520
-    readVersions testSS db
+  readVersions testSS db
 #endif
-    ranges testSS db
-    streamingModes testSS db
-    retries testSS db
-    watches testSS db
-    timeouts testSS db
+  ranges testSS db
+  streamingModes testSS db
+  retries testSS db
+  watches testSS db
+  timeouts testSS db
 #if FDB_API_VERSION >= 620
-    approximateSize testSS db
+  approximateSize testSS db
 #endif
-    testGetConflictingKeys testSS db
+  testGetConflictingKeys testSS db
 
 setting :: Subspace -> Database -> SpecWith ()
 setting testSS db = describe "set and get" $ do
-
   it "should be able to get what we set" $ do
     let k = SS.pack testSS [Bytes "foo"]
     runTransaction db $ set k "bar"
@@ -65,8 +62,9 @@ setting testSS db = describe "set and get" $ do
 
   it "reads our writes by default" $ do
     let k = SS.pack testSS [Bytes "onetrans"]
-    v <- runTransaction db $ do set k "x"
-                                get k >>= await
+    v <- runTransaction db $ do
+      set k "x"
+      get k >>= await
     v `shouldBe` Just "x"
 
   it "awaiting twice returns same result twice" $ do
@@ -104,7 +102,6 @@ futures testSS db = describe "futures" $ do
     v2 <- awaitInterruptibleIO w2
     v2 `shouldBe` Right ()
 
-
 cancellation :: Subspace -> Database -> SpecWith ()
 cancellation testSS db = describe "transaction cancellation" $ do
   it "should not commit cancelled transactions" $ do
@@ -117,7 +114,7 @@ cancellation testSS db = describe "transaction cancellation" $ do
     let k = SS.pack testSS [Bytes "neverCommitted"]
     let k' = SS.pack testSS [Bytes "afterReset"]
     runTransaction db (set k "test" >> reset >> set k' "test2")
-    (v,v') <- runTransaction db ((,) <$> (get k >>= await) <*> (get k' >>= await))
+    (v, v') <- runTransaction db ((,) <$> (get k >>= await) <*> (get k' >>= await))
     v `shouldBe` Nothing
     v' `shouldBe` Just "test2"
 
@@ -128,15 +125,18 @@ isRight (Right _) = True
 versionstamps :: Subspace -> Database -> SpecWith ()
 versionstamps testSS db = describe "versionstamped tuple key" $
   it "versionstamped tuple contains transaction's versionstamp" $ do
-    let k = SS.pack testSS
+    let k =
+          SS.pack
+            testSS
             [Bytes "vs", IncompleteVS (IncompleteVersionstamp 2)]
     let kLower = SS.pack testSS [Bytes "vs"]
     vsFuture <- runTransaction db $ do
       atomicOp k (setVersionstampedKey "hi")
       getVersionstamp
     vs <- join <$> awaitIO vsFuture
-    finalK <- runTransaction db $
-      getKey (FirstGreaterThan kLower) >>= await
+    finalK <-
+      runTransaction db $
+        getKey (FirstGreaterThan kLower) >>= await
     vs `shouldSatisfy` isRight
     let Right v = vs
     let (Right [_, CompleteVS (CompleteVersionstamp v' _)]) = SS.unpack testSS finalK
@@ -146,8 +146,8 @@ readVersions :: Subspace -> Database -> SpecWith ()
 readVersions testSS db = describe "Read versions" $ do
   it "trivial get followed by set gives error" $ do
     res <- runTransaction' db $ do
-             v <- getReadVersion >>= await
-             setReadVersion v
+      v <- getReadVersion >>= await
+      setReadVersion v
     res `shouldBe` Left (CError ReadVersionAlreadySet)
   it "monotonically increases" $ do
     readVer1 <- runTransaction db $ getReadVersion >>= await
@@ -171,14 +171,18 @@ readVersions testSS db = describe "Read versions" $ do
 ranges :: Subspace -> Database -> SpecWith ()
 ranges testSS db = describe "range ops" $ do
   let rangeSS = SS.extend testSS [Bytes "rangetest"]
-  let kvs = fromList [ (SS.pack rangeSS [Bytes $ BS.singleton k], "a")
-                     | k <- ['a'..'z']]
-  let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
-  let range = RangeQuery
-                (FirstGreaterOrEq (SS.pack rangeSS [Bytes "a"]))
-                (FirstGreaterOrEq (SS.pack rangeSS [Bytes "z\x00"]))
-                Nothing
-                False
+  let kvs =
+        fromList
+          [ (SS.pack rangeSS [Bytes $ BS.singleton k], "a")
+            | k <- ['a' .. 'z']
+          ]
+  let putKeys = forM_ kvs $ \(k, v) -> runTransaction db $ set k v
+  let range =
+        RangeQuery
+          (FirstGreaterOrEq (SS.pack rangeSS [Bytes "a"]))
+          (FirstGreaterOrEq (SS.pack rangeSS [Bytes "z\x00"]))
+          Nothing
+          False
   describe "getEntireRange" $
     it "Should return entire range" $ do
       putKeys
@@ -187,7 +191,7 @@ ranges testSS db = describe "range ops" $ do
   describe "Range selector" $ do
     it "returns reversed range when Reverse=True" $ do
       putKeys
-      result <- runTransaction db $ getEntireRange $ range { rangeReverse = True }
+      result <- runTransaction db $ getEntireRange $ range {rangeReverse = True}
       result `shouldBe` Seq.reverse kvs
     it "respects rangeLimit" $ do
       putKeys
@@ -195,8 +199,13 @@ ranges testSS db = describe "range ops" $ do
       result `shouldBe` Seq.take 5 kvs
     it "respects rangeLimit with reverse" $ do
       putKeys
-      result <- runTransaction db $ getEntireRange range { rangeLimit = Just 5
-                                                         , rangeReverse = True}
+      result <-
+        runTransaction db $
+          getEntireRange
+            range
+              { rangeLimit = Just 5,
+                rangeReverse = True
+              }
       result `shouldBe` Seq.take 5 (Seq.reverse kvs)
     it "excludes last key when using keyRange" $ do
       putKeys
@@ -242,12 +251,16 @@ ranges testSS db = describe "range ops" $ do
 
 streamingModes :: Subspace -> Database -> SpecWith ()
 streamingModes testSS db = do
-  let normalModes = [minBound .. pred StreamingModeExact]
-                    <> [succ StreamingModeExact .. maxBound]
+  let normalModes =
+        [minBound .. pred StreamingModeExact]
+          <> [succ StreamingModeExact .. maxBound]
   let rangeSS = SS.extend testSS [Bytes "rangetest2"]
-  let kvs = fromList @(Seq _) [ (SS.pack rangeSS [Int k], "a")
-                              | k <- [1..100]]
-  let putKeys = forM_ kvs $ \(k,v) -> runTransaction db $ set k v
+  let kvs =
+        fromList @(Seq _)
+          [ (SS.pack rangeSS [Int k], "a")
+            | k <- [1 .. 100]
+          ]
+  let putKeys = forM_ kvs $ \(k, v) -> runTransaction db $ set k v
   let range = subspaceRangeQuery rangeSS
   forM_ normalModes $ \mode -> describe (show mode) $
     it "Works as expected with getEntireRange'" $ do
@@ -261,8 +274,9 @@ streamingModes testSS db = do
       rr `shouldBe` Left (CError ExactModeWithoutLimits)
     it "Succeeds when range includes limit" $ do
       putKeys
-      rr <- runTransaction db
-            $ getEntireRange' StreamingModeExact range{rangeLimit = Just 10}
+      rr <-
+        runTransaction db $
+          getEntireRange' StreamingModeExact range {rangeLimit = Just 10}
       length rr `shouldBe` 10
 
 retries :: Subspace -> Database -> SpecWith ()
@@ -274,10 +288,11 @@ retries testSS db = describe "retry logic" $ do
     res `shouldSatisfy` isNotCommitted
   it "doesn't retry unretryable errors" $ do
     res <- runTransaction' db $ do
-      let bigk = BSL.toStrict $
-                 BS.toLazyByteString $
-                 foldMap BS.int8 $
-                 replicate (10^(6 :: Int)) 1
+      let bigk =
+            BSL.toStrict $
+              BS.toLazyByteString $
+                foldMap BS.int8 $
+                  replicate (10 ^ (6 :: Int)) 1
       set bigk "hi"
     res `shouldBe` Left (CError KeyTooLarge)
 
@@ -336,22 +351,23 @@ testGetConflictingKeys testSS db = describe "getConflictingKeys" $
     -- Run two transactions:
     -- t1 starts, tries to read k1, then waits to commit until after t2 commits.
     -- t2 starts, writes to k1, commits, then allows t1 to try to commit.
-    t1 <- async $ runTransactionWithConfig' config db $ do
-            -- Since we don't actually read, we need to explicitly get a
-            -- read version.
-            _ <- getReadVersion >>= await
-            addReadConflictKey k1
-            addWriteConflictKey k1
-            liftIO $ putMVar t1Started ()
-            liftIO $ takeMVar t2Finished
+    t1 <- async $
+      runTransactionWithConfig' config db $ do
+        -- Since we don't actually read, we need to explicitly get a
+        -- read version.
+        _ <- getReadVersion >>= await
+        addReadConflictKey k1
+        addWriteConflictKey k1
+        liftIO $ putMVar t1Started ()
+        liftIO $ takeMVar t2Finished
     _ <- takeMVar t1Started
     runTransaction db $ addWriteConflictKey k1
     putMVar t2Finished ()
     t1Result <- wait t1
     t1Result `shouldSatisfy` isNotCommitted
     if currentAPIVersion >= 630 && apiVersionInUse db >= 630
-       then do
-         let expectedRangeStart = k1
-         let expectedRangeEnd = BS.snoc k1 '\NUL'
-         getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]
-       else getConflicts t1Result `shouldBe` []
+      then do
+        let expectedRangeStart = k1
+        let expectedRangeEnd = BS.snoc k1 '\NUL'
+        getConflicts t1Result `shouldBe` [ConflictRange expectedRangeStart expectedRangeEnd]
+      else getConflicts t1Result `shouldBe` []
