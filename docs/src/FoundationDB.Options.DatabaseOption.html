@@ -1,54 +1,212 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
-</span><a name="line-2"></a><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
-</span><a name="line-4"></a><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
-</span><a name="line-6"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Options</span><span class="hs-operator">.</span><span class="hs-identifier">DatabaseOption</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-7"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Char8</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span>
-</span><a name="line-8"></a><span>
-</span><a name="line-9"></a><span class="hs-keyword">data</span><span> </span><a name="DatabaseOption"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier">DatabaseOption</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="DatabaseOptionString"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier">DatabaseOptionString</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">String</span><span>
-</span><a name="line-10"></a><span>                    </span><span class="hs-glyph">|</span><span> </span><a name="DatabaseOptionInt"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier">DatabaseOptionInt</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-11"></a><span>                    </span><span class="hs-glyph">|</span><span> </span><a name="DatabaseOptionBytes"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionBytes"><span class="hs-identifier">DatabaseOptionBytes</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-12"></a><span>                    </span><span class="hs-glyph">|</span><span> </span><a name="DatabaseOptionFlag"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier">DatabaseOptionFlag</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-13"></a><span>                        </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Read</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-14"></a><span>
-</span><a name="line-15"></a><span class="hs-comment">-- | Set the size of the client location cache. Raising this value can boost performance in very large databases where clients access data in a near-random pattern. Defaults to 100000.</span><span>
-</span><a name="line-16"></a><a name="locationCacheSize"><a href="FoundationDB.Options.DatabaseOption.html#locationCacheSize"><span class="hs-identifier">locationCacheSize</span></a></a><span> </span><a name="local-6989586621679030372"><a href="#local-6989586621679030372"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">10</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030372"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-17"></a><span>
-</span><a name="line-18"></a><span class="hs-comment">-- | Set the maximum number of watches allowed to be outstanding on a database connection. Increasing this number could result in increased resource usage. Reducing this number will not cancel any outstanding watches. Defaults to 10000 and cannot be larger than 1000000.</span><span>
-</span><a name="line-19"></a><a name="maxWatches"><a href="FoundationDB.Options.DatabaseOption.html#maxWatches"><span class="hs-identifier">maxWatches</span></a></a><span> </span><a name="local-6989586621679030373"><a href="#local-6989586621679030373"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">20</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030373"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-20"></a><span>
-</span><a name="line-21"></a><span class="hs-comment">-- | Specify the machine ID that was passed to fdbserver processes running on the same machine as this client, for better location-aware load balancing.</span><span>
-</span><a name="line-22"></a><a name="machineId"><a href="FoundationDB.Options.DatabaseOption.html#machineId"><span class="hs-identifier">machineId</span></a></a><span> </span><a name="local-6989586621679030374"><a href="#local-6989586621679030374"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier hs-var">DatabaseOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">21</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030374"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-23"></a><span>
-</span><a name="line-24"></a><span class="hs-comment">-- | Specify the datacenter ID that was passed to fdbserver processes running in the same datacenter as this client, for better location-aware load balancing.</span><span>
-</span><a name="line-25"></a><a name="datacenterId"><a href="FoundationDB.Options.DatabaseOption.html#datacenterId"><span class="hs-identifier">datacenterId</span></a></a><span> </span><a name="local-6989586621679030375"><a href="#local-6989586621679030375"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier hs-var">DatabaseOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">22</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030375"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-26"></a><span>
-</span><a name="line-27"></a><span class="hs-comment">-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.</span><span>
-</span><a name="line-28"></a><a name="snapshotRywEnable"><a href="FoundationDB.Options.DatabaseOption.html#snapshotRywEnable"><span class="hs-identifier">snapshotRywEnable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">26</span><span class="hs-special">)</span><span>
-</span><a name="line-29"></a><span>
-</span><a name="line-30"></a><span class="hs-comment">-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.</span><span>
-</span><a name="line-31"></a><a name="snapshotRywDisable"><a href="FoundationDB.Options.DatabaseOption.html#snapshotRywDisable"><span class="hs-identifier">snapshotRywDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">27</span><span class="hs-special">)</span><span>
-</span><a name="line-32"></a><span>
-</span><a name="line-33"></a><span class="hs-comment">-- | Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option. This sets the ``transaction_logging_max_field_length`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
-</span><a name="line-34"></a><a name="transactionLoggingMaxFieldLength"><a href="FoundationDB.Options.DatabaseOption.html#transactionLoggingMaxFieldLength"><span class="hs-identifier">transactionLoggingMaxFieldLength</span></a></a><span> </span><a name="local-6989586621679030376"><a href="#local-6989586621679030376"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">405</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030376"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-35"></a><span>
-</span><a name="line-36"></a><span class="hs-comment">-- | Set a timeout in milliseconds which, when elapsed, will cause each transaction automatically to be cancelled. This sets the ``timeout`` option of each transaction created by this database. See the transaction option description for more information. Using this option requires that the API version is 610 or higher.</span><span>
-</span><a name="line-37"></a><a name="transactionTimeout"><a href="FoundationDB.Options.DatabaseOption.html#transactionTimeout"><span class="hs-identifier">transactionTimeout</span></a></a><span> </span><a name="local-6989586621679030377"><a href="#local-6989586621679030377"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">500</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030377"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-38"></a><span>
-</span><a name="line-39"></a><span class="hs-comment">-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
-</span><a name="line-40"></a><a name="transactionRetryLimit"><a href="FoundationDB.Options.DatabaseOption.html#transactionRetryLimit"><span class="hs-identifier">transactionRetryLimit</span></a></a><span> </span><a name="local-6989586621679030378"><a href="#local-6989586621679030378"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">501</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030378"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-41"></a><span>
-</span><a name="line-42"></a><span class="hs-comment">-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. This sets the ``max_retry_delay`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
-</span><a name="line-43"></a><a name="transactionMaxRetryDelay"><a href="FoundationDB.Options.DatabaseOption.html#transactionMaxRetryDelay"><span class="hs-identifier">transactionMaxRetryDelay</span></a></a><span> </span><a name="local-6989586621679030379"><a href="#local-6989586621679030379"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">502</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030379"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-44"></a><span>
-</span><a name="line-45"></a><span class="hs-comment">-- | Set the maximum transaction size in bytes. This sets the ``size_limit`` option on each transaction created by this database. See the transaction option description for more information.</span><span>
-</span><a name="line-46"></a><a name="transactionSizeLimit"><a href="FoundationDB.Options.DatabaseOption.html#transactionSizeLimit"><span class="hs-identifier">transactionSizeLimit</span></a></a><span> </span><a name="local-6989586621679030380"><a href="#local-6989586621679030380"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">503</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679030380"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-47"></a><span>
-</span><a name="line-48"></a><span class="hs-comment">-- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.</span><span>
-</span><a name="line-49"></a><a name="transactionCausalReadRisky"><a href="FoundationDB.Options.DatabaseOption.html#transactionCausalReadRisky"><span class="hs-identifier">transactionCausalReadRisky</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">504</span><span class="hs-special">)</span><span>
-</span><a name="line-50"></a><span>
-</span><a name="line-51"></a><span class="hs-comment">-- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.</span><span>
-</span><a name="line-52"></a><a name="transactionIncludePortInAddress"><a href="FoundationDB.Options.DatabaseOption.html#transactionIncludePortInAddress"><span class="hs-identifier">transactionIncludePortInAddress</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">505</span><span class="hs-special">)</span><span>
-</span><a name="line-53"></a><span>
-</span><a name="line-54"></a></pre></body></html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_HYEuww4DCzM34gO7HC5gw9"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Options.DatabaseOption</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">data</span><span> </span><span id="DatabaseOption"><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier hs-var">DatabaseOption</span></a></span></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="DatabaseOptionString"><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier hs-var">DatabaseOptionString</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DatabaseOptionInt"><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DatabaseOptionBytes"><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionBytes"><span class="hs-identifier hs-var">DatabaseOptionBytes</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DatabaseOptionFlag"><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679268861"><span id="local-6989586621679268863"><span id="local-6989586621679268865"><span class="annot"><span class="annottext">Int -&gt; DatabaseOption -&gt; ShowS
+[DatabaseOption] -&gt; ShowS
+DatabaseOption -&gt; String
+(Int -&gt; DatabaseOption -&gt; ShowS)
+-&gt; (DatabaseOption -&gt; String)
+-&gt; ([DatabaseOption] -&gt; ShowS)
+-&gt; Show DatabaseOption
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [DatabaseOption] -&gt; ShowS
+$cshowList :: [DatabaseOption] -&gt; ShowS
+show :: DatabaseOption -&gt; String
+$cshow :: DatabaseOption -&gt; String
+showsPrec :: Int -&gt; DatabaseOption -&gt; ShowS
+$cshowsPrec :: Int -&gt; DatabaseOption -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679268852"><span id="local-6989586621679268854"><span id="local-6989586621679268856"><span id="local-6989586621679268858"><span class="annot"><span class="annottext">ReadPrec [DatabaseOption]
+ReadPrec DatabaseOption
+Int -&gt; ReadS DatabaseOption
+ReadS [DatabaseOption]
+(Int -&gt; ReadS DatabaseOption)
+-&gt; ReadS [DatabaseOption]
+-&gt; ReadPrec DatabaseOption
+-&gt; ReadPrec [DatabaseOption]
+-&gt; Read DatabaseOption
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [DatabaseOption]
+$creadListPrec :: ReadPrec [DatabaseOption]
+readPrec :: ReadPrec DatabaseOption
+$creadPrec :: ReadPrec DatabaseOption
+readList :: ReadS [DatabaseOption]
+$creadList :: ReadS [DatabaseOption]
+readsPrec :: Int -&gt; ReadS DatabaseOption
+$creadsPrec :: Int -&gt; ReadS DatabaseOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679268847"><span id="local-6989586621679268849"><span class="annot"><span class="annottext">DatabaseOption -&gt; DatabaseOption -&gt; Bool
+(DatabaseOption -&gt; DatabaseOption -&gt; Bool)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Bool) -&gt; Eq DatabaseOption
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c/= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+== :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c== :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679268831"><span id="local-6989586621679268833"><span id="local-6989586621679268835"><span id="local-6989586621679268837"><span id="local-6989586621679268839"><span id="local-6989586621679268841"><span id="local-6989586621679268843"><span class="annot"><span class="annottext">Eq DatabaseOption
+Eq DatabaseOption
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Ordering)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Bool)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Bool)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Bool)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; Bool)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption)
+-&gt; (DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption)
+-&gt; Ord DatabaseOption
+DatabaseOption -&gt; DatabaseOption -&gt; Bool
+DatabaseOption -&gt; DatabaseOption -&gt; Ordering
+DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption
+$cmin :: DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption
+max :: DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption
+$cmax :: DatabaseOption -&gt; DatabaseOption -&gt; DatabaseOption
+&gt;= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c&gt;= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+&gt; :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c&gt; :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+&lt;= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c&lt;= :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+&lt; :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+$c&lt; :: DatabaseOption -&gt; DatabaseOption -&gt; Bool
+compare :: DatabaseOption -&gt; DatabaseOption -&gt; Ordering
+$ccompare :: DatabaseOption -&gt; DatabaseOption -&gt; Ordering
+$cp1Ord :: Eq DatabaseOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- | Set the size of the client location cache. Raising this value can boost performance in very large databases where clients access data in a near-random pattern. Defaults to 100000.</span><span>
+</span><span id="line-19"></span><span id="locationCacheSize"><span class="annot"><span class="annottext">locationCacheSize :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#locationCacheSize"><span class="hs-identifier hs-var hs-var">locationCacheSize</span></a></span></span><span> </span><span id="local-6989586621679268828"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268828"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268828"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- | Set the maximum number of watches allowed to be outstanding on a database connection. Increasing this number could result in increased resource usage. Reducing this number will not cancel any outstanding watches. Defaults to 10000 and cannot be larger than 1000000.</span><span>
+</span><span id="line-22"></span><span id="maxWatches"><span class="annot"><span class="annottext">maxWatches :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#maxWatches"><span class="hs-identifier hs-var hs-var">maxWatches</span></a></span></span><span> </span><span id="local-6989586621679268826"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268826"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">20</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268826"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | Specify the machine ID that was passed to fdbserver processes running on the same machine as this client, for better location-aware load balancing.</span><span>
+</span><span id="line-25"></span><span id="machineId"><span class="annot"><span class="annottext">machineId :: String -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#machineId"><span class="hs-identifier hs-var hs-var">machineId</span></a></span></span><span> </span><span id="local-6989586621679268824"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268824"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier hs-var">DatabaseOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">21</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268824"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | Specify the datacenter ID that was passed to fdbserver processes running in the same datacenter as this client, for better location-aware load balancing.</span><span>
+</span><span id="line-28"></span><span id="datacenterId"><span class="annot"><span class="annottext">datacenterId :: String -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#datacenterId"><span class="hs-identifier hs-var hs-var">datacenterId</span></a></span></span><span> </span><span id="local-6989586621679268822"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268822"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionString"><span class="hs-identifier hs-var">DatabaseOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">22</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268822"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.</span><span>
+</span><span id="line-31"></span><span id="snapshotRywEnable"><span class="annot"><span class="annottext">snapshotRywEnable :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#snapshotRywEnable"><span class="hs-identifier hs-var hs-var">snapshotRywEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">26</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.</span><span>
+</span><span id="line-34"></span><span id="snapshotRywDisable"><span class="annot"><span class="annottext">snapshotRywDisable :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#snapshotRywDisable"><span class="hs-identifier hs-var hs-var">snapshotRywDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">27</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option. This sets the ``transaction_logging_max_field_length`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
+</span><span id="line-37"></span><span id="transactionLoggingMaxFieldLength"><span class="annot"><span class="annottext">transactionLoggingMaxFieldLength :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionLoggingMaxFieldLength"><span class="hs-identifier hs-var hs-var">transactionLoggingMaxFieldLength</span></a></span></span><span> </span><span id="local-6989586621679268818"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268818"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">405</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268818"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- | Set a timeout in milliseconds which, when elapsed, will cause each transaction automatically to be cancelled. This sets the ``timeout`` option of each transaction created by this database. See the transaction option description for more information. Using this option requires that the API version is 610 or higher.</span><span>
+</span><span id="line-40"></span><span id="transactionTimeout"><span class="annot"><span class="annottext">transactionTimeout :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionTimeout"><span class="hs-identifier hs-var hs-var">transactionTimeout</span></a></span></span><span> </span><span id="local-6989586621679268816"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268816"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">500</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268816"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. This sets the ``retry_limit`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
+</span><span id="line-43"></span><span id="transactionRetryLimit"><span class="annot"><span class="annottext">transactionRetryLimit :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionRetryLimit"><span class="hs-identifier hs-var hs-var">transactionRetryLimit</span></a></span></span><span> </span><span id="local-6989586621679268814"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268814"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">501</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268814"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. This sets the ``max_retry_delay`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
+</span><span id="line-46"></span><span id="transactionMaxRetryDelay"><span class="annot"><span class="annottext">transactionMaxRetryDelay :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionMaxRetryDelay"><span class="hs-identifier hs-var hs-var">transactionMaxRetryDelay</span></a></span></span><span> </span><span id="local-6989586621679268812"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268812"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">502</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268812"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Set the maximum transaction size in bytes. This sets the ``size_limit`` option on each transaction created by this database. See the transaction option description for more information.</span><span>
+</span><span id="line-49"></span><span id="transactionSizeLimit"><span class="annot"><span class="annottext">transactionSizeLimit :: Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionSizeLimit"><span class="hs-identifier hs-var hs-var">transactionSizeLimit</span></a></span></span><span> </span><span id="local-6989586621679268810"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268810"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionInt"><span class="hs-identifier hs-var">DatabaseOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">503</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268810"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.</span><span>
+</span><span id="line-52"></span><span id="transactionCausalReadRisky"><span class="annot"><span class="annottext">transactionCausalReadRisky :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionCausalReadRisky"><span class="hs-identifier hs-var hs-var">transactionCausalReadRisky</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">504</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Deprecated. Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.</span><span>
+</span><span id="line-55"></span><span id="transactionIncludePortInAddress"><span class="annot"><span class="annottext">transactionIncludePortInAddress :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionIncludePortInAddress"><span class="hs-identifier hs-var hs-var">transactionIncludePortInAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">505</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. This sets the ``bypass_unreadable`` option of each transaction created by this database. See the transaction option description for more information.</span><span>
+</span><span id="line-58"></span><span id="transactionBypassUnreadable"><span class="annot"><span class="annottext">transactionBypassUnreadable :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#transactionBypassUnreadable"><span class="hs-identifier hs-var hs-var">transactionBypassUnreadable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">700</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Use configuration database.</span><span>
+</span><span id="line-61"></span><span id="useConfigDatabase"><span class="annot"><span class="annottext">useConfigDatabase :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#useConfigDatabase"><span class="hs-identifier hs-var hs-var">useConfigDatabase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">800</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | An integer between 0 and 100 (default is 0) expressing the probability that a client will verify it can't read stale data whenever it detects a recovery.</span><span>
+</span><span id="line-64"></span><span id="testCausalReadRisky"><span class="annot"><span class="annottext">testCausalReadRisky :: DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#testCausalReadRisky"><span class="hs-identifier hs-var hs-var">testCausalReadRisky</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; DatabaseOption
+</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOptionFlag"><span class="hs-identifier hs-var">DatabaseOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">900</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span></pre></body></html>

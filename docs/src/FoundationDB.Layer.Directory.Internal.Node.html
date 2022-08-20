@@ -1,27 +1,126 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
-</span><a name="line-2"></a><span>
-</span><a name="line-3"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Node</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-4"></a><span>
-</span><a name="line-5"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span>
-</span><a name="line-6"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Text</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Text</span><span class="hs-special">)</span><span>
-</span><a name="line-7"></a><span>
-</span><a name="line-8"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.html"><span class="hs-identifier">FoundationDB</span></a><span>
-</span><a name="line-9"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.Error.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Directory</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span></a><span>
-</span><a name="line-10"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Subspace.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Subspace</span></a><span>
-</span><a name="line-11"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Tuple.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Tuple</span></a><span>
-</span><a name="line-12"></a><span>
-</span><a name="line-13"></a><span class="hs-comment">-- | Represents the result of searching for a node with 'find'.</span><span>
-</span><a name="line-14"></a><span class="hs-keyword">data</span><span> </span><a name="FoundNode"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier">FoundNode</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FoundNode"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier">FoundNode</span></a></a><span>
-</span><a name="line-15"></a><span>  </span><span class="hs-special">{</span><span> </span><a name="nodeNodeSS"><a href="FoundationDB.Layer.Directory.Internal.Node.html#nodeNodeSS"><span class="hs-identifier">nodeNodeSS</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-16"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="nodePath"><a href="FoundationDB.Layer.Directory.Internal.Node.html#nodePath"><span class="hs-identifier">nodePath</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-identifier hs-type">Text</span><span class="hs-special">]</span><span>
-</span><a name="line-17"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="targetPath"><a href="FoundationDB.Layer.Directory.Internal.Node.html#targetPath"><span class="hs-identifier">targetPath</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-identifier hs-type">Text</span><span class="hs-special">]</span><span>
-</span><a name="line-18"></a><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-19"></a><span>
-</span><a name="line-20"></a><span class="hs-identifier">getFoundNodeLayer</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-type">FoundNode</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Transaction.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-21"></a><a name="getFoundNodeLayer"><a href="FoundationDB.Layer.Directory.Internal.Node.html#getFoundNodeLayer"><span class="hs-identifier">getFoundNodeLayer</span></a></a><span> </span><a name="local-6989586621679102291"><a href="#local-6989586621679102291"><span class="hs-identifier">n</span></a></a><span class="hs-glyph">@</span><span class="hs-special">(</span><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-var">FoundNode</span></a><span> </span><a name="local-6989586621679102292"><a href="#local-6989586621679102292"><span class="hs-identifier">ss</span></a></a><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-22"></a><span>  </span><a name="local-6989586621679102293"><a href="#local-6989586621679102293"><span class="hs-identifier">fv</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="FoundationDB.Transaction.html#get"><span class="hs-identifier hs-var">get</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var">pack</span></a><span> </span><a href="#local-6989586621679102292"><span class="hs-identifier hs-var">ss</span></a><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Bytes"><span class="hs-identifier hs-var">Bytes</span></a><span> </span><span class="hs-string">&quot;layer&quot;</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-operator hs-var">&gt;&gt;=</span><span> </span><a href="FoundationDB.Transaction.html#await"><span class="hs-identifier hs-var">await</span></a><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-keyword">case</span><span> </span><a href="#local-6989586621679102293"><span class="hs-identifier hs-var">fv</span></a><span> </span><span class="hs-keyword">of</span><span>
-</span><a name="line-24"></a><span>    </span><span class="hs-identifier hs-var">Nothing</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Layer.Directory.Internal.Error.html#throwDirInternalError"><span class="hs-identifier hs-var">throwDirInternalError</span></a><span>
-</span><a name="line-25"></a><span>                 </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-string">&quot;Failed to get node layer for node &quot;</span><span> </span><span class="hs-operator hs-var">++</span><span> </span><span class="hs-identifier hs-var">show</span><span> </span><a href="#local-6989586621679102291"><span class="hs-identifier hs-var">n</span></a><span>
-</span><a name="line-26"></a><span>    </span><span class="hs-identifier hs-var">Just</span><span> </span><a name="local-6989586621679102294"><a href="#local-6989586621679102294"><span class="hs-identifier">l</span></a></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><a href="#local-6989586621679102294"><span class="hs-identifier hs-var">l</span></a><span>
-</span><a name="line-27"></a></pre></body></html>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Layer.Directory.Internal.Node</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.html"><span class="hs-identifier">FoundationDB</span></a></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Error.html"><span class="hs-identifier">FoundationDB.Layer.Directory.Internal.Error</span></a></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html"><span class="hs-identifier">FoundationDB.Layer.Subspace</span></a></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Tuple.html"><span class="hs-identifier">FoundationDB.Layer.Tuple</span></a></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- | Represents the result of searching for a node with 'find'.</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">data</span><span> </span><span id="FoundNode"><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-var">FoundNode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FoundNode"><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-var">FoundNode</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="nodeNodeSS"><span class="annot"><span class="annottext">FoundNode -&gt; Subspace
+</span><a href="FoundationDB.Layer.Directory.Internal.Node.html#nodeNodeSS"><span class="hs-identifier hs-var hs-var">nodeNodeSS</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>    </span><span id="nodePath"><span class="annot"><span class="annottext">FoundNode -&gt; [Text]
+</span><a href="FoundationDB.Layer.Directory.Internal.Node.html#nodePath"><span class="hs-identifier hs-var hs-var">nodePath</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>    </span><span id="targetPath"><span class="annot"><span class="annottext">FoundNode -&gt; [Text]
+</span><a href="FoundationDB.Layer.Directory.Internal.Node.html#targetPath"><span class="hs-identifier hs-var hs-var">targetPath</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679273035"><span id="local-6989586621679273037"><span id="local-6989586621679273039"><span class="annot"><span class="annottext">Int -&gt; FoundNode -&gt; ShowS
+[FoundNode] -&gt; ShowS
+FoundNode -&gt; String
+(Int -&gt; FoundNode -&gt; ShowS)
+-&gt; (FoundNode -&gt; String)
+-&gt; ([FoundNode] -&gt; ShowS)
+-&gt; Show FoundNode
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [FoundNode] -&gt; ShowS
+$cshowList :: [FoundNode] -&gt; ShowS
+show :: FoundNode -&gt; String
+$cshow :: FoundNode -&gt; String
+showsPrec :: Int -&gt; FoundNode -&gt; ShowS
+$cshowsPrec :: Int -&gt; FoundNode -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679273030"><span id="local-6989586621679273032"><span class="annot"><span class="annottext">FoundNode -&gt; FoundNode -&gt; Bool
+(FoundNode -&gt; FoundNode -&gt; Bool)
+-&gt; (FoundNode -&gt; FoundNode -&gt; Bool) -&gt; Eq FoundNode
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: FoundNode -&gt; FoundNode -&gt; Bool
+$c/= :: FoundNode -&gt; FoundNode -&gt; Bool
+== :: FoundNode -&gt; FoundNode -&gt; Bool
+$c== :: FoundNode -&gt; FoundNode -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679273014"><span id="local-6989586621679273016"><span id="local-6989586621679273018"><span id="local-6989586621679273020"><span id="local-6989586621679273022"><span id="local-6989586621679273024"><span id="local-6989586621679273026"><span class="annot"><span class="annottext">Eq FoundNode
+Eq FoundNode
+-&gt; (FoundNode -&gt; FoundNode -&gt; Ordering)
+-&gt; (FoundNode -&gt; FoundNode -&gt; Bool)
+-&gt; (FoundNode -&gt; FoundNode -&gt; Bool)
+-&gt; (FoundNode -&gt; FoundNode -&gt; Bool)
+-&gt; (FoundNode -&gt; FoundNode -&gt; Bool)
+-&gt; (FoundNode -&gt; FoundNode -&gt; FoundNode)
+-&gt; (FoundNode -&gt; FoundNode -&gt; FoundNode)
+-&gt; Ord FoundNode
+FoundNode -&gt; FoundNode -&gt; Bool
+FoundNode -&gt; FoundNode -&gt; Ordering
+FoundNode -&gt; FoundNode -&gt; FoundNode
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: FoundNode -&gt; FoundNode -&gt; FoundNode
+$cmin :: FoundNode -&gt; FoundNode -&gt; FoundNode
+max :: FoundNode -&gt; FoundNode -&gt; FoundNode
+$cmax :: FoundNode -&gt; FoundNode -&gt; FoundNode
+&gt;= :: FoundNode -&gt; FoundNode -&gt; Bool
+$c&gt;= :: FoundNode -&gt; FoundNode -&gt; Bool
+&gt; :: FoundNode -&gt; FoundNode -&gt; Bool
+$c&gt; :: FoundNode -&gt; FoundNode -&gt; Bool
+&lt;= :: FoundNode -&gt; FoundNode -&gt; Bool
+$c&lt;= :: FoundNode -&gt; FoundNode -&gt; Bool
+&lt; :: FoundNode -&gt; FoundNode -&gt; Bool
+$c&lt; :: FoundNode -&gt; FoundNode -&gt; Bool
+compare :: FoundNode -&gt; FoundNode -&gt; Ordering
+$ccompare :: FoundNode -&gt; FoundNode -&gt; Ordering
+$cp1Ord :: Eq FoundNode
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Node.html#getFoundNodeLayer"><span class="hs-identifier hs-type">getFoundNodeLayer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-type">FoundNode</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="FoundationDB.Transaction.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-21"></span><span id="getFoundNodeLayer"><span class="annot"><span class="annottext">getFoundNodeLayer :: FoundNode -&gt; Transaction ByteString
+</span><a href="FoundationDB.Layer.Directory.Internal.Node.html#getFoundNodeLayer"><span class="hs-identifier hs-var hs-var">getFoundNodeLayer</span></a></span></span><span> </span><span id="local-6989586621679273011"><span class="annot"><span class="annottext">n :: FoundNode
+</span><a href="#local-6989586621679273011"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Layer.Directory.Internal.Node.html#FoundNode"><span class="hs-identifier hs-type">FoundNode</span></a></span><span> </span><span id="local-6989586621679273010"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679273010"><span class="hs-identifier hs-var">ss</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-22"></span><span>  </span><span id="local-6989586621679273009"><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679273009"><span class="hs-identifier hs-var">fv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Transaction (Future (Maybe ByteString))
+</span><a href="FoundationDB.Transaction.html#get"><span class="hs-identifier hs-var">get</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Subspace -&gt; [Elem] -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var">pack</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679273010"><span class="hs-identifier hs-var">ss</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">ByteString -&gt; Elem
+</span><a href="FoundationDB.Layer.Tuple.Internal.html#Bytes"><span class="hs-identifier hs-var">Bytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><span class="hs-string">&quot;layer&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Transaction (Future (Maybe ByteString))
+-&gt; (Future (Maybe ByteString) -&gt; Transaction (Maybe ByteString))
+-&gt; Transaction (Maybe ByteString)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Future (Maybe ByteString) -&gt; Transaction (Maybe ByteString)
+forall a. Future a -&gt; Transaction a
+</span><a href="FoundationDB.Transaction.html#await"><span class="hs-identifier hs-var">await</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
+</span><a href="#local-6989586621679273009"><span class="hs-identifier hs-var">fv</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">Maybe ByteString
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-25"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; Transaction ByteString
+forall a. String -&gt; Transaction a
+</span><a href="FoundationDB.Layer.Directory.Internal.Error.html#throwDirInternalError"><span class="hs-identifier hs-var">throwDirInternalError</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Transaction ByteString)
+-&gt; String -&gt; Transaction ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-26"></span><span>        </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;Failed to get node layer for node &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">FoundNode -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">FoundNode
+</span><a href="#local-6989586621679273011"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621679273002"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679273002"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Transaction ByteString
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679273002"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-28"></span></pre></body></html>

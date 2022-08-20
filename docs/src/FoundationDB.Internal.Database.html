@@ -1,42 +1,151 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Database</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-2"></a><span>  </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
-</span><a name="line-3"></a><span>  </span><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier hs-var">defaultOptions</span></a><span class="hs-special">,</span><span>
-</span><a name="line-4"></a><span>  </span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
-</span><a name="line-5"></a><span>  </span><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier hs-var">apiVersionInUse</span></a><span>
-</span><a name="line-6"></a><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-7"></a><span>
-</span><a name="line-8"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="FoundationDB.Internal.Bindings.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Bindings</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">FDB</span><span>
-</span><a name="line-9"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Options.DatabaseOption.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Options</span><span class="hs-operator">.</span><span class="hs-identifier">DatabaseOption</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier hs-type">DatabaseOption</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-10"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Options.NetworkOption.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Options</span><span class="hs-operator">.</span><span class="hs-identifier">NetworkOption</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier hs-type">NetworkOption</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-11"></a><span>
-</span><a name="line-12"></a><span class="hs-comment">-- | Options set at the connection level for FoundationDB.</span><span>
-</span><a name="line-13"></a><span class="hs-keyword">data</span><span> </span><a name="FoundationDBOptions"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier">FoundationDBOptions</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="FoundationDBOptions"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier">FoundationDBOptions</span></a></a><span>
-</span><a name="line-14"></a><span>  </span><span class="hs-special">{</span><span> </span><a name="apiVersion"><a href="FoundationDB.Internal.Database.html#apiVersion"><span class="hs-identifier">apiVersion</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-15"></a><span>    </span><span class="hs-comment">-- ^ Desired API version. See 'currentAPIVersion' for the latest</span><span>
-</span><a name="line-16"></a><span>    </span><span class="hs-comment">-- version installed on your system. The C API (and this library) allow you</span><span>
-</span><a name="line-17"></a><span>    </span><span class="hs-comment">-- to choose any version earlier than 'currentAPIVersion' to get the client</span><span>
-</span><a name="line-18"></a><span>    </span><span class="hs-comment">-- behavior of that version of the FoundationDB client library.</span><span>
-</span><a name="line-19"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="clusterFile"><a href="FoundationDB.Internal.Database.html#clusterFile"><span class="hs-identifier">clusterFile</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Maybe</span><span> </span><span class="hs-identifier hs-type">FilePath</span><span>
-</span><a name="line-20"></a><span>  </span><span class="hs-comment">-- ^ Path to your @fdb.cluster@ file. If 'Nothing', uses</span><span>
-</span><a name="line-21"></a><span>  </span><span class="hs-comment">-- default location.</span><span>
-</span><a name="line-22"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="networkOptions"><a href="FoundationDB.Internal.Database.html#networkOptions"><span class="hs-identifier">networkOptions</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier hs-type">NetworkOption</span></a><span class="hs-special">]</span><span>
-</span><a name="line-23"></a><span>  </span><span class="hs-comment">-- ^ Additional network options. Each will be set in order.</span><span>
-</span><a name="line-24"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="databaseOptions"><a href="FoundationDB.Internal.Database.html#databaseOptions"><span class="hs-identifier">databaseOptions</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier hs-type">DatabaseOption</span></a><span class="hs-special">]</span><span>
-</span><a name="line-25"></a><span>  </span><span class="hs-comment">-- ^ Additional database options. Each will be set in order.</span><span>
-</span><a name="line-26"></a><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-27"></a><span>
-</span><a name="line-28"></a><span class="hs-comment">-- | Uses the current API version, the default cluster file location, and no</span><span>
-</span><a name="line-29"></a><span class="hs-comment">-- additional options.</span><span>
-</span><a name="line-30"></a><span class="hs-identifier">defaultOptions</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span>
-</span><a name="line-31"></a><a name="defaultOptions"><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier">defaultOptions</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a><span> </span><a href="FoundationDB.Internal.Bindings.html#currentAPIVersion"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">currentAPIVersion</span></a><span> </span><span class="hs-identifier hs-var">Nothing</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><a name="line-32"></a><span>
-</span><a name="line-33"></a><span class="hs-keyword">data</span><span> </span><a name="Database"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier">Database</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="Database"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier">Database</span></a></a><span>
-</span><a name="line-34"></a><span>  </span><span class="hs-special">{</span><span> </span><a name="databasePtr"><a href="FoundationDB.Internal.Database.html#databasePtr"><span class="hs-identifier">databasePtr</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Bindings.html#DatabasePtr"><span class="hs-identifier hs-type">FDB</span><span class="hs-operator hs-type">.</span><span class="hs-identifier hs-type">DatabasePtr</span></a><span>
-</span><a name="line-35"></a><span>  </span><span class="hs-special">,</span><span> </span><a name="databaseFoundationDBOptions"><a href="FoundationDB.Internal.Database.html#databaseFoundationDBOptions"><span class="hs-identifier">databaseFoundationDBOptions</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span>
-</span><a name="line-36"></a><span>  </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">)</span><span>
-</span><a name="line-37"></a><span>
-</span><a name="line-38"></a><span class="hs-comment">-- | Returns the API version that was specified in the 'apiVersion' field when</span><span>
-</span><a name="line-39"></a><span class="hs-comment">-- the FDB client was initialized.</span><span>
-</span><a name="line-40"></a><span class="hs-identifier">apiVersionInUse</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-41"></a><a name="apiVersionInUse"><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier">apiVersionInUse</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">apiVersion</span><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier">databaseFoundationDBOptions</span><span>
-</span><a name="line-42"></a></pre></body></html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Internal.Database</span><span>
+</span><span id="line-2"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier">FoundationDBOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-3"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier">defaultOptions</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-4"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier">Database</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-5"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier">apiVersionInUse</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Bindings.html"><span class="hs-identifier">FoundationDB.Internal.Bindings</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FDB</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html"><span class="hs-identifier">FoundationDB.Options.DatabaseOption</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier">DatabaseOption</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Options.NetworkOption.html"><span class="hs-identifier">FoundationDB.Options.NetworkOption</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier">NetworkOption</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- | Options set at the connection level for FoundationDB.</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">data</span><span> </span><span id="FoundationDBOptions"><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FoundationDBOptions"><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a></span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">{</span><span> </span><span class="hs-comment">-- | Desired API version. See 'currentAPIVersion' for the latest</span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-comment">-- version installed on your system. The C API (and this library) allow you</span><span>
+</span><span id="line-17"></span><span>    </span><span class="hs-comment">-- to choose any version earlier than 'currentAPIVersion' to get the client</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-comment">-- behavior of that version of the FoundationDB client library.</span><span>
+</span><span id="line-19"></span><span>    </span><span id="apiVersion"><span class="annot"><span class="annottext">FoundationDBOptions -&gt; Int
+</span><a href="FoundationDB.Internal.Database.html#apiVersion"><span class="hs-identifier hs-var hs-var">apiVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-comment">-- | Path to your @fdb.cluster@ file. If 'Nothing', uses</span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-comment">-- default location.</span><span>
+</span><span id="line-22"></span><span>    </span><span id="clusterFile"><span class="annot"><span class="annottext">FoundationDBOptions -&gt; Maybe FilePath
+</span><a href="FoundationDB.Internal.Database.html#clusterFile"><span class="hs-identifier hs-var hs-var">clusterFile</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>    </span><span class="hs-comment">-- | Additional network options. Each will be set in order.</span><span>
+</span><span id="line-24"></span><span>    </span><span id="networkOptions"><span class="annot"><span class="annottext">FoundationDBOptions -&gt; [NetworkOption]
+</span><a href="FoundationDB.Internal.Database.html#networkOptions"><span class="hs-identifier hs-var hs-var">networkOptions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier hs-type">NetworkOption</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>    </span><span class="hs-comment">-- | Additional database options. Each will be set in order.</span><span>
+</span><span id="line-26"></span><span>    </span><span id="databaseOptions"><span class="annot"><span class="annottext">FoundationDBOptions -&gt; [DatabaseOption]
+</span><a href="FoundationDB.Internal.Database.html#databaseOptions"><span class="hs-identifier hs-var hs-var">databaseOptions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Options.DatabaseOption.html#DatabaseOption"><span class="hs-identifier hs-type">DatabaseOption</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679270433"><span id="local-6989586621679270435"><span id="local-6989586621679270437"><span class="annot"><span class="annottext">Int -&gt; FoundationDBOptions -&gt; ShowS
+[FoundationDBOptions] -&gt; ShowS
+FoundationDBOptions -&gt; FilePath
+(Int -&gt; FoundationDBOptions -&gt; ShowS)
+-&gt; (FoundationDBOptions -&gt; FilePath)
+-&gt; ([FoundationDBOptions] -&gt; ShowS)
+-&gt; Show FoundationDBOptions
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; FilePath) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [FoundationDBOptions] -&gt; ShowS
+$cshowList :: [FoundationDBOptions] -&gt; ShowS
+show :: FoundationDBOptions -&gt; FilePath
+$cshow :: FoundationDBOptions -&gt; FilePath
+showsPrec :: Int -&gt; FoundationDBOptions -&gt; ShowS
+$cshowsPrec :: Int -&gt; FoundationDBOptions -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679270428"><span id="local-6989586621679270430"><span class="annot"><span class="annottext">FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+(FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; Eq FoundationDBOptions
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c/= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+== :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c== :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679270412"><span id="local-6989586621679270414"><span id="local-6989586621679270416"><span id="local-6989586621679270418"><span id="local-6989586621679270420"><span id="local-6989586621679270422"><span id="local-6989586621679270424"><span class="annot"><span class="annottext">Eq FoundationDBOptions
+Eq FoundationDBOptions
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Ordering)
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; (FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool)
+-&gt; (FoundationDBOptions
+    -&gt; FoundationDBOptions -&gt; FoundationDBOptions)
+-&gt; (FoundationDBOptions
+    -&gt; FoundationDBOptions -&gt; FoundationDBOptions)
+-&gt; Ord FoundationDBOptions
+FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+FoundationDBOptions -&gt; FoundationDBOptions -&gt; Ordering
+FoundationDBOptions -&gt; FoundationDBOptions -&gt; FoundationDBOptions
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; FoundationDBOptions
+$cmin :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; FoundationDBOptions
+max :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; FoundationDBOptions
+$cmax :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; FoundationDBOptions
+&gt;= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c&gt;= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+&gt; :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c&gt; :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+&lt;= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c&lt;= :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+&lt; :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+$c&lt; :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Bool
+compare :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Ordering
+$ccompare :: FoundationDBOptions -&gt; FoundationDBOptions -&gt; Ordering
+$cp1Ord :: Eq FoundationDBOptions
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | Uses the current API version, the default cluster file location, and no</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- additional options.</span><span>
+</span><span id="line-32"></span><span class="annot"><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier hs-type">defaultOptions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span>
+</span><span id="line-33"></span><span id="defaultOptions"><span class="annot"><span class="annottext">defaultOptions :: FoundationDBOptions
+</span><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier hs-var hs-var">defaultOptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Maybe FilePath
+-&gt; [NetworkOption]
+-&gt; [DatabaseOption]
+-&gt; FoundationDBOptions
+</span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="FoundationDB.Internal.Bindings.html#currentAPIVersion"><span class="hs-identifier hs-var">FDB.currentAPIVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">data</span><span> </span><span id="Database"><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Database"><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a></span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="databasePtr"><span class="annot"><span class="annottext">Database -&gt; DatabasePtr
+</span><a href="FoundationDB.Internal.Database.html#databasePtr"><span class="hs-identifier hs-var hs-var">databasePtr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Bindings.html#DatabasePtr"><span class="hs-identifier hs-type">FDB.DatabasePtr</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>    </span><span id="databaseFoundationDBOptions"><span class="annot"><span class="annottext">Database -&gt; FoundationDBOptions
+</span><a href="FoundationDB.Internal.Database.html#databaseFoundationDBOptions"><span class="hs-identifier hs-var hs-var">databaseFoundationDBOptions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679270401"><span id="local-6989586621679270403"><span id="local-6989586621679270405"><span class="annot"><span class="annottext">Int -&gt; Database -&gt; ShowS
+[Database] -&gt; ShowS
+Database -&gt; FilePath
+(Int -&gt; Database -&gt; ShowS)
+-&gt; (Database -&gt; FilePath) -&gt; ([Database] -&gt; ShowS) -&gt; Show Database
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; FilePath) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Database] -&gt; ShowS
+$cshowList :: [Database] -&gt; ShowS
+show :: Database -&gt; FilePath
+$cshow :: Database -&gt; FilePath
+showsPrec :: Int -&gt; Database -&gt; ShowS
+$cshowsPrec :: Int -&gt; Database -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679270397"><span id="local-6989586621679270399"><span class="annot"><span class="annottext">Database -&gt; Database -&gt; Bool
+(Database -&gt; Database -&gt; Bool)
+-&gt; (Database -&gt; Database -&gt; Bool) -&gt; Eq Database
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Database -&gt; Database -&gt; Bool
+$c/= :: Database -&gt; Database -&gt; Bool
+== :: Database -&gt; Database -&gt; Bool
+$c== :: Database -&gt; Database -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | Returns the API version that was specified in the 'apiVersion' field when</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- the FDB client was initialized.</span><span>
+</span><span id="line-43"></span><span class="annot"><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier hs-type">apiVersionInUse</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-44"></span><span id="apiVersionInUse"><span class="annot"><span class="annottext">apiVersionInUse :: Database -&gt; Int
+</span><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier hs-var hs-var">apiVersionInUse</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FoundationDBOptions -&gt; Int
+</span><a href="FoundationDB.Internal.Database.html#apiVersion"><span class="hs-identifier hs-var hs-var">apiVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(FoundationDBOptions -&gt; Int)
+-&gt; (Database -&gt; FoundationDBOptions) -&gt; Database -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; FoundationDBOptions
+</span><a href="FoundationDB.Internal.Database.html#databaseFoundationDBOptions"><span class="hs-identifier hs-var hs-var">databaseFoundationDBOptions</span></a></span><span>
+</span><span id="line-45"></span></pre></body></html>

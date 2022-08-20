@@ -4,14 +4,29 @@
 
 -- | FoundationDB C client bindings
 --   
---   FoundationDB C client bindings
+--   FoundationDB client bindings to the FoundationDB C API. Strives for
+--   feature parity with the official language bindings, but with an
+--   idiomatic Haskell interface.
+--   
+--   Full support for the tuple and subspace layers is included. The
+--   directory layer is also supported, with the exception of directory
+--   partitions.
+--   
+--   A few additional facilities are provided in addition to what is
+--   provided by other languages' client libraries, such as optionally
+--   reporting which key ranges were involved in a transaction conflict.
+--   
+--   See the documentation of the root module, <a>FoundationDB</a>, to get
+--   started.
+--   
+--   For more info, see the README on Github:
+--   <a>https://github.com/crclark/foundationdb-haskell/blob/master/README.md</a>
 @package foundationdb-haskell
 @version 0.1.0.0
 
 
--- | NOTE: This file is generated from <a>fdb.options</a> by the
---   generate-options executable in this project. All documentation on the
---   individual options in this namespace comes from FoundationDB's
+-- | by the generate-options executable in this project. All documentation
+--   on the individual options in this namespace comes from FoundationDB's
 --   documentation in <tt>fdb.options</tt>.
 module FoundationDB.Options.DatabaseOption
 data DatabaseOption
@@ -52,33 +67,33 @@ snapshotRywDisable :: DatabaseOption
 
 -- | Sets the maximum escaped length of key and value fields to be logged
 --   to the trace file via the LOG_TRANSACTION option. This sets the
---   `<tt>transaction_logging_max_field_length</tt>` option of each
+--   <tt>`transaction_logging_max_field_length`</tt> option of each
 --   transaction created by this database. See the transaction option
 --   description for more information.
 transactionLoggingMaxFieldLength :: Int -> DatabaseOption
 
 -- | Set a timeout in milliseconds which, when elapsed, will cause each
 --   transaction automatically to be cancelled. This sets the
---   `<tt>timeout</tt>` option of each transaction created by this
+--   <tt>`timeout`</tt> option of each transaction created by this
 --   database. See the transaction option description for more information.
 --   Using this option requires that the API version is 610 or higher.
 transactionTimeout :: Int -> DatabaseOption
 
 -- | Set a maximum number of retries after which additional calls to
---   `<tt>onError</tt>` will throw the most recently seen error code. This
---   sets the `<tt>retry_limit</tt>` option of each transaction created by
+--   <tt>`onError`</tt> will throw the most recently seen error code. This
+--   sets the <tt>`retry_limit`</tt> option of each transaction created by
 --   this database. See the transaction option description for more
 --   information.
 transactionRetryLimit :: Int -> DatabaseOption
 
 -- | Set the maximum amount of backoff delay incurred in the call to
---   `<tt>onError</tt>` if the error is retryable. This sets the
---   `<tt>max_retry_delay</tt>` option of each transaction created by this
+--   <tt>`onError`</tt> if the error is retryable. This sets the
+--   <tt>`max_retry_delay`</tt> option of each transaction created by this
 --   database. See the transaction option description for more information.
 transactionMaxRetryDelay :: Int -> DatabaseOption
 
 -- | Set the maximum transaction size in bytes. This sets the
---   `<tt>size_limit</tt>` option on each transaction created by this
+--   <tt>`size_limit`</tt> option on each transaction created by this
 --   database. See the transaction option description for more information.
 transactionSizeLimit :: Int -> DatabaseOption
 
@@ -87,19 +102,33 @@ transactionSizeLimit :: Int -> DatabaseOption
 --   simultaneous fault and misbehaving clock.
 transactionCausalReadRisky :: DatabaseOption
 
--- | Addresses returned by get_addresses_for_key include the port when
---   enabled. As of api version 630, this option is enabled by default and
---   setting this has no effect.
+-- | Deprecated. Addresses returned by get_addresses_for_key include the
+--   port when enabled. As of api version 630, this option is enabled by
+--   default and setting this has no effect.
 transactionIncludePortInAddress :: DatabaseOption
+
+-- | Allows <tt>`get`</tt> operations to read from sections of keyspace
+--   that have become unreadable because of versionstamp operations. This
+--   sets the <tt>`bypass_unreadable`</tt> option of each transaction
+--   created by this database. See the transaction option description for
+--   more information.
+transactionBypassUnreadable :: DatabaseOption
+
+-- | Use configuration database.
+useConfigDatabase :: DatabaseOption
+
+-- | An integer between 0 and 100 (default is 0) expressing the probability
+--   that a client will verify it can't read stale data whenever it detects
+--   a recovery.
+testCausalReadRisky :: DatabaseOption
 instance GHC.Classes.Ord FoundationDB.Options.DatabaseOption.DatabaseOption
 instance GHC.Classes.Eq FoundationDB.Options.DatabaseOption.DatabaseOption
 instance GHC.Read.Read FoundationDB.Options.DatabaseOption.DatabaseOption
 instance GHC.Show.Show FoundationDB.Options.DatabaseOption.DatabaseOption
 
 
--- | NOTE: This file is generated from <a>fdb.options</a> by the
---   generate-options executable in this project. All documentation on the
---   individual options in this namespace comes from FoundationDB's
+-- | by the generate-options executable in this project. All documentation
+--   on the individual options in this namespace comes from FoundationDB's
 --   documentation in <tt>fdb.options</tt>.
 module FoundationDB.Options.MutationType
 data MutationType
@@ -109,15 +138,15 @@ MutationTypeBytes :: Int -> ByteString -> MutationType
 MutationTypeFlag :: Int -> MutationType
 
 -- | Performs an addition of little-endian integers. If the existing value
---   in the database is not present or shorter than `<tt>param</tt>`, it is
---   first extended to the length of `<tt>param</tt>` with zero bytes. If
---   `<tt>param</tt>` is shorter than the existing value in the database,
+--   in the database is not present or shorter than <tt>`param`</tt>, it is
+--   first extended to the length of <tt>`param`</tt> with zero bytes. If
+--   <tt>`param`</tt> is shorter than the existing value in the database,
 --   the existing value is truncated to match the length of
---   `<tt>param</tt>`. The integers to be added must be stored in a
+--   <tt>`param`</tt>. The integers to be added must be stored in a
 --   little-endian representation. They can be signed in two's complement
 --   representation or unsigned. You can add to an integer at a known
 --   offset in the value by prepending the appropriate number of zero bytes
---   to `<tt>param</tt>` and padding with zero bytes to match the length of
+--   to <tt>`param`</tt> and padding with zero bytes to match the length of
 --   the value. However, this offset technique requires that you know the
 --   addition will not cause the integer field within the value to
 --   overflow.
@@ -128,13 +157,13 @@ add :: ByteString -> MutationType
 -- | <i>Deprecated: Deprecated in FDB C API</i>
 and :: ByteString -> MutationType
 
--- | Performs a bitwise `<a>and</a>` operation. If the existing value in
---   the database is not present, then `<tt>param</tt>` is stored in the
+-- | Performs a bitwise <a>`and`</a> operation. If the existing value in
+--   the database is not present, then <tt>`param`</tt> is stored in the
 --   database. If the existing value in the database is shorter than
---   `<tt>param</tt>`, it is first extended to the length of
---   `<tt>param</tt>` with zero bytes. If `<tt>param</tt>` is shorter than
+--   <tt>`param`</tt>, it is first extended to the length of
+--   <tt>`param`</tt> with zero bytes. If <tt>`param`</tt> is shorter than
 --   the existing value in the database, the existing value is truncated to
---   match the length of `<tt>param</tt>`.
+--   match the length of <tt>`param`</tt>.
 bitAnd :: ByteString -> MutationType
 
 -- | Deprecated
@@ -142,12 +171,12 @@ bitAnd :: ByteString -> MutationType
 -- | <i>Deprecated: Deprecated in FDB C API</i>
 or :: ByteString -> MutationType
 
--- | Performs a bitwise `<a>or</a>` operation. If the existing value in the
---   database is not present or shorter than `<tt>param</tt>`, it is first
---   extended to the length of `<tt>param</tt>` with zero bytes. If
---   `<tt>param</tt>` is shorter than the existing value in the database,
+-- | Performs a bitwise <a>`or`</a> operation. If the existing value in the
+--   database is not present or shorter than <tt>`param`</tt>, it is first
+--   extended to the length of <tt>`param`</tt> with zero bytes. If
+--   <tt>`param`</tt> is shorter than the existing value in the database,
 --   the existing value is truncated to match the length of
---   `<tt>param</tt>`.
+--   <tt>`param`</tt>.
 bitOr :: ByteString -> MutationType
 
 -- | Deprecated
@@ -155,17 +184,17 @@ bitOr :: ByteString -> MutationType
 -- | <i>Deprecated: Deprecated in FDB C API</i>
 xor :: ByteString -> MutationType
 
--- | Performs a bitwise `<a>xor</a>` operation. If the existing value in
---   the database is not present or shorter than `<tt>param</tt>`, it is
---   first extended to the length of `<tt>param</tt>` with zero bytes. If
---   `<tt>param</tt>` is shorter than the existing value in the database,
+-- | Performs a bitwise <a>`xor`</a> operation. If the existing value in
+--   the database is not present or shorter than <tt>`param`</tt>, it is
+--   first extended to the length of <tt>`param`</tt> with zero bytes. If
+--   <tt>`param`</tt> is shorter than the existing value in the database,
 --   the existing value is truncated to match the length of
---   `<tt>param</tt>`.
+--   <tt>`param`</tt>.
 bitXor :: ByteString -> MutationType
 
--- | Appends `<tt>param</tt>` to the end of the existing value already in
+-- | Appends <tt>`param`</tt> to the end of the existing value already in
 --   the database at the given key (or creates the key and sets the value
---   to `<tt>param</tt>` if the key is empty). This will only append the
+--   to <tt>`param`</tt> if the key is empty). This will only append the
 --   value if the final concatenated value size is less than or equal to
 --   the maximum value size (i.e., if it fits). WARNING: No error is
 --   surfaced back to the user if the final value is too large because the
@@ -176,29 +205,29 @@ bitXor :: ByteString -> MutationType
 appendIfFits :: ByteString -> MutationType
 
 -- | Performs a little-endian comparison of byte strings. If the existing
---   value in the database is not present or shorter than `<tt>param</tt>`,
---   it is first extended to the length of `<tt>param</tt>` with zero
---   bytes. If `<tt>param</tt>` is shorter than the existing value in the
+--   value in the database is not present or shorter than <tt>`param`</tt>,
+--   it is first extended to the length of <tt>`param`</tt> with zero
+--   bytes. If <tt>`param`</tt> is shorter than the existing value in the
 --   database, the existing value is truncated to match the length of
---   `<tt>param</tt>`. The larger of the two values is then stored in the
+--   <tt>`param`</tt>. The larger of the two values is then stored in the
 --   database.
 max :: ByteString -> MutationType
 
 -- | Performs a little-endian comparison of byte strings. If the existing
---   value in the database is not present, then `<tt>param</tt>` is stored
+--   value in the database is not present, then <tt>`param`</tt> is stored
 --   in the database. If the existing value in the database is shorter than
---   `<tt>param</tt>`, it is first extended to the length of
---   `<tt>param</tt>` with zero bytes. If `<tt>param</tt>` is shorter than
+--   <tt>`param`</tt>, it is first extended to the length of
+--   <tt>`param`</tt> with zero bytes. If <tt>`param`</tt> is shorter than
 --   the existing value in the database, the existing value is truncated to
---   match the length of `<tt>param</tt>`. The smaller of the two values is
+--   match the length of <tt>`param`</tt>. The smaller of the two values is
 --   then stored in the database.
 min :: ByteString -> MutationType
 
--- | Transforms `<tt>key</tt>` using a versionstamp for the transaction.
---   Sets the transformed key in the database to `<tt>param</tt>`. The key
+-- | Transforms <tt>`key`</tt> using a versionstamp for the transaction.
+--   Sets the transformed key in the database to <tt>`param`</tt>. The key
 --   is transformed by removing the final four bytes from the key and
 --   reading those as a little-Endian 32-bit integer to get a position
---   `<tt>pos</tt>`. The 10 bytes of the key from `<tt>pos</tt>` to ``pos +
+--   <tt>`pos`</tt>. The 10 bytes of the key from <tt>`pos`</tt> to ``pos +
 --   10`` are replaced with the versionstamp of the transaction used. The
 --   first byte of the key is position 0. A versionstamp is a 10 byte,
 --   unique, monotonically (but not sequentially) increasing value for each
@@ -211,12 +240,12 @@ min :: ByteString -> MutationType
 --   rather than the final four bytes.
 setVersionstampedKey :: ByteString -> MutationType
 
--- | Transforms `<tt>param</tt>` using a versionstamp for the transaction.
---   Sets the `<tt>key</tt>` given to the transformed `<tt>param</tt>`. The
+-- | Transforms <tt>`param`</tt> using a versionstamp for the transaction.
+--   Sets the <tt>`key`</tt> given to the transformed <tt>`param`</tt>. The
 --   parameter is transformed by removing the final four bytes from
---   `<tt>param</tt>` and reading those as a little-Endian 32-bit integer
---   to get a position `<tt>pos</tt>`. The 10 bytes of the parameter from
---   `<tt>pos</tt>` to ``pos + 10`` are replaced with the versionstamp of
+--   <tt>`param`</tt> and reading those as a little-Endian 32-bit integer
+--   to get a position <tt>`pos`</tt>. The 10 bytes of the parameter from
+--   <tt>`pos`</tt> to ``pos + 10`` are replaced with the versionstamp of
 --   the transaction used. The first byte of the parameter is position 0. A
 --   versionstamp is a 10 byte, unique, monotonically (but not
 --   sequentially) increasing value for each committed transaction. The
@@ -230,13 +259,13 @@ setVersionstampedKey :: ByteString -> MutationType
 setVersionstampedValue :: ByteString -> MutationType
 
 -- | Performs lexicographic comparison of byte strings. If the existing
---   value in the database is not present, then `<tt>param</tt>` is stored.
+--   value in the database is not present, then <tt>`param`</tt> is stored.
 --   Otherwise the smaller of the two values is then stored in the
 --   database.
 byteMin :: ByteString -> MutationType
 
 -- | Performs lexicographic comparison of byte strings. If the existing
---   value in the database is not present, then `<tt>param</tt>` is stored.
+--   value in the database is not present, then <tt>`param`</tt> is stored.
 --   Otherwise the larger of the two values is then stored in the database.
 byteMax :: ByteString -> MutationType
 
@@ -250,9 +279,8 @@ instance GHC.Read.Read FoundationDB.Options.MutationType.MutationType
 instance GHC.Show.Show FoundationDB.Options.MutationType.MutationType
 
 
--- | NOTE: This file is generated from <a>fdb.options</a> by the
---   generate-options executable in this project. All documentation on the
---   individual options in this namespace comes from FoundationDB's
+-- | by the generate-options executable in this project. All documentation
+--   on the individual options in this namespace comes from FoundationDB's
 --   documentation in <tt>fdb.options</tt>.
 module FoundationDB.Options.NetworkOption
 data NetworkOption
@@ -303,6 +331,9 @@ traceClockSource :: String -> NetworkOption
 --   log file names.
 traceFileIdentifier :: String -> NetworkOption
 
+-- | Set file suffix for partially written log files.
+tracePartialFileSuffix :: String -> NetworkOption
+
 -- | Set internal tuning or debugging knobs
 knob :: String -> NetworkOption
 
@@ -326,7 +357,9 @@ tlsKeyPath :: String -> NetworkOption
 
 -- | Set the peer certificate field verification criteria
 tlsVerifyPeers :: ByteString -> NetworkOption
+
 buggifyEnable :: NetworkOption
+
 buggifyDisable :: NetworkOption
 
 -- | Set the probability of a BUGGIFY section being active for the current
@@ -408,6 +441,10 @@ clientBuggifySectionActivatedProbability :: Int -> NetworkOption
 --   section will only fire if it was activated
 clientBuggifySectionFiredProbability :: Int -> NetworkOption
 
+-- | Set a tracer to run on the client. Should be set to the same value as
+--   the tracer set on the server.
+distributedClientTracer :: String -> NetworkOption
+
 -- | This option is set automatically to communicate the list of supported
 --   clients to the active client.
 supportedClientVersions :: String -> NetworkOption
@@ -425,9 +462,8 @@ instance GHC.Read.Read FoundationDB.Options.NetworkOption.NetworkOption
 instance GHC.Show.Show FoundationDB.Options.NetworkOption.NetworkOption
 
 
--- | NOTE: This file is generated from <a>fdb.options</a> by the
---   generate-options executable in this project. All documentation on the
---   individual options in this namespace comes from FoundationDB's
+-- | by the generate-options executable in this project. All documentation
+--   on the individual options in this namespace comes from FoundationDB's
 --   documentation in <tt>fdb.options</tt>.
 module FoundationDB.Options.TransactionOption
 data TransactionOption
@@ -444,6 +480,7 @@ causalWriteRisky :: TransactionOption
 --   committed, but might not be the latest committed in the event of a
 --   simultaneous fault and misbehaving clock.
 causalReadRisky :: TransactionOption
+
 causalReadDisable :: TransactionOption
 
 -- | Addresses returned by get_addresses_for_key include the port when
@@ -461,9 +498,10 @@ includePortInAddress :: TransactionOption
 nextWriteNoWriteConflictRange :: TransactionOption
 
 -- | Committing this transaction will bypass the normal load balancing
---   across proxies and go directly to the specifically nominated 'first
---   proxy'.
+--   across commit proxies and go directly to the specifically nominated
+--   'first commit proxy'.
 commitOnFirstProxy :: TransactionOption
+
 checkWritesEnable :: TransactionOption
 
 -- | Reads performed by a transaction will not see any prior mutations that
@@ -472,14 +510,17 @@ checkWritesEnable :: TransactionOption
 --   small performance benefit for the client, but also disables a number
 --   of client-side optimizations which are beneficial for transactions
 --   which tend to read and write the same keys within a single
---   transaction.
+--   transaction. It is an error to set this option after performing any
+--   reads or writes on the transaction.
 readYourWritesDisable :: TransactionOption
 
 -- | Deprecated
 
 -- | <i>Deprecated: Deprecated in FDB C API</i>
 readAheadDisable :: TransactionOption
+
 durabilityDatacenter :: TransactionOption
+
 durabilityRisky :: TransactionOption
 
 -- | Deprecated
@@ -505,13 +546,19 @@ priorityBatch :: TransactionOption
 initializeNewDatabase :: TransactionOption
 
 -- | Allows this transaction to read and modify system keys (those that
---   start with the byte 0xFF)
+--   start with the byte 0xFF). Implies raw_access.
 accessSystemKeys :: TransactionOption
 
 -- | Allows this transaction to read system keys (those that start with the
---   byte 0xFF)
+--   byte 0xFF). Implies raw_access.
 readSystemKeys :: TransactionOption
+
+-- | Allows this transaction to access the raw key-space when tenant mode
+--   is on.
+rawAccess :: TransactionOption
+
 debugDump :: TransactionOption
+
 debugRetryLogging :: String -> TransactionOption
 
 -- | Deprecated
@@ -549,11 +596,11 @@ serverRequestTracing :: TransactionOption
 --   and any future uses of the transaction will throw an exception. The
 --   transaction can be used again after it is reset. Prior to API version
 --   610, like all other transaction options, the timeout must be reset
---   after a call to `<tt>onError</tt>`. If the API version is 610 or
---   greater, the timeout is not reset after an `<tt>onError</tt>` call.
+--   after a call to <tt>`onError`</tt>. If the API version is 610 or
+--   greater, the timeout is not reset after an <tt>`onError`</tt> call.
 --   This allows the user to specify a longer timeout on specific
 --   transactions than the default timeout specified through the
---   `<tt>transaction_timeout</tt>` database option without the shorter
+--   <tt>`transaction_timeout`</tt> database option without the shorter
 --   database timeout cancelling transactions that encounter a retryable
 --   error. Note that at all API versions, it is safe and legal to set the
 --   timeout each time the transaction begins, so most code written
@@ -564,12 +611,12 @@ serverRequestTracing :: TransactionOption
 timeout :: Int -> TransactionOption
 
 -- | Set a maximum number of retries after which additional calls to
---   `<tt>onError</tt>` will throw the most recently seen error code. Valid
+--   <tt>`onError`</tt> will throw the most recently seen error code. Valid
 --   parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the
 --   retry limit. Prior to API version 610, like all other transaction
 --   options, the retry limit must be reset after a call to
---   `<tt>onError</tt>`. If the API version is 610 or greater, the retry
---   limit is not reset after an `<tt>onError</tt>` call. Note that at all
+--   <tt>`onError`</tt>. If the API version is 610 or greater, the retry
+--   limit is not reset after an <tt>`onError`</tt> call. Note that at all
 --   API versions, it is safe and legal to set the retry limit each time
 --   the transaction begins, so most code written assuming the older
 --   behavior can be upgraded to the newer behavior without requiring any
@@ -578,14 +625,14 @@ timeout :: Int -> TransactionOption
 retryLimit :: Int -> TransactionOption
 
 -- | Set the maximum amount of backoff delay incurred in the call to
---   `<tt>onError</tt>` if the error is retryable. Defaults to 1000 ms.
+--   <tt>`onError`</tt> if the error is retryable. Defaults to 1000 ms.
 --   Valid parameter values are ``[0, INT_MAX]``. If the maximum retry
 --   delay is less than the current retry delay of the transaction, then
 --   the current retry delay will be clamped to the maximum retry delay.
 --   Prior to API version 610, like all other transaction options, the
---   maximum retry delay must be reset after a call to `<tt>onError</tt>`.
+--   maximum retry delay must be reset after a call to <tt>`onError`</tt>.
 --   If the API version is 610 or greater, the retry limit is not reset
---   after an `<tt>onError</tt>` call. Note that at all API versions, it is
+--   after an <tt>`onError`</tt> call. Note that at all API versions, it is
 --   safe and legal to set the maximum retry delay each time the
 --   transaction begins, so most code written assuming the older behavior
 --   can be upgraded to the newer behavior without requiring any
@@ -650,6 +697,11 @@ reportConflictingKeys :: TransactionOption
 --   new module might block or return an error.
 specialKeySpaceRelaxed :: TransactionOption
 
+-- | By default, users are not allowed to write to special keys. Enable
+--   this option will implicitly enable all options required to achieve the
+--   configuration change.
+specialKeySpaceEnableWrites :: TransactionOption
+
 -- | Adds a tag to the transaction that can be used to apply manual
 --   targeted throttling. At most 5 tags can be set on a transaction.
 tag :: String -> TransactionOption
@@ -658,6 +710,30 @@ tag :: String -> TransactionOption
 --   automatic targeted throttling. At most 5 tags can be set on a
 --   transaction.
 autoThrottleTag :: String -> TransactionOption
+
+-- | Adds a parent to the Span of this transaction. Used for transaction
+--   tracing. A span can be identified with any 16 bytes
+spanParent :: ByteString -> TransactionOption
+
+-- | Asks storage servers for how many bytes a clear key range contains.
+--   Otherwise uses the location cache to roughly estimate this.
+expensiveClearCostEstimationEnable :: TransactionOption
+
+-- | Allows <tt>`get`</tt> operations to read from sections of keyspace
+--   that have become unreadable because of versionstamp operations. These
+--   reads will view versionstamp operations as if they were set operations
+--   that did not fill in the versionstamp.
+bypassUnreadable :: TransactionOption
+
+-- | Allows this transaction to use cached GRV from the database context.
+--   Defaults to off. Upon first usage, starts a background updater to
+--   periodically update the cache to avoid stale read versions.
+useGrvCache :: TransactionOption
+
+-- | Specifically instruct this transaction to NOT use cached GRV.
+--   Primarily used for the read version cache's background updater to
+--   avoid attempting to read a cached entry in specific situations.
+skipGrvCache :: TransactionOption
 instance GHC.Classes.Ord FoundationDB.Options.TransactionOption.TransactionOption
 instance GHC.Classes.Eq FoundationDB.Options.TransactionOption.TransactionOption
 instance GHC.Read.Read FoundationDB.Options.TransactionOption.TransactionOption
@@ -672,21 +748,21 @@ module FoundationDB.Internal.Bindings
 -- | Current version of the installed FDB library. For example, returns 630
 --   if you are using FoundationDB client 6.3.x.
 currentAPIVersion :: Int
-selectAPIVersion :: (Int) -> IO ((CFDBError))
-setupNetwork :: IO ((CFDBError))
-runNetwork :: IO ((CFDBError))
-stopNetwork :: IO ((CFDBError))
+selectAPIVersion :: Int -> IO CFDBError
+setupNetwork :: IO CFDBError
+runNetwork :: IO CFDBError
+stopNetwork :: IO CFDBError
 networkSetOption :: NetworkOption -> IO CFDBError
 newtype Future a
-Future :: (Ptr (Future a)) -> Future a
-futureCancel :: (Future a) -> IO ()
-futureDestroy :: (Future a) -> IO ()
+Future :: Ptr (Future a) -> Future a
+futureCancel :: Future a -> IO ()
+futureDestroy :: Future a -> IO ()
 futureDestroyPtr :: FunPtr (Ptr a -> IO ())
-futureBlockUntilReady :: (Future a) -> IO ((CFDBError))
-futureIsReady :: (Future a) -> IO ((Bool))
-futureReleaseMemory :: (Future a) -> IO ()
-futureGetError :: (Future a) -> IO ((CFDBError))
-futureGetInt64 :: (Future Int64) -> IO ((CFDBError), (Int64))
+futureBlockUntilReady :: Future a -> IO CFDBError
+futureIsReady :: Future a -> IO Bool
+futureReleaseMemory :: Future a -> IO ()
+futureGetError :: Future a -> IO CFDBError
+futureGetInt64 :: Future Int64 -> IO (CFDBError, Int64)
 futureGetKey :: Future ByteString -> IO (Either CFDBError ByteString)
 futureGetValue :: Future (Maybe ByteString) -> IO (Either CFDBError (Maybe ByteString))
 futureGetStringArray :: Future [ByteString] -> IO (Either CFDBError [ByteString])
@@ -700,12 +776,12 @@ futureGetKeyValueArray :: Future [(ByteString, ByteString)] -> IO (Either CFDBEr
 
 -- | Handle to the underlying C API client state.
 data DatabasePtr
-createDatabase :: (String) -> IO ((CFDBError), (DatabasePtr))
-databaseDestroy :: (DatabasePtr) -> IO ()
+createDatabase :: String -> IO (CFDBError, DatabasePtr)
+databaseDestroy :: DatabasePtr -> IO ()
 databaseSetOption :: DatabasePtr -> DatabaseOption -> IO CFDBError
-databaseCreateTransaction :: (DatabasePtr) -> IO ((CFDBError), (Transaction))
+databaseCreateTransaction :: DatabasePtr -> IO (CFDBError, Transaction)
 newtype Transaction
-Transaction :: (Ptr (Transaction)) -> Transaction
+Transaction :: Ptr Transaction -> Transaction
 
 -- | Specifies a key in the database. See the official <a>docs</a> for more
 --   information. These can be supplied to <tt>getKey</tt> or used to build
@@ -739,11 +815,11 @@ keySelectorTuple :: KeySelector -> (ByteString, Bool, Int)
 
 -- | Inverse of <a>keySelectorTuple</a>
 tupleKeySelector :: (ByteString, Bool, Int) -> KeySelector
-transactionDestroy :: (Transaction) -> IO ()
+transactionDestroy :: Transaction -> IO ()
 transactionDestroyPtr :: FunPtr (Ptr a -> IO ())
 transactionSetOption :: Transaction -> TransactionOption -> IO CFDBError
-transactionSetReadVersion :: (Transaction) -> (Int64) -> IO ()
-transactionGetReadVersion :: (Transaction) -> IO ((Future Int64))
+transactionSetReadVersion :: Transaction -> Int64 -> IO ()
+transactionGetReadVersion :: Transaction -> IO (Future Int64)
 transactionGet :: Transaction -> ByteString -> Bool -> IO (Future (Maybe ByteString))
 transactionGetKey :: Transaction -> ByteString -> Bool -> Int -> Bool -> IO (Future ByteString)
 transactionGetAddressesForKey :: Transaction -> ByteString -> IO (Future [ByteString])
@@ -760,14 +836,14 @@ transactionSet :: Transaction -> ByteString -> ByteString -> IO ()
 transactionClear :: Transaction -> ByteString -> IO ()
 transactionClearRange :: Transaction -> ByteString -> ByteString -> IO ()
 transactionAtomicOp :: Transaction -> ByteString -> MutationType -> IO ()
-transactionCommit :: (Transaction) -> IO ((Future ()))
-transactionGetCommittedVersion :: (Transaction) -> IO ((CFDBError), (Int))
-transactionGetApproximateSize :: (Transaction) -> IO ((Future Int64))
-transactionGetVersionstamp :: (Transaction) -> IO ((Future ByteString))
+transactionCommit :: Transaction -> IO (Future ())
+transactionGetCommittedVersion :: Transaction -> IO (CFDBError, Int)
+transactionGetApproximateSize :: Transaction -> IO (Future Int64)
+transactionGetVersionstamp :: Transaction -> IO (Future ByteString)
 transactionWatch :: Transaction -> ByteString -> IO (Future ())
-transactionOnError :: (Transaction) -> (CFDBError) -> IO ((Future ()))
-transactionReset :: (Transaction) -> IO ()
-transactionCancel :: (Transaction) -> IO ()
+transactionOnError :: Transaction -> CFDBError -> IO (Future ())
+transactionReset :: Transaction -> IO ()
+transactionCancel :: Transaction -> IO ()
 transactionAddConflictRange :: Transaction -> ByteString -> ByteString -> FDBConflictRangeType -> IO CFDBError
 data FDBConflictRangeType
 ConflictRangeTypeRead :: FDBConflictRangeType
@@ -778,25 +854,51 @@ CFDBError :: CInt -> CFDBError
 
 -- | Return <a>True</a> iff <a>CFDBError</a> value is an error (non-zero).
 isError :: CFDBError -> Bool
-getError :: (CFDBError) -> IO ((String))
-errorPredicate :: (FDBErrorPredicate) -> (CFDBError) -> (Bool)
+getError :: CFDBError -> IO String
+errorPredicate :: FDBErrorPredicate -> CFDBError -> Bool
 data FDBErrorPredicate
 ErrorPredicateRetryable :: FDBErrorPredicate
 ErrorPredicateMaybeCommitted :: FDBErrorPredicate
 ErrorPredicateRetryableNotCommitted :: FDBErrorPredicate
-instance GHC.Classes.Ord FoundationDB.Internal.Bindings.KeySelector
-instance GHC.Classes.Eq FoundationDB.Internal.Bindings.KeySelector
-instance GHC.Show.Show FoundationDB.Internal.Bindings.KeySelector
-instance GHC.Classes.Eq FoundationDB.Internal.Bindings.FDBKeyValue
-instance GHC.Show.Show FoundationDB.Internal.Bindings.FDBKeyValue
+
+-- | The result of a mapped key value query, containing the parent key and
+--   value (i.e., the key and value in the secondary index), and the range
+--   of key-value pairs retrieved based on the range query generated from
+--   the mapper's operation on the parent key and value.
+--   
+--   WARNING: FDB's docs warn that the returned KeySelector fields have not
+--   yet been tested. Use them at your own risk!
+data MappedKeyValue
+MappedKeyValue :: ByteString -> ByteString -> KeySelector -> KeySelector -> [(ByteString, ByteString)] -> MappedKeyValue
+[parentKey] :: MappedKeyValue -> ByteString
+[parentValue] :: MappedKeyValue -> ByteString
+[mappedKeySelectorBegin] :: MappedKeyValue -> KeySelector
+[mappedKeySelectorEnd] :: MappedKeyValue -> KeySelector
+[mappedKeyValues] :: MappedKeyValue -> [(ByteString, ByteString)]
+
+-- | Extracts the mappedKeyValue results from the future, along with a bool
+--   indicating whether more results are available.
+getMappedRangeResult :: Future [MappedKeyValue] -> IO (Either CFDBError ([MappedKeyValue], Bool))
+transactionGetMappedRange :: Transaction -> KeySelector -> KeySelector -> ByteString -> Int -> Int -> FDBStreamingMode -> Int -> Bool -> Bool -> IO (Future [MappedKeyValue])
 instance GHC.Num.Num FoundationDB.Internal.Bindings.CFDBError
 instance GHC.Classes.Ord FoundationDB.Internal.Bindings.CFDBError
 instance GHC.Classes.Eq FoundationDB.Internal.Bindings.CFDBError
 instance GHC.Show.Show FoundationDB.Internal.Bindings.CFDBError
+instance GHC.Classes.Eq FoundationDB.Internal.Bindings.FDBKeyValue
+instance GHC.Show.Show FoundationDB.Internal.Bindings.FDBKeyValue
+instance GHC.Classes.Ord FoundationDB.Internal.Bindings.KeySelector
+instance GHC.Classes.Eq FoundationDB.Internal.Bindings.KeySelector
+instance GHC.Show.Show FoundationDB.Internal.Bindings.KeySelector
+instance GHC.Classes.Eq FoundationDB.Internal.Bindings.MappedKeyValue
+instance GHC.Show.Show FoundationDB.Internal.Bindings.MappedKeyValue
 instance GHC.Show.Show (FoundationDB.Internal.Bindings.Future a)
 instance Foreign.Storable.Storable (FoundationDB.Internal.Bindings.Future a)
+instance GHC.Classes.Eq FoundationDB.Internal.Bindings.DatabasePtr
 instance GHC.Show.Show FoundationDB.Internal.Bindings.DatabasePtr
 instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.DatabasePtr
+instance GHC.Classes.Eq FoundationDB.Internal.Bindings.MappedKeyValuePtr
+instance GHC.Show.Show FoundationDB.Internal.Bindings.MappedKeyValuePtr
+instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.MappedKeyValuePtr
 instance GHC.Show.Show FoundationDB.Internal.Bindings.Transaction
 instance Foreign.Storable.Storable FoundationDB.Internal.Bindings.Transaction
 instance GHC.Classes.Eq FoundationDB.Internal.Bindings.FDBStreamingMode
@@ -848,10 +950,11 @@ Database :: DatabasePtr -> FoundationDBOptions -> Database
 -- | Returns the API version that was specified in the <a>apiVersion</a>
 --   field when the FDB client was initialized.
 apiVersionInUse :: Database -> Int
-instance GHC.Show.Show FoundationDB.Internal.Database.Database
 instance GHC.Classes.Ord FoundationDB.Internal.Database.FoundationDBOptions
 instance GHC.Classes.Eq FoundationDB.Internal.Database.FoundationDBOptions
 instance GHC.Show.Show FoundationDB.Internal.Database.FoundationDBOptions
+instance GHC.Classes.Eq FoundationDB.Internal.Database.Database
+instance GHC.Show.Show FoundationDB.Internal.Database.Database
 
 module FoundationDB.Error.Internal
 fdbEither :: MonadIO m => m (CFDBError, a) -> m (Either Error a)
@@ -928,6 +1031,10 @@ UnsupportedAPIVersion :: FDBHsError
 --   special keys keyspace was not in the expected format. The raw
 --   key/values are returned, unparsed.
 ConflictRangeParseFailure :: [(ByteString, ByteString)] -> FDBHsError
+
+-- | Thrown when an integer to be encoded by the tuple layer would take
+--   more than 255 bytes to encode.
+TupleIntTooLarge :: FDBHsError
 
 -- | Errors that can come from the underlying C library. Most error names
 --   are self-explanatory. See
@@ -1019,23 +1126,23 @@ retryable :: Error -> Bool
 -- | Returns true if the given error indicates that the transaction was
 --   definitely not committed.
 retryableNotCommitted :: Error -> Bool
+instance GHC.Classes.Ord FoundationDB.Error.Internal.ConflictRange
+instance GHC.Classes.Eq FoundationDB.Error.Internal.ConflictRange
+instance GHC.Read.Read FoundationDB.Error.Internal.ConflictRange
+instance GHC.Show.Show FoundationDB.Error.Internal.ConflictRange
+instance GHC.Classes.Ord FoundationDB.Error.Internal.DirLayerUserError
+instance GHC.Classes.Eq FoundationDB.Error.Internal.DirLayerUserError
+instance GHC.Show.Show FoundationDB.Error.Internal.DirLayerUserError
+instance GHC.Classes.Ord FoundationDB.Error.Internal.CError
+instance GHC.Classes.Eq FoundationDB.Error.Internal.CError
+instance GHC.Show.Show FoundationDB.Error.Internal.CError
 instance GHC.Classes.Ord FoundationDB.Error.Internal.FDBHsError
 instance GHC.Classes.Eq FoundationDB.Error.Internal.FDBHsError
 instance GHC.Show.Show FoundationDB.Error.Internal.FDBHsError
 instance GHC.Classes.Ord FoundationDB.Error.Internal.Error
 instance GHC.Classes.Eq FoundationDB.Error.Internal.Error
 instance GHC.Show.Show FoundationDB.Error.Internal.Error
-instance GHC.Classes.Ord FoundationDB.Error.Internal.CError
-instance GHC.Classes.Eq FoundationDB.Error.Internal.CError
-instance GHC.Show.Show FoundationDB.Error.Internal.CError
-instance GHC.Classes.Ord FoundationDB.Error.Internal.DirLayerUserError
-instance GHC.Classes.Eq FoundationDB.Error.Internal.DirLayerUserError
-instance GHC.Show.Show FoundationDB.Error.Internal.DirLayerUserError
-instance GHC.Classes.Ord FoundationDB.Error.Internal.ConflictRange
-instance GHC.Classes.Eq FoundationDB.Error.Internal.ConflictRange
-instance GHC.Read.Read FoundationDB.Error.Internal.ConflictRange
-instance GHC.Show.Show FoundationDB.Error.Internal.ConflictRange
-instance GHC.Exception.Exception FoundationDB.Error.Internal.Error
+instance GHC.Exception.Type.Exception FoundationDB.Error.Internal.Error
 
 
 -- | Types for all errors that can be thrown while using this library.
@@ -1099,6 +1206,10 @@ UnsupportedAPIVersion :: FDBHsError
 --   special keys keyspace was not in the expected format. The raw
 --   key/values are returned, unparsed.
 ConflictRangeParseFailure :: [(ByteString, ByteString)] -> FDBHsError
+
+-- | Thrown when an integer to be encoded by the tuple layer would take
+--   more than 255 bytes to encode.
+TupleIntTooLarge :: FDBHsError
 
 -- | Errors that can come from the underlying C library. Most error names
 --   are self-explanatory. See
@@ -1217,13 +1328,13 @@ data Versionstamp (a :: VersionstampCompleteness)
 
 -- | A complete version stamp, consisting of
 --   <a>TransactionVersionstamp</a>, and a user version set by the user.
-[CompleteVersionstamp] :: TransactionVersionstamp -> Word16 -> Versionstamp  'Complete
+[CompleteVersionstamp] :: TransactionVersionstamp -> Word16 -> Versionstamp 'Complete
 
 -- | A version stamp that has not yet been associated with a completed
 --   transaction. Such a version stamp does not yet have an associated
 --   transaction version and transaction batch order, but does have a user
 --   version.
-[IncompleteVersionstamp] :: Word16 -> Versionstamp  'Incomplete
+[IncompleteVersionstamp] :: Word16 -> Versionstamp 'Incomplete
 
 -- | A <a>TransactionVersionstamp</a> consists of a
 --   monotonically-increasing 8-byte transaction version and a 2-byte
@@ -1240,12 +1351,12 @@ putVersionstamp :: Putter (Versionstamp a)
 --   flexible alternative.
 encodeVersionstamp :: Versionstamp a -> ByteString
 getTransactionVersionstamp :: Get TransactionVersionstamp
-getVersionstampComplete :: Get (Versionstamp  'Complete)
+getVersionstampComplete :: Get (Versionstamp 'Complete)
 
 -- | Decode a versionstamp from a raw bytestring. You probably don't need
 --   this; see the facilities in <a>FoundationDB.Layer.Tuple</a> for a more
 --   flexible alternative.
-decodeVersionstamp :: ByteString -> Maybe (Versionstamp  'Complete)
+decodeVersionstamp :: ByteString -> Maybe (Versionstamp 'Complete)
 decodeTransactionVersionstamp :: ByteString -> Maybe TransactionVersionstamp
 instance GHC.Enum.Bounded FoundationDB.Versionstamp.Internal.TransactionVersionstamp
 instance Control.DeepSeq.NFData FoundationDB.Versionstamp.Internal.TransactionVersionstamp
@@ -1280,13 +1391,13 @@ data Versionstamp (a :: VersionstampCompleteness)
 
 -- | A complete version stamp, consisting of
 --   <a>TransactionVersionstamp</a>, and a user version set by the user.
-[CompleteVersionstamp] :: TransactionVersionstamp -> Word16 -> Versionstamp  'Complete
+[CompleteVersionstamp] :: TransactionVersionstamp -> Word16 -> Versionstamp 'Complete
 
 -- | A version stamp that has not yet been associated with a completed
 --   transaction. Such a version stamp does not yet have an associated
 --   transaction version and transaction batch order, but does have a user
 --   version.
-[IncompleteVersionstamp] :: Word16 -> Versionstamp  'Incomplete
+[IncompleteVersionstamp] :: Word16 -> Versionstamp 'Incomplete
 
 -- | Represents whether a versionstamp is complete (has been written to FDB
 --   and thus contains a full version integer) or incomplete (contains a
@@ -1311,7 +1422,7 @@ encodeTransactionVersionstamp :: TransactionVersionstamp -> ByteString
 -- | Decode a versionstamp from a raw bytestring. You probably don't need
 --   this; see the facilities in <a>FoundationDB.Layer.Tuple</a> for a more
 --   flexible alternative.
-decodeVersionstamp :: ByteString -> Maybe (Versionstamp  'Complete)
+decodeVersionstamp :: ByteString -> Maybe (Versionstamp 'Complete)
 decodeTransactionVersionstamp :: ByteString -> Maybe TransactionVersionstamp
 
 -- | Extracts the transaction version from the versionstamp. This is the
@@ -1494,7 +1605,7 @@ getKeyAddresses :: ByteString -> Transaction (Future [ByteString])
 --   conflict.
 atomicOp :: ByteString -> MutationType -> Transaction ()
 
--- | Reads all key-value pairs in the specified <a>Range</a> which are
+-- | Reads all key-value pairs in the specified <tt>Range</tt> which are
 --   lexicographically greater than or equal to the <a>rangeBegin</a>
 --   <tt>KeySelector</tt> and lexicographically less than the
 --   <a>rangeEnd</a> <tt>KeySelector</tt>. Uses
@@ -1502,11 +1613,11 @@ atomicOp :: ByteString -> MutationType -> Transaction ()
 --   ahead of time exactly how many pairs in the range you actually need.
 --   If you need them all (and they are expected to fit in memory), use
 --   <a>getEntireRange</a>. For more advanced usage, use <a>getRange'</a>.
-getRange :: Range -> Transaction (Future RangeResult)
+getRange :: RangeQuery -> Transaction (Future RangeResult)
 
 -- | Like <a>getRange</a>, but allows you to specify the streaming mode as
 --   desired.
-getRange' :: Range -> FDBStreamingMode -> Transaction (Future RangeResult)
+getRange' :: RangeQuery -> FDBStreamingMode -> Transaction (Future RangeResult)
 data FDBStreamingMode
 StreamingModeWantAll :: FDBStreamingMode
 StreamingModeIterator :: FDBStreamingMode
@@ -1518,50 +1629,50 @@ StreamingModeSerial :: FDBStreamingMode
 
 -- | Wrapper around <a>getRange</a> that reads the entire range into
 --   memory.
-getEntireRange :: Range -> Transaction (Seq (ByteString, ByteString))
-getEntireRange' :: FDBStreamingMode -> Range -> Transaction (Seq (ByteString, ByteString))
+getEntireRange :: RangeQuery -> Transaction (Seq (ByteString, ByteString))
+getEntireRange' :: FDBStreamingMode -> RangeQuery -> Transaction (Seq (ByteString, ByteString))
 
 -- | Return True iff the given range is empty.
-isRangeEmpty :: Range -> Transaction Bool
+isRangeEmpty :: RangeQuery -> Transaction Bool
 
 -- | Specifies a range of keys to be iterated over by <a>getRange</a>.
-data Range
-Range :: KeySelector -> KeySelector -> Maybe Int -> Bool -> Range
+data RangeQuery
+RangeQuery :: KeySelector -> KeySelector -> Maybe Int -> Bool -> RangeQuery
 
 -- | The beginning of the range, including the key specified by this
 --   <tt>KeySelector</tt>.
-[rangeBegin] :: Range -> KeySelector
+[rangeBegin] :: RangeQuery -> KeySelector
 
 -- | The end of the range, not including the key specified by this
 --   <tt>KeySelector</tt>.
-[rangeEnd] :: Range -> KeySelector
+[rangeEnd] :: RangeQuery -> KeySelector
 
 -- | If the range contains more than <tt>n</tt> items, return only <tt>Just
 --   n</tt>. If <tt>Nothing</tt> is provided, returns the entire range.
-[rangeLimit] :: Range -> Maybe Int
+[rangeLimit] :: RangeQuery -> Maybe Int
 
 -- | If <a>True</a>, return the range in reverse order.
-[rangeReverse] :: Range -> Bool
-rangeKeys :: Range -> (ByteString, ByteString)
+[rangeReverse] :: RangeQuery -> Bool
+rangeKeys :: RangeQuery -> (ByteString, ByteString)
 
--- | <tt>keyRange begin end</tt> is the range of keys <tt>[begin,
+-- | <tt>keyRangeQuery begin end</tt> is the range of keys <tt>[begin,
 --   end)</tt>.
-keyRange :: ByteString -> ByteString -> Range
+keyRangeQuery :: ByteString -> ByteString -> RangeQuery
 
--- | <tt>keyRange begin end</tt> is the range of keys <tt>[begin,
+-- | <tt>keyRangeQuery begin end</tt> is the range of keys <tt>[begin,
 --   end]</tt>.
-keyRangeInclusive :: ByteString -> ByteString -> Range
+keyRangeQueryInclusive :: ByteString -> ByteString -> RangeQuery
 
 -- | <tt>prefixRange prefix</tt> is the range of all keys of which
 --   <tt>prefix</tt> is a prefix. Returns <tt>Nothing</tt> if
 --   <tt>prefix</tt> is empty or contains only <tt>0xff</tt>.
-prefixRange :: ByteString -> Maybe Range
+prefixRange :: ByteString -> Maybe RangeQuery
 prefixRangeEnd :: ByteString -> Maybe ByteString
 
 -- | Structure for returning the result of <a>getRange</a> in chunks.
 data RangeResult
-RangeDone :: (Seq (ByteString, ByteString)) -> RangeResult
-RangeMore :: (Seq (ByteString, ByteString)) -> (Future RangeResult) -> RangeResult
+RangeDone :: Seq (ByteString, ByteString) -> RangeResult
+RangeMore :: Seq (ByteString, ByteString) -> Future RangeResult -> RangeResult
 
 -- | Creates a future that will be fulfilled when the value associated with
 --   the given key is changed, relative to the value it had as of the
@@ -1571,6 +1682,45 @@ RangeMore :: (Seq (ByteString, ByteString)) -> (Future RangeResult) -> RangeResu
 --   which it was created fails to commit, awaiting it will return the same
 --   error as running the transaction did.
 watch :: ByteString -> Transaction (FutureIO ())
+
+-- | The result of a mapped key value query, containing the parent key and
+--   value (i.e., the key and value in the secondary index), and the range
+--   of key-value pairs retrieved based on the range query generated from
+--   the mapper's operation on the parent key and value.
+--   
+--   WARNING: FDB's docs warn that the returned KeySelector fields have not
+--   yet been tested. Use them at your own risk!
+data MappedKeyValue
+MappedKeyValue :: ByteString -> ByteString -> KeySelector -> KeySelector -> [(ByteString, ByteString)] -> MappedKeyValue
+[parentKey] :: MappedKeyValue -> ByteString
+[parentValue] :: MappedKeyValue -> ByteString
+[mappedKeySelectorBegin] :: MappedKeyValue -> KeySelector
+[mappedKeySelectorEnd] :: MappedKeyValue -> KeySelector
+[mappedKeyValues] :: MappedKeyValue -> [(ByteString, ByteString)]
+
+-- | Structure for returning the result of <a>getRange</a> in chunks.
+data MappedRangeResult
+MappedRangeDone :: Seq MappedKeyValue -> MappedRangeResult
+MappedRangeMore :: Seq MappedKeyValue -> Future MappedRangeResult -> MappedRangeResult
+newtype Mapper
+Mapper :: ByteString -> Mapper
+getMappedRange :: RangeQuery -> Mapper -> Transaction (Future MappedRangeResult)
+
+-- | Given a range of keys in a secondary index, fetc the corresponding
+--   key/values they refer to by using a mapper. See <a>the docs</a> for
+--   more information.
+--   
+--   Important: you must have read-your-writes enabled, but you must not
+--   read anything you have written in the same transaction. Snapshot
+--   isolation is not supported. See the docs linked above.
+--   
+--   These functions are only available for FDB &gt;= 7.1
+getMappedRange' :: RangeQuery -> Mapper -> FDBStreamingMode -> Transaction (Future MappedRangeResult)
+
+-- | Wrapper around <a>getRange</a> that reads the entire range into
+--   memory.
+getEntireMappedRange :: RangeQuery -> Mapper -> Transaction (Seq MappedKeyValue)
+getEntireMappedRange' :: FDBStreamingMode -> RangeQuery -> Mapper -> Transaction (Seq MappedKeyValue)
 
 -- | A future result of a FoundationDB call. You can block on a future with
 --   <a>await</a>. WARNING: returning a value of this type from
@@ -1584,9 +1734,10 @@ data Future a
 --   Control.Conccurent.Async to cancel), even when using InterruptibleFFI.
 await :: Future a -> Transaction a
 
--- | Polls a future for readiness in a loop until it is ready, then returns
---   the value in the future. This is less resource efficient than
---   <a>await</a>, but can be interrupted more easily.
+-- | Polls a future for readiness roughly every millisecond in a loop until
+--   it is ready, then returns the value in the future. This is less
+--   resource efficient than <a>await</a>, but can be interrupted more
+--   easily.
 awaitInterruptible :: Future a -> Transaction a
 
 -- | Cancel a future. Attempting to await the future after cancellation
@@ -1640,6 +1791,7 @@ FirstGreaterThan :: ByteString -> KeySelector
 -- | Selects the lexicographically least key greater than or equal to the
 --   specified key.
 FirstGreaterOrEq :: ByteString -> KeySelector
+keySelectorBytes :: KeySelector -> ByteString
 
 -- | Increase the offset of the given <tt>KeySelector</tt>.
 offset :: Int -> KeySelector -> KeySelector
@@ -1666,7 +1818,17 @@ onError :: Error -> Transaction ()
 --   immediately destroy the internal <a>TransactionEnv</a> as soon as they
 --   return.
 getCommittedVersion :: Transaction Int
-instance GHC.Show.Show FoundationDB.Transaction.RangeResult
+instance GHC.Classes.Ord FoundationDB.Transaction.RangeQuery
+instance GHC.Classes.Eq FoundationDB.Transaction.RangeQuery
+instance GHC.Show.Show FoundationDB.Transaction.RangeQuery
+instance GHC.Classes.Ord FoundationDB.Transaction.Mapper
+instance GHC.Classes.Eq FoundationDB.Transaction.Mapper
+instance GHC.Show.Show FoundationDB.Transaction.Mapper
+instance GHC.Classes.Ord FoundationDB.Transaction.TransactionConfig
+instance GHC.Classes.Eq FoundationDB.Transaction.TransactionConfig
+instance GHC.Read.Read FoundationDB.Transaction.TransactionConfig
+instance GHC.Show.Show FoundationDB.Transaction.TransactionConfig
+instance GHC.Show.Show FoundationDB.Transaction.TransactionEnv
 instance Control.Monad.Catch.MonadMask FoundationDB.Transaction.Transaction
 instance Control.Monad.Catch.MonadCatch FoundationDB.Transaction.Transaction
 instance Control.Monad.Catch.MonadThrow FoundationDB.Transaction.Transaction
@@ -1674,14 +1836,8 @@ instance Control.Monad.IO.Class.MonadIO FoundationDB.Transaction.Transaction
 instance GHC.Base.Monad FoundationDB.Transaction.Transaction
 instance GHC.Base.Functor FoundationDB.Transaction.Transaction
 instance GHC.Base.Applicative FoundationDB.Transaction.Transaction
-instance GHC.Show.Show FoundationDB.Transaction.TransactionEnv
-instance GHC.Classes.Ord FoundationDB.Transaction.TransactionConfig
-instance GHC.Classes.Eq FoundationDB.Transaction.TransactionConfig
-instance GHC.Read.Read FoundationDB.Transaction.TransactionConfig
-instance GHC.Show.Show FoundationDB.Transaction.TransactionConfig
-instance GHC.Classes.Ord FoundationDB.Transaction.Range
-instance GHC.Classes.Eq FoundationDB.Transaction.Range
-instance GHC.Show.Show FoundationDB.Transaction.Range
+instance GHC.Show.Show FoundationDB.Transaction.MappedRangeResult
+instance GHC.Show.Show FoundationDB.Transaction.RangeResult
 instance Control.Monad.Error.Class.MonadError FoundationDB.Error.Internal.Error FoundationDB.Transaction.Transaction
 instance Control.Monad.Reader.Class.MonadReader FoundationDB.Transaction.TransactionEnv FoundationDB.Transaction.Transaction
 instance Control.Monad.Base.MonadBase GHC.Types.IO FoundationDB.Transaction.Transaction
@@ -1796,12 +1952,12 @@ Bool :: Bool -> Elem
 -- | Crude UUID to avoid dependency on UUID library. Interconvertible with
 --   <tt>toWords</tt> and <tt>fromWords</tt> in <a>UUID</a>.
 UUID :: Word32 -> Word32 -> Word32 -> Word32 -> Elem
-CompleteVS :: (Versionstamp  'Complete) -> Elem
+CompleteVS :: Versionstamp 'Complete -> Elem
 
 -- | This constructor is to be used in conjunction with
 --   <a>encodeTupleElems</a> and the <tt>setVersionstampedKey</tt> atomic
 --   operation. See <a>encodeTupleElems</a> for more information.
-IncompleteVS :: (Versionstamp  'Incomplete) -> Elem
+IncompleteVS :: Versionstamp 'Incomplete -> Elem
 sizeLimits :: Array Int Integer
 
 -- | Returns smallest size limit greater than input.
@@ -1809,6 +1965,9 @@ bisectSize :: Integer -> Int
 
 -- | Returns the minimum number of bits needed to encode the given int.
 bitLen :: Integer -> Int
+
+-- | Returns the minimum number of bytes needed to encode the given int.
+byteLen :: Integer -> Int
 nullCode :: Word8
 bytesCode :: Word8
 stringCode :: Word8
@@ -1853,6 +2012,12 @@ encodeElem :: Bool -> Elem -> PutTuple ()
 
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
 --   tuple.
+--   
+--   Warning: this function can throw an <a>Error</a> with
+--   <a>TupleIntTooLarge</a> if you pass an Int element that requires more
+--   than 255 bytes to serialize. Since the smallest such number is 614
+--   decimal digits long, we deemed this situation unlikely enough that it
+--   wasn't worth returning a sum type from this function.
 --   
 --   Note: this encodes to the format expected by FoundationDB as input,
 --   which is slightly different from the format returned by FoundationDB
@@ -1917,16 +2082,16 @@ decodeDoubleElem :: Get Elem
 decodeUUIDElem :: Get Elem
 decodeTupleElem :: Get Elem
 decodeVersionstamp :: Get Elem
-instance GHC.Base.Monad FoundationDB.Layer.Tuple.Internal.PutTuple
-instance GHC.Base.Applicative FoundationDB.Layer.Tuple.Internal.PutTuple
-instance GHC.Base.Functor FoundationDB.Layer.Tuple.Internal.PutTuple
-instance GHC.Classes.Ord FoundationDB.Layer.Tuple.Internal.SerializationState
-instance GHC.Classes.Eq FoundationDB.Layer.Tuple.Internal.SerializationState
-instance GHC.Show.Show FoundationDB.Layer.Tuple.Internal.SerializationState
 instance GHC.Generics.Generic FoundationDB.Layer.Tuple.Internal.Elem
 instance GHC.Classes.Ord FoundationDB.Layer.Tuple.Internal.Elem
 instance GHC.Classes.Eq FoundationDB.Layer.Tuple.Internal.Elem
 instance GHC.Show.Show FoundationDB.Layer.Tuple.Internal.Elem
+instance GHC.Classes.Ord FoundationDB.Layer.Tuple.Internal.SerializationState
+instance GHC.Classes.Eq FoundationDB.Layer.Tuple.Internal.SerializationState
+instance GHC.Show.Show FoundationDB.Layer.Tuple.Internal.SerializationState
+instance GHC.Base.Monad FoundationDB.Layer.Tuple.Internal.PutTuple
+instance GHC.Base.Applicative FoundationDB.Layer.Tuple.Internal.PutTuple
+instance GHC.Base.Functor FoundationDB.Layer.Tuple.Internal.PutTuple
 instance Control.Monad.State.Class.MonadState FoundationDB.Layer.Tuple.Internal.SerializationState FoundationDB.Layer.Tuple.Internal.PutTuple
 instance Control.DeepSeq.NFData FoundationDB.Layer.Tuple.Internal.Elem
 
@@ -1965,15 +2130,21 @@ Bool :: Bool -> Elem
 -- | Crude UUID to avoid dependency on UUID library. Interconvertible with
 --   <tt>toWords</tt> and <tt>fromWords</tt> in <a>UUID</a>.
 UUID :: Word32 -> Word32 -> Word32 -> Word32 -> Elem
-CompleteVS :: (Versionstamp  'Complete) -> Elem
+CompleteVS :: Versionstamp 'Complete -> Elem
 
 -- | This constructor is to be used in conjunction with
 --   <a>encodeTupleElems</a> and the <tt>setVersionstampedKey</tt> atomic
 --   operation. See <a>encodeTupleElems</a> for more information.
-IncompleteVS :: (Versionstamp  'Incomplete) -> Elem
+IncompleteVS :: Versionstamp 'Incomplete -> Elem
 
 -- | Encodes a tuple from a list of tuple elements. Returns the encoded
 --   tuple.
+--   
+--   Warning: this function can throw an <a>Error</a> with
+--   <a>TupleIntTooLarge</a> if you pass an Int element that requires more
+--   than 255 bytes to serialize. Since the smallest such number is 614
+--   decimal digits long, we deemed this situation unlikely enough that it
+--   wasn't worth returning a sum type from this function.
 --   
 --   Note: this encodes to the format expected by FoundationDB as input,
 --   which is slightly different from the format returned by FoundationDB
@@ -2057,7 +2228,7 @@ unpack :: Subspace -> ByteString -> Either String [Elem]
 contains :: Subspace -> ByteString -> Bool
 
 -- | Construct a range query that covers an entire subspace.
-subspaceRange :: Subspace -> Range
+subspaceRangeQuery :: Subspace -> RangeQuery
 
 -- | Get the last key,value pair in the subspace, if it exists.
 getLast :: Subspace -> Transaction (Maybe (ByteString, ByteString))
@@ -2093,8 +2264,9 @@ newHCA :: Subspace -> HCA
 windowSize :: Int -> Int
 
 -- | global lock used for allocating. We use this simply because the other
---   clients have it. It's not yet clear to me why it's needed. TODO: find
---   out.
+--   clients have it. It appears to exist in order to reduce contention on
+--   the HCA counter at the transaction level by pushing some of the
+--   contention to the client level instead.
 globalAllocateLock :: MVar ()
 withAllocLock :: Transaction a -> Transaction a
 findStartAndWindow :: HCA -> Bool -> Int -> Transaction (Int, Int)
@@ -2241,18 +2413,18 @@ nodeWithPrefix :: DirectoryLayer -> ByteString -> Subspace
 find :: DirectoryLayer -> Path -> Transaction (Maybe FoundNode)
 contentsOfNodePartition :: DirectoryLayer -> Subspace -> Path -> Transaction DirPartition
 contentsOfNodeSubspace :: DirectoryLayer -> Subspace -> Path -> ByteString -> Transaction Directory
-instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.MoveError
-instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.MoveError
-instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.MoveError
-instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.DirPartition
-instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.DirPartition
-instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.DirPartition
-instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.Directory
-instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.Directory
-instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.Directory
 instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.DirectoryLayer
 instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.DirectoryLayer
 instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.DirectoryLayer
+instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.Directory
+instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.Directory
+instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.Directory
+instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.DirPartition
+instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.DirPartition
+instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.DirPartition
+instance GHC.Classes.Ord FoundationDB.Layer.Directory.Internal.MoveError
+instance GHC.Classes.Eq FoundationDB.Layer.Directory.Internal.MoveError
+instance GHC.Show.Show FoundationDB.Layer.Directory.Internal.MoveError
 
 
 -- | The directory layer provides tools for creating a hierarchy of
