@@ -1,141 +1,404 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
-</span><a name="line-2"></a><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
-</span><a name="line-4"></a><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
-</span><a name="line-6"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Options</span><span class="hs-operator">.</span><span class="hs-identifier">TransactionOption</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-7"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Char8</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span>
-</span><a name="line-8"></a><span>
-</span><a name="line-9"></a><span class="hs-pragma">{-# DEPRECATED
-readAheadDisable &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-12"></a><span class="hs-pragma">{-# DEPRECATED
-durabilityDevNullIsWebScale &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-15"></a><span class="hs-pragma">{-# DEPRECATED
-transactionLoggingEnable &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-18"></a><span class="hs-keyword">data</span><span> </span><a name="TransactionOption"><a href="FoundationDB.Options.TransactionOption.html#TransactionOption"><span class="hs-identifier">TransactionOption</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="TransactionOptionString"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier">TransactionOptionString</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">String</span><span>
-</span><a name="line-19"></a><span>                       </span><span class="hs-glyph">|</span><span> </span><a name="TransactionOptionInt"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier">TransactionOptionInt</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-20"></a><span>                       </span><span class="hs-glyph">|</span><span> </span><a name="TransactionOptionBytes"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionBytes"><span class="hs-identifier">TransactionOptionBytes</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-21"></a><span>                       </span><span class="hs-glyph">|</span><span> </span><a name="TransactionOptionFlag"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier">TransactionOptionFlag</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-22"></a><span>                           </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Read</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-23"></a><span>
-</span><a name="line-24"></a><span class="hs-comment">-- | The transaction, if not self-conflicting, may be committed a second time after commit succeeds, in the event of a fault</span><span>
-</span><a name="line-25"></a><a name="causalWriteRisky"><a href="FoundationDB.Options.TransactionOption.html#causalWriteRisky"><span class="hs-identifier">causalWriteRisky</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">10</span><span class="hs-special">)</span><span>
-</span><a name="line-26"></a><span>
-</span><a name="line-27"></a><span class="hs-comment">-- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.</span><span>
-</span><a name="line-28"></a><a name="causalReadRisky"><a href="FoundationDB.Options.TransactionOption.html#causalReadRisky"><span class="hs-identifier">causalReadRisky</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">20</span><span class="hs-special">)</span><span>
-</span><a name="line-29"></a><span>
-</span><a name="line-30"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-31"></a><a name="causalReadDisable"><a href="FoundationDB.Options.TransactionOption.html#causalReadDisable"><span class="hs-identifier">causalReadDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">21</span><span class="hs-special">)</span><span>
-</span><a name="line-32"></a><span>
-</span><a name="line-33"></a><span class="hs-comment">-- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.</span><span>
-</span><a name="line-34"></a><a name="includePortInAddress"><a href="FoundationDB.Options.TransactionOption.html#includePortInAddress"><span class="hs-identifier">includePortInAddress</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">23</span><span class="hs-special">)</span><span>
-</span><a name="line-35"></a><span>
-</span><a name="line-36"></a><span class="hs-comment">-- | The next write performed on this transaction will not generate a write conflict range. As a result, other transactions which read the key(s) being modified by the next write will not conflict with this transaction. Care needs to be taken when using this option on a transaction that is shared between multiple threads. When setting this option, write conflict ranges will be disabled on the next write operation, regardless of what thread it is on.</span><span>
-</span><a name="line-37"></a><a name="nextWriteNoWriteConflictRange"><a href="FoundationDB.Options.TransactionOption.html#nextWriteNoWriteConflictRange"><span class="hs-identifier">nextWriteNoWriteConflictRange</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">30</span><span class="hs-special">)</span><span>
-</span><a name="line-38"></a><span>
-</span><a name="line-39"></a><span class="hs-comment">-- | Committing this transaction will bypass the normal load balancing across proxies and go directly to the specifically nominated 'first proxy'.</span><span>
-</span><a name="line-40"></a><a name="commitOnFirstProxy"><a href="FoundationDB.Options.TransactionOption.html#commitOnFirstProxy"><span class="hs-identifier">commitOnFirstProxy</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">40</span><span class="hs-special">)</span><span>
-</span><a name="line-41"></a><span>
-</span><a name="line-42"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-43"></a><a name="checkWritesEnable"><a href="FoundationDB.Options.TransactionOption.html#checkWritesEnable"><span class="hs-identifier">checkWritesEnable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">50</span><span class="hs-special">)</span><span>
-</span><a name="line-44"></a><span>
-</span><a name="line-45"></a><span class="hs-comment">-- | Reads performed by a transaction will not see any prior mutations that occured in that transaction, instead seeing the value which was in the database at the transaction's read version. This option may provide a small performance benefit for the client, but also disables a number of client-side optimizations which are beneficial for transactions which tend to read and write the same keys within a single transaction.</span><span>
-</span><a name="line-46"></a><a name="readYourWritesDisable"><a href="FoundationDB.Options.TransactionOption.html#readYourWritesDisable"><span class="hs-identifier">readYourWritesDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">51</span><span class="hs-special">)</span><span>
-</span><a name="line-47"></a><span>
-</span><a name="line-48"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-49"></a><a name="readAheadDisable"><a href="FoundationDB.Options.TransactionOption.html#readAheadDisable"><span class="hs-identifier">readAheadDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">52</span><span class="hs-special">)</span><span>
-</span><a name="line-50"></a><span>
-</span><a name="line-51"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-52"></a><a name="durabilityDatacenter"><a href="FoundationDB.Options.TransactionOption.html#durabilityDatacenter"><span class="hs-identifier">durabilityDatacenter</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">110</span><span class="hs-special">)</span><span>
-</span><a name="line-53"></a><span>
-</span><a name="line-54"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-55"></a><a name="durabilityRisky"><a href="FoundationDB.Options.TransactionOption.html#durabilityRisky"><span class="hs-identifier">durabilityRisky</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">120</span><span class="hs-special">)</span><span>
-</span><a name="line-56"></a><span>
-</span><a name="line-57"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-58"></a><a name="durabilityDevNullIsWebScale"><a href="FoundationDB.Options.TransactionOption.html#durabilityDevNullIsWebScale"><span class="hs-identifier">durabilityDevNullIsWebScale</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">130</span><span class="hs-special">)</span><span>
-</span><a name="line-59"></a><span>
-</span><a name="line-60"></a><span class="hs-comment">-- | Specifies that this transaction should be treated as highest priority and that lower priority transactions should block behind this one. Use is discouraged outside of low-level tools</span><span>
-</span><a name="line-61"></a><a name="prioritySystemImmediate"><a href="FoundationDB.Options.TransactionOption.html#prioritySystemImmediate"><span class="hs-identifier">prioritySystemImmediate</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">200</span><span class="hs-special">)</span><span>
-</span><a name="line-62"></a><span>
-</span><a name="line-63"></a><span class="hs-comment">-- | Specifies that this transaction should be treated as low priority and that default priority transactions will be processed first. Batch priority transactions will also be throttled at load levels smaller than for other types of transactions and may be fully cut off in the event of machine failures. Useful for doing batch work simultaneously with latency-sensitive work</span><span>
-</span><a name="line-64"></a><a name="priorityBatch"><a href="FoundationDB.Options.TransactionOption.html#priorityBatch"><span class="hs-identifier">priorityBatch</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">201</span><span class="hs-special">)</span><span>
-</span><a name="line-65"></a><span>
-</span><a name="line-66"></a><span class="hs-comment">-- | This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.</span><span>
-</span><a name="line-67"></a><a name="initializeNewDatabase"><a href="FoundationDB.Options.TransactionOption.html#initializeNewDatabase"><span class="hs-identifier">initializeNewDatabase</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">300</span><span class="hs-special">)</span><span>
-</span><a name="line-68"></a><span>
-</span><a name="line-69"></a><span class="hs-comment">-- | Allows this transaction to read and modify system keys (those that start with the byte 0xFF)</span><span>
-</span><a name="line-70"></a><a name="accessSystemKeys"><a href="FoundationDB.Options.TransactionOption.html#accessSystemKeys"><span class="hs-identifier">accessSystemKeys</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">301</span><span class="hs-special">)</span><span>
-</span><a name="line-71"></a><span>
-</span><a name="line-72"></a><span class="hs-comment">-- | Allows this transaction to read system keys (those that start with the byte 0xFF)</span><span>
-</span><a name="line-73"></a><a name="readSystemKeys"><a href="FoundationDB.Options.TransactionOption.html#readSystemKeys"><span class="hs-identifier">readSystemKeys</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">302</span><span class="hs-special">)</span><span>
-</span><a name="line-74"></a><span>
-</span><a name="line-75"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-76"></a><a name="debugDump"><a href="FoundationDB.Options.TransactionOption.html#debugDump"><span class="hs-identifier">debugDump</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">400</span><span class="hs-special">)</span><span>
-</span><a name="line-77"></a><span>
-</span><a name="line-78"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-79"></a><a name="debugRetryLogging"><a href="FoundationDB.Options.TransactionOption.html#debugRetryLogging"><span class="hs-identifier">debugRetryLogging</span></a></a><span> </span><a name="local-6989586621679034957"><a href="#local-6989586621679034957"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">401</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034957"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-80"></a><span>
-</span><a name="line-81"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-82"></a><a name="transactionLoggingEnable"><a href="FoundationDB.Options.TransactionOption.html#transactionLoggingEnable"><span class="hs-identifier">transactionLoggingEnable</span></a></a><span> </span><a name="local-6989586621679034958"><a href="#local-6989586621679034958"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">402</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034958"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-83"></a><span>
-</span><a name="line-84"></a><span class="hs-comment">-- | Sets a client provided identifier for the transaction that will be used in scenarios like tracing or profiling. Client trace logging or transaction profiling must be separately enabled.</span><span>
-</span><a name="line-85"></a><a name="debugTransactionIdentifier"><a href="FoundationDB.Options.TransactionOption.html#debugTransactionIdentifier"><span class="hs-identifier">debugTransactionIdentifier</span></a></a><span> </span><a name="local-6989586621679034959"><a href="#local-6989586621679034959"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">403</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034959"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-86"></a><span>
-</span><a name="line-87"></a><span class="hs-comment">-- | Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled to get log output.</span><span>
-</span><a name="line-88"></a><a name="logTransaction"><a href="FoundationDB.Options.TransactionOption.html#logTransaction"><span class="hs-identifier">logTransaction</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">404</span><span class="hs-special">)</span><span>
-</span><a name="line-89"></a><span>
-</span><a name="line-90"></a><span class="hs-comment">-- | Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option, after which the field will be truncated. A negative value disables truncation.</span><span>
-</span><a name="line-91"></a><a name="transactionLoggingMaxFieldLength"><a href="FoundationDB.Options.TransactionOption.html#transactionLoggingMaxFieldLength"><span class="hs-identifier">transactionLoggingMaxFieldLength</span></a></a><span> </span><a name="local-6989586621679034960"><a href="#local-6989586621679034960"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">405</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034960"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-92"></a><span>
-</span><a name="line-93"></a><span class="hs-comment">-- | Sets an identifier for server tracing of this transaction. When committed, this identifier triggers logging when each part of the transaction authority encounters it, which is helpful in diagnosing slowness in misbehaving clusters. The identifier is randomly generated. When there is also a debug_transaction_identifier, both IDs are logged together.</span><span>
-</span><a name="line-94"></a><a name="serverRequestTracing"><a href="FoundationDB.Options.TransactionOption.html#serverRequestTracing"><span class="hs-identifier">serverRequestTracing</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">406</span><span class="hs-special">)</span><span>
-</span><a name="line-95"></a><span>
-</span><a name="line-96"></a><span class="hs-comment">-- | Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Prior to API version 610, like all other transaction options, the timeout must be reset after a call to ``onError``. If the API version is 610 or greater, the timeout is not reset after an ``onError`` call. This allows the user to specify a longer timeout on specific transactions than the default timeout specified through the ``transaction_timeout`` database option without the shorter database timeout cancelling transactions that encounter a retryable error. Note that at all API versions, it is safe and legal to set the timeout each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
-</span><a name="line-97"></a><a name="timeout"><a href="FoundationDB.Options.TransactionOption.html#timeout"><span class="hs-identifier">timeout</span></a></a><span> </span><a name="local-6989586621679034961"><a href="#local-6989586621679034961"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">500</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034961"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-98"></a><span>
-</span><a name="line-99"></a><span class="hs-comment">-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Prior to API version 610, like all other transaction options, the retry limit must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the retry limit each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
-</span><a name="line-100"></a><a name="retryLimit"><a href="FoundationDB.Options.TransactionOption.html#retryLimit"><span class="hs-identifier">retryLimit</span></a></a><span> </span><a name="local-6989586621679034962"><a href="#local-6989586621679034962"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">501</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034962"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-101"></a><span>
-</span><a name="line-102"></a><span class="hs-comment">-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay. Prior to API version 610, like all other transaction options, the maximum retry delay must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the maximum retry delay each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
-</span><a name="line-103"></a><a name="maxRetryDelay"><a href="FoundationDB.Options.TransactionOption.html#maxRetryDelay"><span class="hs-identifier">maxRetryDelay</span></a></a><span> </span><a name="local-6989586621679034963"><a href="#local-6989586621679034963"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">502</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034963"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-104"></a><span>
-</span><a name="line-105"></a><span class="hs-comment">-- | Set the transaction size limit in bytes. The size is calculated by combining the sizes of all keys and values written or mutated, all key ranges cleared, and all read and write conflict ranges. (In other words, it includes the total size of all data included in the request to the cluster to commit the transaction.) Large transactions can cause performance problems on FoundationDB clusters, so setting this limit to a smaller value than the default can help prevent the client from accidentally degrading the cluster's performance. This value must be at least 32 and cannot be set to higher than 10,000,000, the default transaction size limit.</span><span>
-</span><a name="line-106"></a><a name="sizeLimit"><a href="FoundationDB.Options.TransactionOption.html#sizeLimit"><span class="hs-identifier">sizeLimit</span></a></a><span> </span><a name="local-6989586621679034964"><a href="#local-6989586621679034964"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">503</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034964"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-107"></a><span>
-</span><a name="line-108"></a><span class="hs-comment">-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.</span><span>
-</span><a name="line-109"></a><a name="snapshotRywEnable"><a href="FoundationDB.Options.TransactionOption.html#snapshotRywEnable"><span class="hs-identifier">snapshotRywEnable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">600</span><span class="hs-special">)</span><span>
-</span><a name="line-110"></a><span>
-</span><a name="line-111"></a><span class="hs-comment">-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.</span><span>
-</span><a name="line-112"></a><a name="snapshotRywDisable"><a href="FoundationDB.Options.TransactionOption.html#snapshotRywDisable"><span class="hs-identifier">snapshotRywDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">601</span><span class="hs-special">)</span><span>
-</span><a name="line-113"></a><span>
-</span><a name="line-114"></a><span class="hs-comment">-- | The transaction can read and write to locked databases, and is responsible for checking that it took the lock.</span><span>
-</span><a name="line-115"></a><a name="lockAware"><a href="FoundationDB.Options.TransactionOption.html#lockAware"><span class="hs-identifier">lockAware</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">700</span><span class="hs-special">)</span><span>
-</span><a name="line-116"></a><span>
-</span><a name="line-117"></a><span class="hs-comment">-- | By default, operations that are performed on a transaction while it is being committed will not only fail themselves, but they will attempt to fail other in-flight operations (such as the commit) as well. This behavior is intended to help developers discover situations where operations could be unintentionally executed after the transaction has been reset. Setting this option removes that protection, causing only the offending operation to fail.</span><span>
-</span><a name="line-118"></a><a name="usedDuringCommitProtectionDisable"><a href="FoundationDB.Options.TransactionOption.html#usedDuringCommitProtectionDisable"><span class="hs-identifier">usedDuringCommitProtectionDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">701</span><span class="hs-special">)</span><span>
-</span><a name="line-119"></a><span>
-</span><a name="line-120"></a><span class="hs-comment">-- | The transaction can read from locked databases.</span><span>
-</span><a name="line-121"></a><a name="readLockAware"><a href="FoundationDB.Options.TransactionOption.html#readLockAware"><span class="hs-identifier">readLockAware</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">702</span><span class="hs-special">)</span><span>
-</span><a name="line-122"></a><span>
-</span><a name="line-123"></a><span class="hs-comment">-- | No other transactions will be applied before this transaction within the same commit version.</span><span>
-</span><a name="line-124"></a><a name="firstInBatch"><a href="FoundationDB.Options.TransactionOption.html#firstInBatch"><span class="hs-identifier">firstInBatch</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">710</span><span class="hs-special">)</span><span>
-</span><a name="line-125"></a><span>
-</span><a name="line-126"></a><span class="hs-comment">-- | This option should only be used by tools which change the database configuration.</span><span>
-</span><a name="line-127"></a><a name="useProvisionalProxies"><a href="FoundationDB.Options.TransactionOption.html#useProvisionalProxies"><span class="hs-identifier">useProvisionalProxies</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">711</span><span class="hs-special">)</span><span>
-</span><a name="line-128"></a><span>
-</span><a name="line-129"></a><span class="hs-comment">-- | The transaction can retrieve keys that are conflicting with other transactions.</span><span>
-</span><a name="line-130"></a><a name="reportConflictingKeys"><a href="FoundationDB.Options.TransactionOption.html#reportConflictingKeys"><span class="hs-identifier">reportConflictingKeys</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">712</span><span class="hs-special">)</span><span>
-</span><a name="line-131"></a><span>
-</span><a name="line-132"></a><span class="hs-comment">-- | By default, the special key space will only allow users to read from exactly one module (a subspace in the special key space). Use this option to allow reading from zero or more modules. Users who set this option should be prepared for new modules, which may have different behaviors than the modules they're currently reading. For example, a new module might block or return an error.</span><span>
-</span><a name="line-133"></a><a name="specialKeySpaceRelaxed"><a href="FoundationDB.Options.TransactionOption.html#specialKeySpaceRelaxed"><span class="hs-identifier">specialKeySpaceRelaxed</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">713</span><span class="hs-special">)</span><span>
-</span><a name="line-134"></a><span>
-</span><a name="line-135"></a><span class="hs-comment">-- | Adds a tag to the transaction that can be used to apply manual targeted throttling. At most 5 tags can be set on a transaction.</span><span>
-</span><a name="line-136"></a><a name="tag"><a href="FoundationDB.Options.TransactionOption.html#tag"><span class="hs-identifier">tag</span></a></a><span> </span><a name="local-6989586621679034965"><a href="#local-6989586621679034965"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">800</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034965"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-137"></a><span>
-</span><a name="line-138"></a><span class="hs-comment">-- | Adds a tag to the transaction that can be used to apply manual or automatic targeted throttling. At most 5 tags can be set on a transaction.</span><span>
-</span><a name="line-139"></a><a name="autoThrottleTag"><a href="FoundationDB.Options.TransactionOption.html#autoThrottleTag"><span class="hs-identifier">autoThrottleTag</span></a></a><span> </span><a name="local-6989586621679034966"><a href="#local-6989586621679034966"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">801</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034966"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-140"></a><span>
-</span><a name="line-141"></a></pre></body></html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_5SZ5NBnziW9AQscFlIrsrv"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Options.TransactionOption</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">readAheadDisable</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-11"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">durabilityDevNullIsWebScale</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-14"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-16"></span><span class="hs-pragma">transactionLoggingEnable</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">data</span><span> </span><span id="TransactionOption"><span class="annot"><a href="FoundationDB.Options.TransactionOption.html#TransactionOption"><span class="hs-identifier hs-var">TransactionOption</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TransactionOptionString"><span class="annot"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-19"></span><span>                       </span><span class="hs-glyph">|</span><span> </span><span id="TransactionOptionInt"><span class="annot"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-20"></span><span>                       </span><span class="hs-glyph">|</span><span> </span><span id="TransactionOptionBytes"><span class="annot"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionBytes"><span class="hs-identifier hs-var">TransactionOptionBytes</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-21"></span><span>                       </span><span class="hs-glyph">|</span><span> </span><span id="TransactionOptionFlag"><span class="annot"><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-22"></span><span>                           </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679269175"><span id="local-6989586621679269177"><span id="local-6989586621679269179"><span class="annot"><span class="annottext">Int -&gt; TransactionOption -&gt; ShowS
+[TransactionOption] -&gt; ShowS
+TransactionOption -&gt; String
+(Int -&gt; TransactionOption -&gt; ShowS)
+-&gt; (TransactionOption -&gt; String)
+-&gt; ([TransactionOption] -&gt; ShowS)
+-&gt; Show TransactionOption
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TransactionOption] -&gt; ShowS
+$cshowList :: [TransactionOption] -&gt; ShowS
+show :: TransactionOption -&gt; String
+$cshow :: TransactionOption -&gt; String
+showsPrec :: Int -&gt; TransactionOption -&gt; ShowS
+$cshowsPrec :: Int -&gt; TransactionOption -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269166"><span id="local-6989586621679269168"><span id="local-6989586621679269170"><span id="local-6989586621679269172"><span class="annot"><span class="annottext">ReadPrec [TransactionOption]
+ReadPrec TransactionOption
+Int -&gt; ReadS TransactionOption
+ReadS [TransactionOption]
+(Int -&gt; ReadS TransactionOption)
+-&gt; ReadS [TransactionOption]
+-&gt; ReadPrec TransactionOption
+-&gt; ReadPrec [TransactionOption]
+-&gt; Read TransactionOption
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [TransactionOption]
+$creadListPrec :: ReadPrec [TransactionOption]
+readPrec :: ReadPrec TransactionOption
+$creadPrec :: ReadPrec TransactionOption
+readList :: ReadS [TransactionOption]
+$creadList :: ReadS [TransactionOption]
+readsPrec :: Int -&gt; ReadS TransactionOption
+$creadsPrec :: Int -&gt; ReadS TransactionOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269161"><span id="local-6989586621679269163"><span class="annot"><span class="annottext">TransactionOption -&gt; TransactionOption -&gt; Bool
+(TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; Eq TransactionOption
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c/= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+== :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c== :: TransactionOption -&gt; TransactionOption -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269145"><span id="local-6989586621679269147"><span id="local-6989586621679269149"><span id="local-6989586621679269151"><span id="local-6989586621679269153"><span id="local-6989586621679269155"><span id="local-6989586621679269157"><span class="annot"><span class="annottext">Eq TransactionOption
+Eq TransactionOption
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Ordering)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; Bool)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; TransactionOption)
+-&gt; (TransactionOption -&gt; TransactionOption -&gt; TransactionOption)
+-&gt; Ord TransactionOption
+TransactionOption -&gt; TransactionOption -&gt; Bool
+TransactionOption -&gt; TransactionOption -&gt; Ordering
+TransactionOption -&gt; TransactionOption -&gt; TransactionOption
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: TransactionOption -&gt; TransactionOption -&gt; TransactionOption
+$cmin :: TransactionOption -&gt; TransactionOption -&gt; TransactionOption
+max :: TransactionOption -&gt; TransactionOption -&gt; TransactionOption
+$cmax :: TransactionOption -&gt; TransactionOption -&gt; TransactionOption
+&gt;= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c&gt;= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+&gt; :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c&gt; :: TransactionOption -&gt; TransactionOption -&gt; Bool
+&lt;= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c&lt;= :: TransactionOption -&gt; TransactionOption -&gt; Bool
+&lt; :: TransactionOption -&gt; TransactionOption -&gt; Bool
+$c&lt; :: TransactionOption -&gt; TransactionOption -&gt; Bool
+compare :: TransactionOption -&gt; TransactionOption -&gt; Ordering
+$ccompare :: TransactionOption -&gt; TransactionOption -&gt; Ordering
+$cp1Ord :: Eq TransactionOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | The transaction, if not self-conflicting, may be committed a second time after commit succeeds, in the event of a fault</span><span>
+</span><span id="line-25"></span><span id="causalWriteRisky"><span class="annot"><span class="annottext">causalWriteRisky :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#causalWriteRisky"><span class="hs-identifier hs-var hs-var">causalWriteRisky</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | The read version will be committed, and usually will be the latest committed, but might not be the latest committed in the event of a simultaneous fault and misbehaving clock.</span><span>
+</span><span id="line-28"></span><span id="causalReadRisky"><span class="annot"><span class="annottext">causalReadRisky :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#causalReadRisky"><span class="hs-identifier hs-var hs-var">causalReadRisky</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">20</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-31"></span><span id="causalReadDisable"><span class="annot"><span class="annottext">causalReadDisable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#causalReadDisable"><span class="hs-identifier hs-var hs-var">causalReadDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">21</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- | Addresses returned by get_addresses_for_key include the port when enabled. As of api version 630, this option is enabled by default and setting this has no effect.</span><span>
+</span><span id="line-34"></span><span id="includePortInAddress"><span class="annot"><span class="annottext">includePortInAddress :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#includePortInAddress"><span class="hs-identifier hs-var hs-var">includePortInAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">23</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | The next write performed on this transaction will not generate a write conflict range. As a result, other transactions which read the key(s) being modified by the next write will not conflict with this transaction. Care needs to be taken when using this option on a transaction that is shared between multiple threads. When setting this option, write conflict ranges will be disabled on the next write operation, regardless of what thread it is on.</span><span>
+</span><span id="line-37"></span><span id="nextWriteNoWriteConflictRange"><span class="annot"><span class="annottext">nextWriteNoWriteConflictRange :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#nextWriteNoWriteConflictRange"><span class="hs-identifier hs-var hs-var">nextWriteNoWriteConflictRange</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">30</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- | Committing this transaction will bypass the normal load balancing across commit proxies and go directly to the specifically nominated 'first commit proxy'.</span><span>
+</span><span id="line-40"></span><span id="commitOnFirstProxy"><span class="annot"><span class="annottext">commitOnFirstProxy :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#commitOnFirstProxy"><span class="hs-identifier hs-var hs-var">commitOnFirstProxy</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">40</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-43"></span><span id="checkWritesEnable"><span class="annot"><span class="annottext">checkWritesEnable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#checkWritesEnable"><span class="hs-identifier hs-var hs-var">checkWritesEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">50</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Reads performed by a transaction will not see any prior mutations that occured in that transaction, instead seeing the value which was in the database at the transaction's read version. This option may provide a small performance benefit for the client, but also disables a number of client-side optimizations which are beneficial for transactions which tend to read and write the same keys within a single transaction. It is an error to set this option after performing any reads or writes on the transaction.</span><span>
+</span><span id="line-46"></span><span id="readYourWritesDisable"><span class="annot"><span class="annottext">readYourWritesDisable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#readYourWritesDisable"><span class="hs-identifier hs-var hs-var">readYourWritesDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">51</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-49"></span><span id="readAheadDisable"><span class="annot"><span class="annottext">readAheadDisable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#readAheadDisable"><span class="hs-identifier hs-var hs-var">readAheadDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">52</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-52"></span><span id="durabilityDatacenter"><span class="annot"><span class="annottext">durabilityDatacenter :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#durabilityDatacenter"><span class="hs-identifier hs-var hs-var">durabilityDatacenter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">110</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-55"></span><span id="durabilityRisky"><span class="annot"><span class="annottext">durabilityRisky :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#durabilityRisky"><span class="hs-identifier hs-var hs-var">durabilityRisky</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">120</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-58"></span><span id="durabilityDevNullIsWebScale"><span class="annot"><span class="annottext">durabilityDevNullIsWebScale :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#durabilityDevNullIsWebScale"><span class="hs-identifier hs-var hs-var">durabilityDevNullIsWebScale</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">130</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Specifies that this transaction should be treated as highest priority and that lower priority transactions should block behind this one. Use is discouraged outside of low-level tools</span><span>
+</span><span id="line-61"></span><span id="prioritySystemImmediate"><span class="annot"><span class="annottext">prioritySystemImmediate :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#prioritySystemImmediate"><span class="hs-identifier hs-var hs-var">prioritySystemImmediate</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">200</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | Specifies that this transaction should be treated as low priority and that default priority transactions will be processed first. Batch priority transactions will also be throttled at load levels smaller than for other types of transactions and may be fully cut off in the event of machine failures. Useful for doing batch work simultaneously with latency-sensitive work</span><span>
+</span><span id="line-64"></span><span id="priorityBatch"><span class="annot"><span class="annottext">priorityBatch :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#priorityBatch"><span class="hs-identifier hs-var hs-var">priorityBatch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">201</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | This is a write-only transaction which sets the initial configuration. This option is designed for use by database system tools only.</span><span>
+</span><span id="line-67"></span><span id="initializeNewDatabase"><span class="annot"><span class="annottext">initializeNewDatabase :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#initializeNewDatabase"><span class="hs-identifier hs-var hs-var">initializeNewDatabase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">300</span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- | Allows this transaction to read and modify system keys (those that start with the byte 0xFF). Implies raw_access.</span><span>
+</span><span id="line-70"></span><span id="accessSystemKeys"><span class="annot"><span class="annottext">accessSystemKeys :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#accessSystemKeys"><span class="hs-identifier hs-var hs-var">accessSystemKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">301</span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | Allows this transaction to read system keys (those that start with the byte 0xFF). Implies raw_access.</span><span>
+</span><span id="line-73"></span><span id="readSystemKeys"><span class="annot"><span class="annottext">readSystemKeys :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#readSystemKeys"><span class="hs-identifier hs-var hs-var">readSystemKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">302</span></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | Allows this transaction to access the raw key-space when tenant mode is on.</span><span>
+</span><span id="line-76"></span><span id="rawAccess"><span class="annot"><span class="annottext">rawAccess :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#rawAccess"><span class="hs-identifier hs-var hs-var">rawAccess</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">303</span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-79"></span><span id="debugDump"><span class="annot"><span class="annottext">debugDump :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#debugDump"><span class="hs-identifier hs-var hs-var">debugDump</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">400</span></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-82"></span><span id="debugRetryLogging"><span class="annot"><span class="annottext">debugRetryLogging :: String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#debugRetryLogging"><span class="hs-identifier hs-var hs-var">debugRetryLogging</span></a></span></span><span> </span><span id="local-6989586621679269123"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269123"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">401</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269123"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-85"></span><span id="transactionLoggingEnable"><span class="annot"><span class="annottext">transactionLoggingEnable :: String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#transactionLoggingEnable"><span class="hs-identifier hs-var hs-var">transactionLoggingEnable</span></a></span></span><span> </span><span id="local-6989586621679269121"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269121"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">402</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269121"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- | Sets a client provided identifier for the transaction that will be used in scenarios like tracing or profiling. Client trace logging or transaction profiling must be separately enabled.</span><span>
+</span><span id="line-88"></span><span id="debugTransactionIdentifier"><span class="annot"><span class="annottext">debugTransactionIdentifier :: String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#debugTransactionIdentifier"><span class="hs-identifier hs-var hs-var">debugTransactionIdentifier</span></a></span></span><span> </span><span id="local-6989586621679269119"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269119"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">403</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269119"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | Enables tracing for this transaction and logs results to the client trace logs. The DEBUG_TRANSACTION_IDENTIFIER option must be set before using this option, and client trace logging must be enabled to get log output.</span><span>
+</span><span id="line-91"></span><span id="logTransaction"><span class="annot"><span class="annottext">logTransaction :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#logTransaction"><span class="hs-identifier hs-var hs-var">logTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">404</span></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- | Sets the maximum escaped length of key and value fields to be logged to the trace file via the LOG_TRANSACTION option, after which the field will be truncated. A negative value disables truncation.</span><span>
+</span><span id="line-94"></span><span id="transactionLoggingMaxFieldLength"><span class="annot"><span class="annottext">transactionLoggingMaxFieldLength :: Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#transactionLoggingMaxFieldLength"><span class="hs-identifier hs-var hs-var">transactionLoggingMaxFieldLength</span></a></span></span><span> </span><span id="local-6989586621679269116"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269116"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">405</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269116"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- | Sets an identifier for server tracing of this transaction. When committed, this identifier triggers logging when each part of the transaction authority encounters it, which is helpful in diagnosing slowness in misbehaving clusters. The identifier is randomly generated. When there is also a debug_transaction_identifier, both IDs are logged together.</span><span>
+</span><span id="line-97"></span><span id="serverRequestTracing"><span class="annot"><span class="annottext">serverRequestTracing :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#serverRequestTracing"><span class="hs-identifier hs-var hs-var">serverRequestTracing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">406</span></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- | Set a timeout in milliseconds which, when elapsed, will cause the transaction automatically to be cancelled. Valid parameter values are ``[0, INT_MAX]``. If set to 0, will disable all timeouts. All pending and any future uses of the transaction will throw an exception. The transaction can be used again after it is reset. Prior to API version 610, like all other transaction options, the timeout must be reset after a call to ``onError``. If the API version is 610 or greater, the timeout is not reset after an ``onError`` call. This allows the user to specify a longer timeout on specific transactions than the default timeout specified through the ``transaction_timeout`` database option without the shorter database timeout cancelling transactions that encounter a retryable error. Note that at all API versions, it is safe and legal to set the timeout each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
+</span><span id="line-100"></span><span id="timeout"><span class="annot"><span class="annottext">timeout :: Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#timeout"><span class="hs-identifier hs-var hs-var">timeout</span></a></span></span><span> </span><span id="local-6989586621679269113"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269113"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">500</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269113"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | Set a maximum number of retries after which additional calls to ``onError`` will throw the most recently seen error code. Valid parameter values are ``[-1, INT_MAX]``. If set to -1, will disable the retry limit. Prior to API version 610, like all other transaction options, the retry limit must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the retry limit each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
+</span><span id="line-103"></span><span id="retryLimit"><span class="annot"><span class="annottext">retryLimit :: Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#retryLimit"><span class="hs-identifier hs-var hs-var">retryLimit</span></a></span></span><span> </span><span id="local-6989586621679269111"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269111"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">501</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269111"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- | Set the maximum amount of backoff delay incurred in the call to ``onError`` if the error is retryable. Defaults to 1000 ms. Valid parameter values are ``[0, INT_MAX]``. If the maximum retry delay is less than the current retry delay of the transaction, then the current retry delay will be clamped to the maximum retry delay. Prior to API version 610, like all other transaction options, the maximum retry delay must be reset after a call to ``onError``. If the API version is 610 or greater, the retry limit is not reset after an ``onError`` call. Note that at all API versions, it is safe and legal to set the maximum retry delay each time the transaction begins, so most code written assuming the older behavior can be upgraded to the newer behavior without requiring any modification, and the caller is not required to implement special logic in retry loops to only conditionally set this option.</span><span>
+</span><span id="line-106"></span><span id="maxRetryDelay"><span class="annot"><span class="annottext">maxRetryDelay :: Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#maxRetryDelay"><span class="hs-identifier hs-var hs-var">maxRetryDelay</span></a></span></span><span> </span><span id="local-6989586621679269109"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269109"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">502</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269109"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- | Set the transaction size limit in bytes. The size is calculated by combining the sizes of all keys and values written or mutated, all key ranges cleared, and all read and write conflict ranges. (In other words, it includes the total size of all data included in the request to the cluster to commit the transaction.) Large transactions can cause performance problems on FoundationDB clusters, so setting this limit to a smaller value than the default can help prevent the client from accidentally degrading the cluster's performance. This value must be at least 32 and cannot be set to higher than 10,000,000, the default transaction size limit.</span><span>
+</span><span id="line-109"></span><span id="sizeLimit"><span class="annot"><span class="annottext">sizeLimit :: Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#sizeLimit"><span class="hs-identifier hs-var hs-var">sizeLimit</span></a></span></span><span> </span><span id="local-6989586621679269107"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269107"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionInt"><span class="hs-identifier hs-var">TransactionOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">503</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269107"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Snapshot read operations will see the results of writes done in the same transaction. This is the default behavior.</span><span>
+</span><span id="line-112"></span><span id="snapshotRywEnable"><span class="annot"><span class="annottext">snapshotRywEnable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#snapshotRywEnable"><span class="hs-identifier hs-var hs-var">snapshotRywEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">600</span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- | Snapshot read operations will not see the results of writes done in the same transaction. This was the default behavior prior to API version 300.</span><span>
+</span><span id="line-115"></span><span id="snapshotRywDisable"><span class="annot"><span class="annottext">snapshotRywDisable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#snapshotRywDisable"><span class="hs-identifier hs-var hs-var">snapshotRywDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">601</span></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- | The transaction can read and write to locked databases, and is responsible for checking that it took the lock.</span><span>
+</span><span id="line-118"></span><span id="lockAware"><span class="annot"><span class="annottext">lockAware :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#lockAware"><span class="hs-identifier hs-var hs-var">lockAware</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">700</span></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- | By default, operations that are performed on a transaction while it is being committed will not only fail themselves, but they will attempt to fail other in-flight operations (such as the commit) as well. This behavior is intended to help developers discover situations where operations could be unintentionally executed after the transaction has been reset. Setting this option removes that protection, causing only the offending operation to fail.</span><span>
+</span><span id="line-121"></span><span id="usedDuringCommitProtectionDisable"><span class="annot"><span class="annottext">usedDuringCommitProtectionDisable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#usedDuringCommitProtectionDisable"><span class="hs-identifier hs-var hs-var">usedDuringCommitProtectionDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">701</span></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | The transaction can read from locked databases.</span><span>
+</span><span id="line-124"></span><span id="readLockAware"><span class="annot"><span class="annottext">readLockAware :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#readLockAware"><span class="hs-identifier hs-var hs-var">readLockAware</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">702</span></span><span class="hs-special">)</span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- | No other transactions will be applied before this transaction within the same commit version.</span><span>
+</span><span id="line-127"></span><span id="firstInBatch"><span class="annot"><span class="annottext">firstInBatch :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#firstInBatch"><span class="hs-identifier hs-var hs-var">firstInBatch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">710</span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- | This option should only be used by tools which change the database configuration.</span><span>
+</span><span id="line-130"></span><span id="useProvisionalProxies"><span class="annot"><span class="annottext">useProvisionalProxies :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#useProvisionalProxies"><span class="hs-identifier hs-var hs-var">useProvisionalProxies</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">711</span></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- | The transaction can retrieve keys that are conflicting with other transactions.</span><span>
+</span><span id="line-133"></span><span id="reportConflictingKeys"><span class="annot"><span class="annottext">reportConflictingKeys :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#reportConflictingKeys"><span class="hs-identifier hs-var hs-var">reportConflictingKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">712</span></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- | By default, the special key space will only allow users to read from exactly one module (a subspace in the special key space). Use this option to allow reading from zero or more modules. Users who set this option should be prepared for new modules, which may have different behaviors than the modules they're currently reading. For example, a new module might block or return an error.</span><span>
+</span><span id="line-136"></span><span id="specialKeySpaceRelaxed"><span class="annot"><span class="annottext">specialKeySpaceRelaxed :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#specialKeySpaceRelaxed"><span class="hs-identifier hs-var hs-var">specialKeySpaceRelaxed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">713</span></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- | By default, users are not allowed to write to special keys. Enable this option will implicitly enable all options required to achieve the configuration change.</span><span>
+</span><span id="line-139"></span><span id="specialKeySpaceEnableWrites"><span class="annot"><span class="annottext">specialKeySpaceEnableWrites :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#specialKeySpaceEnableWrites"><span class="hs-identifier hs-var hs-var">specialKeySpaceEnableWrites</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">714</span></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- | Adds a tag to the transaction that can be used to apply manual targeted throttling. At most 5 tags can be set on a transaction.</span><span>
+</span><span id="line-142"></span><span id="tag"><span class="annot"><span class="annottext">tag :: String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#tag"><span class="hs-identifier hs-var hs-var">tag</span></a></span></span><span> </span><span id="local-6989586621679269095"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269095"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">800</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269095"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- | Adds a tag to the transaction that can be used to apply manual or automatic targeted throttling. At most 5 tags can be set on a transaction.</span><span>
+</span><span id="line-145"></span><span id="autoThrottleTag"><span class="annot"><span class="annottext">autoThrottleTag :: String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#autoThrottleTag"><span class="hs-identifier hs-var hs-var">autoThrottleTag</span></a></span></span><span> </span><span id="local-6989586621679269093"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269093"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionString"><span class="hs-identifier hs-var">TransactionOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">801</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269093"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- | Adds a parent to the Span of this transaction. Used for transaction tracing. A span can be identified with any 16 bytes</span><span>
+</span><span id="line-148"></span><span id="spanParent"><span class="annot"><span class="annottext">spanParent :: ByteString -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#spanParent"><span class="hs-identifier hs-var hs-var">spanParent</span></a></span></span><span> </span><span id="local-6989586621679269091"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269091"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionBytes"><span class="hs-identifier hs-var">TransactionOptionBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">900</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269091"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- | Asks storage servers for how many bytes a clear key range contains. Otherwise uses the location cache to roughly estimate this.</span><span>
+</span><span id="line-151"></span><span id="expensiveClearCostEstimationEnable"><span class="annot"><span class="annottext">expensiveClearCostEstimationEnable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#expensiveClearCostEstimationEnable"><span class="hs-identifier hs-var hs-var">expensiveClearCostEstimationEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1000</span></span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- | Allows ``get`` operations to read from sections of keyspace that have become unreadable because of versionstamp operations. These reads will view versionstamp operations as if they were set operations that did not fill in the versionstamp.</span><span>
+</span><span id="line-154"></span><span id="bypassUnreadable"><span class="annot"><span class="annottext">bypassUnreadable :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#bypassUnreadable"><span class="hs-identifier hs-var hs-var">bypassUnreadable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="hs-comment">-- | Allows this transaction to use cached GRV from the database context. Defaults to off. Upon first usage, starts a background updater to periodically update the cache to avoid stale read versions.</span><span>
+</span><span id="line-157"></span><span id="useGrvCache"><span class="annot"><span class="annottext">useGrvCache :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#useGrvCache"><span class="hs-identifier hs-var hs-var">useGrvCache</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1101</span></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span class="hs-comment">-- | Specifically instruct this transaction to NOT use cached GRV. Primarily used for the read version cache's background updater to avoid attempting to read a cached entry in specific situations.</span><span>
+</span><span id="line-160"></span><span id="skipGrvCache"><span class="annot"><span class="annottext">skipGrvCache :: TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#skipGrvCache"><span class="hs-identifier hs-var hs-var">skipGrvCache</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; TransactionOption
+</span><a href="FoundationDB.Options.TransactionOption.html#TransactionOptionFlag"><span class="hs-identifier hs-var">TransactionOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1102</span></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span></pre></body></html>

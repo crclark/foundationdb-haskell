@@ -1,101 +1,282 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Subspaces allow you to easily attach a common prefix to tuple-encoded keys</span><span>
-</span><a name="line-2"></a><span class="hs-comment">-- (See &quot;FoundationDB.Layer.Tuple&quot;) so that you can perform range reads and</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- deletes over a set of related keys.</span><span>
-</span><a name="line-4"></a><span class="hs-comment">--</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- The subspace layer is one of the standard layers supported by all</span><span>
-</span><a name="line-6"></a><span class="hs-comment">-- language bindings. See</span><span>
-</span><a name="line-7"></a><span class="hs-comment">-- &lt;https://apple.github.io/foundationdb/developer-guide.html#subspaces the official documentation&gt;</span><span>
-</span><a name="line-8"></a><span class="hs-comment">-- for more information.</span><span>
-</span><a name="line-9"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Subspace</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-10"></a><span>  </span><span class="hs-comment">-- * Creating subspaces</span><span>
-</span><a name="line-11"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
-</span><a name="line-12"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#subspace"><span class="hs-identifier hs-var">subspace</span></a><span class="hs-special">,</span><span>
-</span><a name="line-13"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier hs-var">prefixedSubspace</span></a><span class="hs-special">,</span><span>
-</span><a name="line-14"></a><span>  </span><span class="hs-comment">-- * Using subspaces</span><span>
-</span><a name="line-15"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#extend"><span class="hs-identifier hs-var">extend</span></a><span class="hs-special">,</span><span>
-</span><a name="line-16"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var">pack</span></a><span class="hs-special">,</span><span>
-</span><a name="line-17"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#unpack"><span class="hs-identifier hs-var">unpack</span></a><span class="hs-special">,</span><span>
-</span><a name="line-18"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#contains"><span class="hs-identifier hs-var">contains</span></a><span class="hs-special">,</span><span>
-</span><a name="line-19"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#subspaceRange"><span class="hs-identifier hs-var">subspaceRange</span></a><span class="hs-special">,</span><span>
-</span><a name="line-20"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#getLast"><span class="hs-identifier hs-var">getLast</span></a><span class="hs-special">,</span><span>
-</span><a name="line-21"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#subspaceKey"><span class="hs-identifier hs-var">subspaceKey</span></a><span>
-</span><a name="line-22"></a><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-23"></a><span>
-</span><a name="line-24"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span>
-</span><a name="line-25"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">BS</span><span>
-</span><a name="line-26"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Monoid</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-operator hs-var">&lt;&gt;</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-27"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Sequence</span><span class="hs-special">(</span><span class="hs-identifier hs-type">Seq</span><span class="hs-special">(</span><span class="hs-identifier hs-var">Empty</span><span class="hs-special">,</span><span class="hs-special">(</span><span class="hs-operator hs-var">:&lt;|</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-28"></a><span>
-</span><a name="line-29"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.html"><span class="hs-identifier">FoundationDB</span></a><span>
-</span><a name="line-30"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Layer.Tuple.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Layer</span><span class="hs-operator">.</span><span class="hs-identifier">Tuple</span></a><span>
-</span><a name="line-31"></a><span>
-</span><a name="line-32"></a><span class="hs-comment">-- | Represents a subspace of 'Tuple' keys. A subspace is just a common prefix</span><span>
-</span><a name="line-33"></a><span class="hs-comment">-- for a set of tuples.</span><span>
-</span><a name="line-34"></a><span class="hs-keyword">newtype</span><span> </span><a name="Subspace"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier">Subspace</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="Subspace"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier">Subspace</span></a></a><span> </span><span class="hs-special">{</span><a name="rawPrefix"><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier">rawPrefix</span></a></a><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">}</span><span>
-</span><a name="line-35"></a><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-36"></a><span>
-</span><a name="line-37"></a><span class="hs-comment">-- | Create a subspace from a tuple.</span><span>
-</span><a name="line-38"></a><span class="hs-identifier">subspace</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a><span class="hs-special">]</span><span>
-</span><a name="line-39"></a><span>         </span><span class="hs-comment">-- ^ Tuple with which to prefix the subspace. May not contain</span><span>
-</span><a name="line-40"></a><span>         </span><span class="hs-comment">-- incomplete version stamps.</span><span>
-</span><a name="line-41"></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-42"></a><a name="subspace"><a href="FoundationDB.Layer.Subspace.html#subspace"><span class="hs-identifier">subspace</span></a></a><span> </span><a name="local-6989586621679101764"><a href="#local-6989586621679101764"><span class="hs-identifier">es</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElems"><span class="hs-identifier hs-var">encodeTupleElems</span></a><span> </span><a href="#local-6989586621679101764"><span class="hs-identifier hs-var">es</span></a><span class="hs-special">)</span><span>
-</span><a name="line-43"></a><span>
-</span><a name="line-44"></a><span class="hs-comment">-- | Create a subspace from a raw bytestring prefix and a tuple.</span><span>
-</span><a name="line-45"></a><span class="hs-identifier">prefixedSubspace</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-46"></a><span>                 </span><span class="hs-comment">-- ^ prefix</span><span>
-</span><a name="line-47"></a><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a><span class="hs-special">]</span><span>
-</span><a name="line-48"></a><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-49"></a><a name="prefixedSubspace"><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier">prefixedSubspace</span></a></a><span> </span><a name="local-6989586621679101765"><a href="#local-6989586621679101765"><span class="hs-identifier">prefix</span></a></a><span> </span><a name="local-6989586621679101766"><a href="#local-6989586621679101766"><span class="hs-identifier">tuple</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElemsWPrefix"><span class="hs-identifier hs-var">encodeTupleElemsWPrefix</span></a><span> </span><a href="#local-6989586621679101765"><span class="hs-identifier hs-var">prefix</span></a><span> </span><a href="#local-6989586621679101766"><span class="hs-identifier hs-var">tuple</span></a><span class="hs-special">)</span><span>
-</span><a name="line-50"></a><span>
-</span><a name="line-51"></a><span class="hs-comment">-- | Returns the bytestring prefix of the subspace. Equivalent to 'rawPrefix'.</span><span>
-</span><a name="line-52"></a><span class="hs-comment">-- This function is provided for consistency with other language bindings.</span><span>
-</span><a name="line-53"></a><span class="hs-identifier">subspaceKey</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-54"></a><a name="subspaceKey"><a href="FoundationDB.Layer.Subspace.html#subspaceKey"><span class="hs-identifier">subspaceKey</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">rawPrefix</span><span>
-</span><a name="line-55"></a><span>
-</span><a name="line-56"></a><span class="hs-comment">-- | Create a subsubspace by extending the prefix of a subspace by the</span><span>
-</span><a name="line-57"></a><span class="hs-comment">-- given tuple.</span><span>
-</span><a name="line-58"></a><span class="hs-identifier">extend</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-59"></a><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a><span class="hs-special">]</span><span>
-</span><a name="line-60"></a><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-61"></a><a name="extend"><a href="FoundationDB.Layer.Subspace.html#extend"><span class="hs-identifier">extend</span></a></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a><span> </span><a name="local-6989586621679101767"><a href="#local-6989586621679101767"><span class="hs-identifier">prfx</span></a></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
-</span><a name="line-62"></a><span>  </span><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier hs-var">prefixedSubspace</span></a><span> </span><a href="#local-6989586621679101767"><span class="hs-identifier hs-var">prfx</span></a><span>
-</span><a name="line-63"></a><span>
-</span><a name="line-64"></a><span class="hs-comment">-- | Encode a tuple prefixed with a subspace.</span><span>
-</span><a name="line-65"></a><span class="hs-identifier">pack</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-66"></a><a name="pack"><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier">pack</span></a></a><span> </span><a name="local-6989586621679101768"><a href="#local-6989586621679101768"><span class="hs-identifier">sub</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElemsWPrefix"><span class="hs-identifier hs-var">encodeTupleElemsWPrefix</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier">rawPrefix</span><span> </span><a href="#local-6989586621679101768"><span class="hs-identifier hs-var">sub</span></a><span class="hs-special">)</span><span>
-</span><a name="line-67"></a><span>
-</span><a name="line-68"></a><span class="hs-comment">-- | Decode a tuple that was encoded by 'pack'.</span><span>
-</span><a name="line-69"></a><span class="hs-identifier">unpack</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Either</span><span> </span><span class="hs-identifier hs-type">String</span><span> </span><span class="hs-special">[</span><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a><span class="hs-special">]</span><span>
-</span><a name="line-70"></a><a name="unpack"><a href="FoundationDB.Layer.Subspace.html#unpack"><span class="hs-identifier">unpack</span></a></a><span> </span><a name="local-6989586621679101769"><a href="#local-6989586621679101769"><span class="hs-identifier">sub</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Layer.Tuple.Internal.html#decodeTupleElemsWPrefix"><span class="hs-identifier hs-var">decodeTupleElemsWPrefix</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier">rawPrefix</span><span> </span><a href="#local-6989586621679101769"><span class="hs-identifier hs-var">sub</span></a><span class="hs-special">)</span><span>
-</span><a name="line-71"></a><span>
-</span><a name="line-72"></a><span class="hs-comment">-- | Returns 'True' iff the subspace contains the given key.</span><span>
-</span><a name="line-73"></a><span class="hs-identifier">contains</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span>
-</span><a name="line-74"></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-75"></a><span>         </span><span class="hs-comment">-- ^ encoded key</span><span>
-</span><a name="line-76"></a><span>         </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">Bool</span><span>
-</span><a name="line-77"></a><a name="contains"><a href="FoundationDB.Layer.Subspace.html#contains"><span class="hs-identifier">contains</span></a></a><span> </span><a name="local-6989586621679101770"><a href="#local-6989586621679101770"><span class="hs-identifier">sub</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">BS</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">isPrefixOf</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">rawPrefix</span><span> </span><a href="#local-6989586621679101770"><span class="hs-identifier hs-var">sub</span></a><span class="hs-special">)</span><span>
-</span><a name="line-78"></a><span>
-</span><a name="line-79"></a><span class="hs-comment">-- | Construct a range query that covers an entire subspace.</span><span>
-</span><a name="line-80"></a><span class="hs-identifier">subspaceRange</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Transaction.html#Range"><span class="hs-identifier hs-type">Range</span></a><span>
-</span><a name="line-81"></a><a name="subspaceRange"><a href="FoundationDB.Layer.Subspace.html#subspaceRange"><span class="hs-identifier">subspaceRange</span></a></a><span> </span><a name="local-6989586621679101771"><a href="#local-6989586621679101771"><span class="hs-identifier">s</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Transaction.html#Range"><span class="hs-identifier hs-var">Range</span></a><span>
-</span><a name="line-82"></a><span>  </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">rangeBegin</span><span>   </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Internal.Bindings.html#FirstGreaterOrEq"><span class="hs-identifier hs-var">FirstGreaterOrEq</span></a><span> </span><span class="hs-special">(</span><a href="#local-6989586621679101772"><span class="hs-identifier hs-var">k</span></a><span> </span><span class="hs-operator hs-var">&lt;&gt;</span><span> </span><span class="hs-identifier hs-var">BS</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">pack</span><span> </span><span class="hs-special">[</span><span class="hs-number">0x00</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><a name="line-83"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">rangeEnd</span><span>     </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Internal.Bindings.html#FirstGreaterOrEq"><span class="hs-identifier hs-var">FirstGreaterOrEq</span></a><span> </span><span class="hs-special">(</span><a href="#local-6989586621679101772"><span class="hs-identifier hs-var">k</span></a><span> </span><span class="hs-operator hs-var">&lt;&gt;</span><span> </span><span class="hs-identifier hs-var">BS</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">pack</span><span> </span><span class="hs-special">[</span><span class="hs-number">0xff</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><a name="line-84"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">rangeLimit</span><span>   </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">Nothing</span><span>
-</span><a name="line-85"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">rangeReverse</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">False</span><span>
-</span><a name="line-86"></a><span>  </span><span class="hs-special">}</span><span>
-</span><a name="line-87"></a><span>  </span><span class="hs-keyword">where</span><span> </span><a name="local-6989586621679101772"><a href="#local-6989586621679101772"><span class="hs-identifier">k</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var">pack</span></a><span> </span><a href="#local-6989586621679101771"><span class="hs-identifier hs-var">s</span></a><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><a name="line-88"></a><span>
-</span><a name="line-89"></a><span class="hs-comment">-- | Get the last key,value pair in the subspace, if it exists.</span><span>
-</span><a name="line-90"></a><span class="hs-identifier">getLast</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><a href="FoundationDB.Transaction.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Maybe</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-91"></a><a name="getLast"><a href="FoundationDB.Layer.Subspace.html#getLast"><span class="hs-identifier">getLast</span></a></a><span> </span><a name="local-6989586621679101773"><a href="#local-6989586621679101773"><span class="hs-identifier">sub</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-92"></a><span>  </span><a name="local-6989586621679101774"><a href="#local-6989586621679101774"><span class="hs-identifier">rr</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="FoundationDB.Transaction.html#getRange"><span class="hs-identifier hs-var">getRange</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Layer.Subspace.html#subspaceRange"><span class="hs-identifier hs-var">subspaceRange</span></a><span> </span><a href="#local-6989586621679101773"><span class="hs-identifier hs-var">sub</span></a><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">rangeLimit</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">Just</span><span> </span><span class="hs-number">1</span><span class="hs-special">,</span><span>
-</span><a name="line-93"></a><span>                                       </span><span class="hs-identifier">rangeReverse</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">True</span><span>
-</span><a name="line-94"></a><span>                                     </span><span class="hs-special">}</span><span>
-</span><a name="line-95"></a><span>  </span><a name="local-6989586621679101775"><a href="#local-6989586621679101775"><span class="hs-identifier">kvs</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="FoundationDB.Transaction.html#await"><span class="hs-identifier hs-var">await</span></a><span> </span><a href="#local-6989586621679101774"><span class="hs-identifier hs-var">rr</span></a><span>
-</span><a name="line-96"></a><span>  </span><span class="hs-keyword">case</span><span> </span><a href="#local-6989586621679101775"><span class="hs-identifier hs-var">kvs</span></a><span> </span><span class="hs-keyword">of</span><span>
-</span><a name="line-97"></a><span>    </span><a href="FoundationDB.Transaction.html#RangeDone"><span class="hs-identifier hs-var">RangeDone</span></a><span> </span><span class="hs-identifier hs-var">Empty</span><span>      </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-identifier hs-var">Nothing</span><span>
-</span><a name="line-98"></a><span>    </span><a href="FoundationDB.Transaction.html#RangeDone"><span class="hs-identifier hs-var">RangeDone</span></a><span> </span><span class="hs-special">(</span><a name="local-6989586621679101776"><a href="#local-6989586621679101776"><span class="hs-identifier">kv</span></a></a><span class="hs-operator hs-var">:&lt;|</span><span class="hs-identifier">_</span><span class="hs-special">)</span><span>   </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Just</span><span> </span><a href="#local-6989586621679101776"><span class="hs-identifier hs-var">kv</span></a><span class="hs-special">)</span><span>
-</span><a name="line-99"></a><span>    </span><a href="FoundationDB.Transaction.html#RangeMore"><span class="hs-identifier hs-var">RangeMore</span></a><span> </span><span class="hs-special">(</span><a name="local-6989586621679101777"><a href="#local-6989586621679101777"><span class="hs-identifier">kv</span></a></a><span class="hs-operator hs-var">:&lt;|</span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">Just</span><span> </span><a href="#local-6989586621679101777"><span class="hs-identifier hs-var">kv</span></a><span class="hs-special">)</span><span>
-</span><a name="line-100"></a><span>    </span><a href="FoundationDB.Transaction.html#RangeMore"><span class="hs-identifier hs-var">RangeMore</span></a><span> </span><span class="hs-identifier hs-var">Empty</span><span> </span><span class="hs-identifier">_</span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-identifier hs-var">Nothing</span><span> </span><span class="hs-comment">--NOTE: impossible case</span><span>
-</span><a name="line-101"></a></pre></body></html>
+</span><span id="line-2"></span><span class="hs-comment">-- (See &quot;FoundationDB.Layer.Tuple&quot;) so that you can perform range reads and</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- deletes over a set of related keys.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- The subspace layer is one of the standard layers supported by all</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- language bindings. See</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- &lt;https://apple.github.io/foundationdb/developer-guide.html#subspaces the official documentation&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- for more information.</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Layer.Subspace</span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Creating subspaces</span></span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier">Subspace</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspace"><span class="hs-identifier">subspace</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier">prefixedSubspace</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Using subspaces</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#extend"><span class="hs-identifier">extend</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier">pack</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#unpack"><span class="hs-identifier">unpack</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#contains"><span class="hs-identifier">contains</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspaceRangeQuery"><span class="hs-identifier">subspaceRangeQuery</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#getLast"><span class="hs-identifier">getLast</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspaceKey"><span class="hs-identifier">subspaceKey</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Sequence</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Seq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Empty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(:&lt;|)</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.html"><span class="hs-identifier">FoundationDB</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Tuple.html"><span class="hs-identifier">FoundationDB.Layer.Tuple</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- | Represents a subspace of 'Tuple' keys. A subspace is just a common prefix</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- for a set of tuples.</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">newtype</span><span> </span><span id="Subspace"><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Subspace"><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a></span></span><span> </span><span class="hs-special">{</span><span id="rawPrefix"><span class="annot"><span class="annottext">Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier hs-var hs-var">rawPrefix</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679272962"><span id="local-6989586621679272964"><span id="local-6989586621679272966"><span class="annot"><span class="annottext">Int -&gt; Subspace -&gt; ShowS
+[Subspace] -&gt; ShowS
+Subspace -&gt; String
+(Int -&gt; Subspace -&gt; ShowS)
+-&gt; (Subspace -&gt; String) -&gt; ([Subspace] -&gt; ShowS) -&gt; Show Subspace
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Subspace] -&gt; ShowS
+$cshowList :: [Subspace] -&gt; ShowS
+show :: Subspace -&gt; String
+$cshow :: Subspace -&gt; String
+showsPrec :: Int -&gt; Subspace -&gt; ShowS
+$cshowsPrec :: Int -&gt; Subspace -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679272957"><span id="local-6989586621679272959"><span class="annot"><span class="annottext">Subspace -&gt; Subspace -&gt; Bool
+(Subspace -&gt; Subspace -&gt; Bool)
+-&gt; (Subspace -&gt; Subspace -&gt; Bool) -&gt; Eq Subspace
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Subspace -&gt; Subspace -&gt; Bool
+$c/= :: Subspace -&gt; Subspace -&gt; Bool
+== :: Subspace -&gt; Subspace -&gt; Bool
+$c== :: Subspace -&gt; Subspace -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679272941"><span id="local-6989586621679272943"><span id="local-6989586621679272945"><span id="local-6989586621679272947"><span id="local-6989586621679272949"><span id="local-6989586621679272951"><span id="local-6989586621679272953"><span class="annot"><span class="annottext">Eq Subspace
+Eq Subspace
+-&gt; (Subspace -&gt; Subspace -&gt; Ordering)
+-&gt; (Subspace -&gt; Subspace -&gt; Bool)
+-&gt; (Subspace -&gt; Subspace -&gt; Bool)
+-&gt; (Subspace -&gt; Subspace -&gt; Bool)
+-&gt; (Subspace -&gt; Subspace -&gt; Bool)
+-&gt; (Subspace -&gt; Subspace -&gt; Subspace)
+-&gt; (Subspace -&gt; Subspace -&gt; Subspace)
+-&gt; Ord Subspace
+Subspace -&gt; Subspace -&gt; Bool
+Subspace -&gt; Subspace -&gt; Ordering
+Subspace -&gt; Subspace -&gt; Subspace
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Subspace -&gt; Subspace -&gt; Subspace
+$cmin :: Subspace -&gt; Subspace -&gt; Subspace
+max :: Subspace -&gt; Subspace -&gt; Subspace
+$cmax :: Subspace -&gt; Subspace -&gt; Subspace
+&gt;= :: Subspace -&gt; Subspace -&gt; Bool
+$c&gt;= :: Subspace -&gt; Subspace -&gt; Bool
+&gt; :: Subspace -&gt; Subspace -&gt; Bool
+$c&gt; :: Subspace -&gt; Subspace -&gt; Bool
+&lt;= :: Subspace -&gt; Subspace -&gt; Bool
+$c&lt;= :: Subspace -&gt; Subspace -&gt; Bool
+&lt; :: Subspace -&gt; Subspace -&gt; Bool
+$c&lt; :: Subspace -&gt; Subspace -&gt; Bool
+compare :: Subspace -&gt; Subspace -&gt; Ordering
+$ccompare :: Subspace -&gt; Subspace -&gt; Ordering
+$cp1Ord :: Eq Subspace
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- | Create a subspace from a tuple.</span><span>
+</span><span id="line-38"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspace"><span class="hs-identifier hs-type">subspace</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-comment">-- | Tuple with which to prefix the subspace. May not contain</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-comment">-- incomplete version stamps.</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span>
+</span><span id="line-43"></span><span id="subspace"><span class="annot"><span class="annottext">subspace :: [Elem] -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#subspace"><span class="hs-identifier hs-var hs-var">subspace</span></a></span></span><span> </span><span id="local-6989586621679272939"><span class="annot"><span class="annottext">[Elem]
+</span><a href="#local-6989586621679272939"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Elem] -&gt; ByteString
+forall (t :: * -&gt; *). Traversable t =&gt; t Elem -&gt; ByteString
+</span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElems"><span class="hs-identifier hs-var">encodeTupleElems</span></a></span><span> </span><span class="annot"><span class="annottext">[Elem]
+</span><a href="#local-6989586621679272939"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Create a subspace from a raw bytestring prefix and a tuple.</span><span>
+</span><span id="line-46"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier hs-type">prefixedSubspace</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-comment">-- | prefix</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span>
+</span><span id="line-51"></span><span id="prefixedSubspace"><span class="annot"><span class="annottext">prefixedSubspace :: ByteString -&gt; [Elem] -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier hs-var hs-var">prefixedSubspace</span></a></span></span><span> </span><span id="local-6989586621679272937"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272937"><span class="hs-identifier hs-var">prefix</span></a></span></span><span> </span><span id="local-6989586621679272936"><span class="annot"><span class="annottext">[Elem]
+</span><a href="#local-6989586621679272936"><span class="hs-identifier hs-var">tuple</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-var">Subspace</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; [Elem] -&gt; ByteString
+forall (t :: * -&gt; *).
+Traversable t =&gt;
+ByteString -&gt; t Elem -&gt; ByteString
+</span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElemsWPrefix"><span class="hs-identifier hs-var">encodeTupleElemsWPrefix</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272937"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="annot"><span class="annottext">[Elem]
+</span><a href="#local-6989586621679272936"><span class="hs-identifier hs-var">tuple</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | Returns the bytestring prefix of the subspace. Equivalent to 'rawPrefix'.</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- This function is provided for consistency with other language bindings.</span><span>
+</span><span id="line-55"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspaceKey"><span class="hs-identifier hs-type">subspaceKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-56"></span><span id="subspaceKey"><span class="annot"><span class="annottext">subspaceKey :: Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#subspaceKey"><span class="hs-identifier hs-var hs-var">subspaceKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier hs-var hs-var">rawPrefix</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- | Create a subsubspace by extending the prefix of a subspace by the</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- given tuple.</span><span>
+</span><span id="line-60"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#extend"><span class="hs-identifier hs-type">extend</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span>
+</span><span id="line-64"></span><span id="extend"><span class="annot"><span class="annottext">extend :: Subspace -&gt; [Elem] -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#extend"><span class="hs-identifier hs-var hs-var">extend</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span id="local-6989586621679272934"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272934"><span class="hs-identifier hs-var">prfx</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; [Elem] -&gt; Subspace
+</span><a href="FoundationDB.Layer.Subspace.html#prefixedSubspace"><span class="hs-identifier hs-var">prefixedSubspace</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272934"><span class="hs-identifier hs-var">prfx</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | Encode a tuple prefixed with a subspace.</span><span>
+</span><span id="line-68"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-type">pack</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-69"></span><span id="pack"><span class="annot"><span class="annottext">pack :: Subspace -&gt; [Elem] -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var hs-var">pack</span></a></span></span><span> </span><span id="local-6989586621679272933"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272933"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Elem] -&gt; ByteString
+forall (t :: * -&gt; *).
+Traversable t =&gt;
+ByteString -&gt; t Elem -&gt; ByteString
+</span><a href="FoundationDB.Layer.Tuple.Internal.html#encodeTupleElemsWPrefix"><span class="hs-identifier hs-var">encodeTupleElemsWPrefix</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier hs-var hs-var">rawPrefix</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272933"><span class="hs-identifier hs-var">sub</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- | Decode a tuple that was encoded by 'pack'.</span><span>
+</span><span id="line-72"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#unpack"><span class="hs-identifier hs-type">unpack</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="FoundationDB.Layer.Tuple.Internal.html#Elem"><span class="hs-identifier hs-type">Elem</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-73"></span><span id="unpack"><span class="annot"><span class="annottext">unpack :: Subspace -&gt; ByteString -&gt; Either String [Elem]
+</span><a href="FoundationDB.Layer.Subspace.html#unpack"><span class="hs-identifier hs-var hs-var">unpack</span></a></span></span><span> </span><span id="local-6989586621679272932"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272932"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Either String [Elem]
+</span><a href="FoundationDB.Layer.Tuple.Internal.html#decodeTupleElemsWPrefix"><span class="hs-identifier hs-var">decodeTupleElemsWPrefix</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier hs-var hs-var">rawPrefix</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272932"><span class="hs-identifier hs-var">sub</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | Returns 'True' iff the subspace contains the given key.</span><span>
+</span><span id="line-76"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#contains"><span class="hs-identifier hs-type">contains</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-comment">-- | encoded key</span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-81"></span><span id="contains"><span class="annot"><span class="annottext">contains :: Subspace -&gt; ByteString -&gt; Bool
+</span><a href="FoundationDB.Layer.Subspace.html#contains"><span class="hs-identifier hs-var hs-var">contains</span></a></span></span><span> </span><span id="local-6989586621679272930"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272930"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; Bool
+</span><span class="hs-identifier hs-var">BS.isPrefixOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Subspace -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#rawPrefix"><span class="hs-identifier hs-var hs-var">rawPrefix</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272930"><span class="hs-identifier hs-var">sub</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | Construct a range query that covers an entire subspace.</span><span>
+</span><span id="line-84"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#subspaceRangeQuery"><span class="hs-identifier hs-type">subspaceRangeQuery</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="FoundationDB.Transaction.html#RangeQuery"><span class="hs-identifier hs-type">RangeQuery</span></a></span><span>
+</span><span id="line-85"></span><span id="subspaceRangeQuery"><span class="annot"><span class="annottext">subspaceRangeQuery :: Subspace -&gt; RangeQuery
+</span><a href="FoundationDB.Layer.Subspace.html#subspaceRangeQuery"><span class="hs-identifier hs-var hs-var">subspaceRangeQuery</span></a></span></span><span> </span><span id="local-6989586621679272928"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272928"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">RangeQuery :: KeySelector -&gt; KeySelector -&gt; Maybe Int -&gt; Bool -&gt; RangeQuery
+</span><a href="FoundationDB.Transaction.html#RangeQuery"><span class="hs-identifier hs-type">RangeQuery</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">rangeBegin :: KeySelector
+</span><a href="FoundationDB.Transaction.html#rangeBegin"><span class="hs-identifier hs-var">rangeBegin</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; KeySelector
+</span><a href="FoundationDB.Internal.Bindings.html#FirstGreaterOrEq"><span class="hs-identifier hs-var">FirstGreaterOrEq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272924"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-number">0x00</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-88"></span><span>      </span><span class="annot"><span class="annottext">rangeEnd :: KeySelector
+</span><a href="FoundationDB.Transaction.html#rangeEnd"><span class="hs-identifier hs-var">rangeEnd</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; KeySelector
+</span><a href="FoundationDB.Internal.Bindings.html#FirstGreaterOrEq"><span class="hs-identifier hs-var">FirstGreaterOrEq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679272924"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; ByteString
+</span><span class="hs-identifier hs-var">BS.pack</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-number">0xff</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-89"></span><span>      </span><span class="annot"><span class="annottext">rangeLimit :: Maybe Int
+</span><a href="FoundationDB.Transaction.html#rangeLimit"><span class="hs-identifier hs-var">rangeLimit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe Int
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">,</span><span>
+</span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">rangeReverse :: Bool
+</span><a href="FoundationDB.Transaction.html#rangeReverse"><span class="hs-identifier hs-var">rangeReverse</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-93"></span><span>    </span><span id="local-6989586621679272924"><span class="annot"><span class="annottext">k :: ByteString
+</span><a href="#local-6989586621679272924"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Subspace -&gt; [Elem] -&gt; ByteString
+</span><a href="FoundationDB.Layer.Subspace.html#pack"><span class="hs-identifier hs-var">pack</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272928"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | Get the last key,value pair in the subspace, if it exists.</span><span>
+</span><span id="line-96"></span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#getLast"><span class="hs-identifier hs-type">getLast</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Layer.Subspace.html#Subspace"><span class="hs-identifier hs-type">Subspace</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="FoundationDB.Transaction.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span id="getLast"><span class="annot"><span class="annottext">getLast :: Subspace -&gt; Transaction (Maybe (ByteString, ByteString))
+</span><a href="FoundationDB.Layer.Subspace.html#getLast"><span class="hs-identifier hs-var hs-var">getLast</span></a></span></span><span> </span><span id="local-6989586621679272919"><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272919"><span class="hs-identifier hs-var">sub</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679272918"><span class="annot"><span class="annottext">Future RangeResult
+</span><a href="#local-6989586621679272918"><span class="hs-identifier hs-var">rr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="annottext">RangeQuery -&gt; Transaction (Future RangeResult)
+</span><a href="FoundationDB.Transaction.html#getRange"><span class="hs-identifier hs-var">getRange</span></a></span><span>
+</span><span id="line-100"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Subspace -&gt; RangeQuery
+</span><a href="FoundationDB.Layer.Subspace.html#subspaceRangeQuery"><span class="hs-identifier hs-var">subspaceRangeQuery</span></a></span><span> </span><span class="annot"><span class="annottext">Subspace
+</span><a href="#local-6989586621679272919"><span class="hs-identifier hs-var">sub</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">rangeLimit :: Maybe Int
+</span><a href="FoundationDB.Transaction.html#rangeLimit"><span class="hs-identifier hs-var">rangeLimit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Maybe Int
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span>
+</span><span id="line-102"></span><span>          </span><span class="annot"><span class="annottext">rangeReverse :: Bool
+</span><a href="FoundationDB.Transaction.html#rangeReverse"><span class="hs-identifier hs-var">rangeReverse</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-103"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-104"></span><span>  </span><span id="local-6989586621679272916"><span class="annot"><span class="annottext">RangeResult
+</span><a href="#local-6989586621679272916"><span class="hs-identifier hs-var">kvs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Future RangeResult -&gt; Transaction RangeResult
+forall a. Future a -&gt; Transaction a
+</span><a href="FoundationDB.Transaction.html#await"><span class="hs-identifier hs-var">await</span></a></span><span> </span><span class="annot"><span class="annottext">Future RangeResult
+</span><a href="#local-6989586621679272918"><span class="hs-identifier hs-var">rr</span></a></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RangeResult
+</span><a href="#local-6989586621679272916"><span class="hs-identifier hs-var">kvs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><a href="FoundationDB.Transaction.html#RangeDone"><span class="hs-identifier hs-type">RangeDone</span></a></span><span> </span><span class="annot"><span class="annottext">Seq (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">Empty</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+-&gt; Transaction (Maybe (ByteString, ByteString))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><a href="FoundationDB.Transaction.html#RangeDone"><span class="hs-identifier hs-type">RangeDone</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679272913"><span class="annot"><span class="annottext">(ByteString, ByteString)
+</span><a href="#local-6989586621679272913"><span class="hs-identifier hs-var">kv</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|</span></span><span> </span><span class="annot"><span class="annottext">Seq (ByteString, ByteString)
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+-&gt; Transaction (Maybe (ByteString, ByteString))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(ByteString, ByteString) -&gt; Maybe (ByteString, ByteString)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(ByteString, ByteString)
+</span><a href="#local-6989586621679272913"><span class="hs-identifier hs-var">kv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><a href="FoundationDB.Transaction.html#RangeMore"><span class="hs-identifier hs-type">RangeMore</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679272911"><span class="annot"><span class="annottext">(ByteString, ByteString)
+</span><a href="#local-6989586621679272911"><span class="hs-identifier hs-var">kv</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|</span></span><span> </span><span class="annot"><span class="annottext">Seq (ByteString, ByteString)
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Future RangeResult
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+-&gt; Transaction (Maybe (ByteString, ByteString))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(ByteString, ByteString) -&gt; Maybe (ByteString, ByteString)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(ByteString, ByteString)
+</span><a href="#local-6989586621679272911"><span class="hs-identifier hs-var">kv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><a href="FoundationDB.Transaction.html#RangeMore"><span class="hs-identifier hs-type">RangeMore</span></a></span><span> </span><span class="annot"><span class="annottext">Seq (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">Empty</span></span><span> </span><span class="annot"><span class="annottext">Future RangeResult
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+-&gt; Transaction (Maybe (ByteString, ByteString))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Maybe (ByteString, ByteString)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-comment">--NOTE: impossible case</span><span>
+</span><span id="line-110"></span></pre></body></html>

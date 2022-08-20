@@ -1,145 +1,369 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | This module contains all of the basics needed to build a program that</span><span>
-</span><a name="line-2"></a><span class="hs-comment">-- interacts with &lt;https://apple.github.io/foundationdb/index.html FoundationDB&gt;.</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- The documentation throughout this library assumes that you have already read</span><span>
-</span><a name="line-4"></a><span class="hs-comment">-- the official</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- &lt;https://apple.github.io/foundationdb/developer-guide.html developer guide&gt;.</span><span>
-</span><a name="line-6"></a><span class="hs-comment">--</span><span>
-</span><a name="line-7"></a><span class="hs-comment">-- = Quick start</span><span>
-</span><a name="line-8"></a><span class="hs-comment">--</span><span>
-</span><a name="line-9"></a><span class="hs-comment">-- * @import qualified FoundationDB as FDB@</span><span>
-</span><a name="line-10"></a><span class="hs-comment">-- * Use 'withFoundationDB' to get a handle to the database.</span><span>
-</span><a name="line-11"></a><span class="hs-comment">-- * Use 'runTransaction' and its variants to run a transaction in the IO monad.</span><span>
-</span><a name="line-12"></a><span class="hs-comment">-- * Read the docs in &quot;FoundationDB.Transaction&quot; to learn how to use the</span><span>
-</span><a name="line-13"></a><span class="hs-comment">--   'Transaction' monad.</span><span>
-</span><a name="line-14"></a><span class="hs-comment">-- * 'runTransaction' throws exceptions. 'runTransaction'' returns a sum type.</span><span>
-</span><a name="line-15"></a><span class="hs-comment">--   Whichever you choose, all errors you can encounter are defined in</span><span>
-</span><a name="line-16"></a><span class="hs-comment">--   &quot;FoundationDB.Error&quot;.</span><span>
-</span><a name="line-17"></a><span class="hs-comment">-- * See &lt;https://github.com/crclark/foundationdb-haskell/blob/master/tests/Properties/FoundationDB/Transaction.hs#L48 the tests&gt; for basic usage examples.</span><span>
-</span><a name="line-18"></a><span>
-</span><a name="line-19"></a><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
-</span><a name="line-20"></a><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
-</span><a name="line-21"></a><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
-</span><a name="line-22"></a><span class="hs-pragma">{-# LANGUAGE NamedFieldPuns #-}</span><span>
-</span><a name="line-23"></a><span>
-</span><a name="line-24"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span> </span><span class="hs-special">(</span><span>
-</span><a name="line-25"></a><span>  </span><span class="hs-comment">-- * Initialization</span><span>
-</span><a name="line-26"></a><span>  </span><a href="FoundationDB.Internal.Bindings.html#currentAPIVersion"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">currentAPIVersion</span></a><span>
-</span><a name="line-27"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.html#withFoundationDB"><span class="hs-identifier hs-var">withFoundationDB</span></a><span>
-</span><a name="line-28"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
-</span><a name="line-29"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier hs-var">defaultOptions</span></a><span>
-</span><a name="line-30"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span>
-</span><a name="line-31"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier hs-var">apiVersionInUse</span></a><span>
-</span><a name="line-32"></a><span>  </span><span class="hs-comment">-- * Transactions</span><span>
-</span><a name="line-33"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Transaction</span><span>
-</span><a name="line-34"></a><span>  </span><span class="hs-comment">-- * Errors</span><span>
-</span><a name="line-35"></a><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span>
-</span><a name="line-36"></a><span>  </span><span class="hs-comment">-- * Helpers for ghci</span><span>
-</span><a name="line-37"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.html#startFoundationDB"><span class="hs-identifier hs-var">startFoundationDB</span></a><span>
-</span><a name="line-38"></a><span>  </span><span class="hs-special">,</span><span> </span><a href="FoundationDB.html#stopFoundationDB"><span class="hs-identifier hs-var">stopFoundationDB</span></a><span>
-</span><a name="line-39"></a><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-40"></a><span>
-</span><a name="line-41"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Concurrent</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">forkFinally</span><span class="hs-special">)</span><span>
-</span><a name="line-42"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Concurrent</span><span class="hs-operator">.</span><span class="hs-identifier">MVar</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">newEmptyMVar</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">takeMVar</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-var">putMVar</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">MVar</span><span class="hs-special">)</span><span>
-</span><a name="line-43"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Exception</span><span>
-</span><a name="line-44"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Control</span><span class="hs-operator">.</span><span class="hs-identifier">Monad</span><span class="hs-operator">.</span><span class="hs-identifier">Except</span><span>
-</span><a name="line-45"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">Maybe</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fromMaybe</span><span class="hs-special">)</span><span>
-</span><a name="line-46"></a><span>
-</span><a name="line-47"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Error.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span></a><span>
-</span><a name="line-48"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Error.Internal.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Error</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span></a><span>
-</span><a name="line-49"></a><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><a href="FoundationDB.Internal.Bindings.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Bindings</span></a><span> </span><span class="hs-keyword">as</span><span> </span><span class="hs-identifier">FDB</span><span>
-</span><a name="line-50"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Internal.Database.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Internal</span><span class="hs-operator">.</span><span class="hs-identifier">Database</span></a><span>
-</span><a name="line-51"></a><span class="hs-keyword">import</span><span> </span><a href="FoundationDB.Transaction.html"><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Transaction</span></a><span>
-</span><a name="line-52"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">System</span><span class="hs-operator">.</span><span class="hs-identifier">IO</span><span class="hs-operator">.</span><span class="hs-identifier">Unsafe</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">unsafePerformIO</span><span class="hs-special">)</span><span>
-</span><a name="line-53"></a><span>
-</span><a name="line-54"></a><span class="hs-comment">-- | This library doesn't support FDB versions earlier than 5.2 (the first</span><span>
-</span><a name="line-55"></a><span class="hs-comment">-- open source release).</span><span>
-</span><a name="line-56"></a><span class="hs-identifier">validateVersion</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><a name="line-57"></a><a name="validateVersion"><a href="FoundationDB.html#validateVersion"><span class="hs-identifier">validateVersion</span></a></a><span> </span><a name="local-6989586621679093234"><a href="#local-6989586621679093234"><span class="hs-identifier">v</span></a></a><span> </span><span class="hs-glyph">=</span><span>
-</span><a name="line-58"></a><span>  </span><span class="hs-identifier hs-var">when</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679093234"><span class="hs-identifier hs-var">v</span></a><span> </span><span class="hs-operator hs-var">&lt;</span><span> </span><span class="hs-number">520</span><span class="hs-special">)</span><span>
-</span><a name="line-59"></a><span>       </span><span class="hs-special">(</span><span class="hs-identifier hs-var">throw</span><span> </span><span class="hs-special">(</span><a href="FoundationDB.Error.Internal.html#Error"><span class="hs-identifier hs-var">Error</span></a><span> </span><a href="FoundationDB.Error.Internal.html#UnsupportedAPIVersion"><span class="hs-identifier hs-var">UnsupportedAPIVersion</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-60"></a><span>
-</span><a name="line-61"></a><span class="hs-cpp">#if FDB_API_VERSION &lt; 610</span><span>
-</span><a name="line-62"></a><span class="hs-identifier">initCluster</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">Cluster</span><span>
-</span><a name="line-63"></a><span class="hs-identifier">initCluster</span><span> </span><span class="hs-identifier">fp</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-64"></a><span>  </span><span class="hs-identifier">futureCluster</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">createCluster</span><span> </span><span class="hs-identifier">fp</span><span>
-</span><a name="line-65"></a><span>  </span><span class="hs-identifier">fdbThrowing'</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">futureBlockUntilReady</span><span> </span><span class="hs-identifier">futureCluster</span><span>
-</span><a name="line-66"></a><span>  </span><span class="hs-identifier">fdbThrowing</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">futureGetCluster</span><span> </span><span class="hs-identifier">futureCluster</span><span>
-</span><a name="line-67"></a><span>
-</span><a name="line-68"></a><span class="hs-identifier">withCluster</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Maybe</span><span> </span><span class="hs-identifier">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">Cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span>
-</span><a name="line-69"></a><span class="hs-identifier">withCluster</span><span> </span><span class="hs-identifier">mfp</span><span> </span><span class="hs-glyph">=</span><span>
-</span><a name="line-70"></a><span>  </span><span class="hs-identifier">bracket</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><span class="hs-identifier">mfp</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-71"></a><span>          </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">clusterDestroy</span><span>
-</span><a name="line-72"></a><span>
-</span><a name="line-73"></a><span class="hs-identifier">initDB</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">Cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">DatabasePtr</span><span>
-</span><a name="line-74"></a><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-75"></a><span>  </span><span class="hs-identifier">futureDB</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">clusterCreateDatabase</span><span> </span><span class="hs-identifier">cluster</span><span>
-</span><a name="line-76"></a><span>  </span><span class="hs-identifier">fdbThrowing'</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">futureBlockUntilReady</span><span> </span><span class="hs-identifier">futureDB</span><span>
-</span><a name="line-77"></a><span>  </span><span class="hs-identifier">fdbThrowing</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">futureGetDatabase</span><span> </span><span class="hs-identifier">futureDB</span><span>
-</span><a name="line-78"></a><span>
-</span><a name="line-79"></a><span class="hs-identifier">withDatabase</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FoundationDBOptions</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Database</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span>
-</span><a name="line-80"></a><span class="hs-identifier">withDatabase</span><span> </span><span class="hs-identifier">opts</span><span class="hs-glyph">@</span><span class="hs-identifier">FoundationDBOptions</span><span class="hs-special">{</span><span class="hs-identifier">clusterFile</span><span class="hs-special">}</span><span> </span><span class="hs-identifier">f</span><span> </span><span class="hs-glyph">=</span><span>
-</span><a name="line-81"></a><span>  </span><span class="hs-identifier">withCluster</span><span> </span><span class="hs-identifier">clusterFile</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-glyph">\</span><span> </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><a name="line-82"></a><span>    </span><span class="hs-identifier">bracket</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">flip</span><span> </span><span class="hs-identifier">Database</span><span> </span><span class="hs-identifier">opts</span><span class="hs-special">)</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span class="hs-special">)</span><span>
-</span><a name="line-83"></a><span>            </span><span class="hs-special">(</span><span class="hs-identifier">FDB</span><span class="hs-operator">.</span><span class="hs-identifier">databaseDestroy</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">databasePtr</span><span class="hs-special">)</span><span>
-</span><a name="line-84"></a><span>            </span><span class="hs-identifier">f</span><span>
-</span><a name="line-85"></a><span class="hs-cpp">#else</span><span>
-</span><a name="line-86"></a><span class="hs-identifier">withDatabase</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><a href="#local-6989586621679093233"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><a href="#local-6989586621679093233"><span class="hs-identifier hs-type">a</span></a><span>
-</span><a name="line-87"></a><a name="withDatabase"><a href="FoundationDB.html#withDatabase"><span class="hs-identifier">withDatabase</span></a></a><span> </span><a name="local-6989586621679093235"><a href="#local-6989586621679093235"><span class="hs-identifier">opts</span></a></a><span class="hs-glyph">@</span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a><span class="hs-special">{</span><a name="local-6989586621679093236"><a href="#local-6989586621679093236"><span class="hs-identifier">clusterFile</span></a></a><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
-</span><a name="line-88"></a><span>  </span><span class="hs-identifier hs-var">bracket</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">flip</span><span> </span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a><span> </span><a href="#local-6989586621679093235"><span class="hs-identifier hs-var">opts</span></a><span class="hs-special">)</span><span>
-</span><a name="line-89"></a><span>           </span><span class="hs-operator hs-var">$</span><span> </span><a href="FoundationDB.Error.Internal.html#fdbThrowing"><span class="hs-identifier hs-var">fdbThrowing</span></a><span>
-</span><a name="line-90"></a><span>           </span><span class="hs-operator hs-var">$</span><span> </span><a href="FoundationDB.Internal.Bindings.html#createDatabase"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">createDatabase</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><a href="#local-6989586621679093236"><span class="hs-identifier hs-var">clusterFile</span></a><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-91"></a><span>          </span><span class="hs-special">(</span><a href="FoundationDB.Internal.Bindings.html#databaseDestroy"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">databaseDestroy</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><span class="hs-identifier">databasePtr</span><span class="hs-special">)</span><span>
-</span><a name="line-92"></a><span class="hs-cpp">#endif</span><span>
-</span><a name="line-93"></a><span>
-</span><a name="line-94"></a><span class="hs-comment">-- | Handles correctly starting up the network connection to the DB.</span><span>
-</span><a name="line-95"></a><span class="hs-comment">-- Can only be called once per process! Throws an 'Error' if any part of</span><span>
-</span><a name="line-96"></a><span class="hs-comment">-- setting up the connection to FoundationDB fails.</span><span>
-</span><a name="line-97"></a><span class="hs-identifier">withFoundationDB</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span>
-</span><a name="line-98"></a><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><a href="#local-6989586621679093232"><span class="hs-identifier hs-type">a</span></a><span class="hs-special">)</span><span>
-</span><a name="line-99"></a><span>                 </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><a href="#local-6989586621679093232"><span class="hs-identifier hs-type">a</span></a><span>
-</span><a name="line-100"></a><a name="withFoundationDB"><a href="FoundationDB.html#withFoundationDB"><span class="hs-identifier">withFoundationDB</span></a></a><span> </span><a name="local-6989586621679093590"><a href="#local-6989586621679093590"><span class="hs-identifier">opts</span></a></a><span class="hs-glyph">@</span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span><span> </span><a name="local-6989586621679093595"><a href="#local-6989586621679093595"><span class="hs-identifier">m</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-101"></a><span>  </span><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-var">validateVersion</span></a><span> </span><a href="#local-6989586621679093591"><span class="hs-identifier hs-var">apiVersion</span></a><span>
-</span><a name="line-102"></a><span>  </span><a name="local-6989586621679093603"><a href="#local-6989586621679093603"><span class="hs-identifier">done</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier hs-var">newEmptyMVar</span><span>
-</span><a name="line-103"></a><span>  </span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="FoundationDB.Internal.Bindings.html#selectAPIVersion"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">selectAPIVersion</span></a><span> </span><a href="#local-6989586621679093591"><span class="hs-identifier hs-var">apiVersion</span></a><span>
-</span><a name="line-104"></a><span>  </span><span class="hs-identifier hs-var">forM_</span><span> </span><a href="#local-6989586621679093593"><span class="hs-identifier hs-var">networkOptions</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="FoundationDB.Internal.Bindings.html#networkSetOption"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">networkSetOption</span></a><span class="hs-special">)</span><span>
-</span><a name="line-105"></a><span>  </span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><a href="FoundationDB.Internal.Bindings.html#setupNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">setupNetwork</span></a><span>
-</span><a name="line-106"></a><span>  </span><a href="#local-6989586621679093596"><span class="hs-identifier hs-var">start</span></a><span> </span><a href="#local-6989586621679093603"><span class="hs-identifier hs-var">done</span></a><span>
-</span><a name="line-107"></a><span>  </span><span class="hs-identifier hs-var">finally</span><span> </span><span class="hs-special">(</span><a href="FoundationDB.html#withDatabase"><span class="hs-identifier hs-var">withDatabase</span></a><span> </span><a href="#local-6989586621679093590"><span class="hs-identifier hs-var">opts</span></a><span> </span><a href="#local-6989586621679093598"><span class="hs-identifier hs-var">run</span></a><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><a href="#local-6989586621679093597"><span class="hs-identifier hs-var">stop</span></a><span> </span><a href="#local-6989586621679093603"><span class="hs-identifier hs-var">done</span></a><span class="hs-special">)</span><span>
-</span><a name="line-108"></a><span>  </span><span class="hs-keyword">where</span><span>
-</span><a name="line-109"></a><span>    </span><a name="local-6989586621679093596"><a href="#local-6989586621679093596"><span class="hs-identifier">start</span></a></a><span> </span><a name="local-6989586621679093599"><a href="#local-6989586621679093599"><span class="hs-identifier">done</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">void</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">forkFinally</span><span> </span><a href="FoundationDB.Internal.Bindings.html#runNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">runNetwork</span></a><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">putMVar</span><span> </span><a href="#local-6989586621679093599"><span class="hs-identifier hs-var">done</span></a><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-110"></a><span>    </span><a name="local-6989586621679093597"><a href="#local-6989586621679093597"><span class="hs-identifier">stop</span></a></a><span> </span><a name="local-6989586621679093600"><a href="#local-6989586621679093600"><span class="hs-identifier">done</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Internal.Bindings.html#stopNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">stopNetwork</span></a><span> </span><span class="hs-operator hs-var">&gt;&gt;</span><span> </span><span class="hs-identifier hs-var">takeMVar</span><span> </span><a href="#local-6989586621679093600"><span class="hs-identifier hs-var">done</span></a><span>
-</span><a name="line-111"></a><span>    </span><a name="local-6989586621679093598"><a href="#local-6989586621679093598"><span class="hs-identifier">run</span></a></a><span> </span><a name="local-6989586621679093601"><a href="#local-6989586621679093601"><span class="hs-identifier">db</span></a></a><span class="hs-glyph">@</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a><span class="hs-special">{</span><a name="local-6989586621679093602"><a href="#local-6989586621679093602"><span class="hs-identifier">databasePtr</span></a></a><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-112"></a><span>        </span><span class="hs-identifier hs-var">forM_</span><span> </span><a href="#local-6989586621679093594"><span class="hs-identifier hs-var">databaseOptions</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="FoundationDB.Internal.Bindings.html#databaseSetOption"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">databaseSetOption</span></a><span> </span><a href="#local-6989586621679093602"><span class="hs-identifier hs-var">databasePtr</span></a><span class="hs-special">)</span><span>
-</span><a name="line-113"></a><span>        </span><a href="#local-6989586621679093595"><span class="hs-identifier hs-var">m</span></a><span> </span><a href="#local-6989586621679093601"><span class="hs-identifier hs-var">db</span></a><span>
-</span><a name="line-114"></a><span>
-</span><a name="line-115"></a><span class="hs-identifier">startFoundationDBGlobalLock</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">MVar</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><a name="line-116"></a><a name="startFoundationDBGlobalLock"><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier">startFoundationDBGlobalLock</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier hs-var">unsafePerformIO</span><span> </span><span class="hs-identifier hs-var">newEmptyMVar</span><span>
-</span><a name="line-117"></a><span class="hs-pragma">{-# NOINLINE startFoundationDBGlobalLock #-}</span><span>
-</span><a name="line-118"></a><span>
-</span><a name="line-119"></a><span class="hs-comment">-- | Starts up FoundationDB. You must call 'stopFoundationDB' before your</span><span>
-</span><a name="line-120"></a><span class="hs-comment">-- program terminates. It's recommended that you use 'withFoundationDB' instead,</span><span>
-</span><a name="line-121"></a><span class="hs-comment">-- since it handles cleanup. This function is only intended to be used in GHCi.</span><span>
-</span><a name="line-122"></a><span class="hs-comment">-- Can only be called once per process! Throws an 'Error' if any part of</span><span>
-</span><a name="line-123"></a><span class="hs-comment">-- setting up the connection FoundationDB fails.</span><span>
-</span><a name="line-124"></a><span class="hs-identifier">startFoundationDB</span><span> </span><span class="hs-glyph">::</span><span> </span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a><span>
-</span><a name="line-125"></a><span>                  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a><span>
-</span><a name="line-126"></a><a name="startFoundationDB"><a href="FoundationDB.html#startFoundationDB"><span class="hs-identifier">startFoundationDB</span></a></a><span> </span><a name="local-6989586621679093604"><a href="#local-6989586621679093604"><span class="hs-identifier">opts</span></a></a><span class="hs-glyph">@</span><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-var">FoundationDBOptions</span></a><span class="hs-special">{</span><span class="hs-glyph">..</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><a name="line-127"></a><span>  </span><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-var">validateVersion</span></a><span> </span><a href="#local-6989586621679093605"><span class="hs-identifier hs-var">apiVersion</span></a><span>
-</span><a name="line-128"></a><span>  </span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="FoundationDB.Internal.Bindings.html#selectAPIVersion"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">selectAPIVersion</span></a><span> </span><a href="#local-6989586621679093605"><span class="hs-identifier hs-var">apiVersion</span></a><span>
-</span><a name="line-129"></a><span>  </span><span class="hs-identifier hs-var">forM_</span><span> </span><a href="#local-6989586621679093607"><span class="hs-identifier hs-var">networkOptions</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="FoundationDB.Internal.Bindings.html#networkSetOption"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">networkSetOption</span></a><span class="hs-special">)</span><span>
-</span><a name="line-130"></a><span>  </span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><a href="FoundationDB.Internal.Bindings.html#setupNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">setupNetwork</span></a><span>
-</span><a name="line-131"></a><span>  </span><span class="hs-identifier hs-var">void</span><span> </span><span class="hs-operator hs-var">$</span><span> </span><span class="hs-identifier hs-var">forkFinally</span><span> </span><a href="FoundationDB.Internal.Bindings.html#runNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">runNetwork</span></a><span>
-</span><a name="line-132"></a><span>                     </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier hs-var">putMVar</span><span> </span><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-var">startFoundationDBGlobalLock</span></a><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><a name="line-133"></a><span class="hs-cpp">#if FDB_API_VERSION &lt; 610</span><span>
-</span><a name="line-134"></a><span>  </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><span class="hs-identifier">clusterFile</span><span class="hs-special">)</span><span>
-</span><a name="line-135"></a><span>  </span><span class="hs-identifier">db</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span>
-</span><a name="line-136"></a><span class="hs-cpp">#else</span><span>
-</span><a name="line-137"></a><span>  </span><a name="local-6989586621679093609"><a href="#local-6989586621679093609"><span class="hs-identifier">db</span></a></a><span> </span><span class="hs-glyph">&lt;-</span><span> </span><a href="FoundationDB.Error.Internal.html#fdbThrowing"><span class="hs-identifier hs-var">fdbThrowing</span></a><span> </span><span class="hs-operator hs-var">$</span><span> </span><a href="FoundationDB.Internal.Bindings.html#createDatabase"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">createDatabase</span></a><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-var">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><a href="#local-6989586621679093606"><span class="hs-identifier hs-var">clusterFile</span></a><span class="hs-special">)</span><span>
-</span><a name="line-138"></a><span class="hs-cpp">#endif</span><span>
-</span><a name="line-139"></a><span>  </span><span class="hs-identifier hs-var">forM_</span><span> </span><a href="#local-6989586621679093608"><span class="hs-identifier hs-var">databaseOptions</span></a><span> </span><span class="hs-special">(</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a><span> </span><span class="hs-operator hs-var">.</span><span> </span><a href="FoundationDB.Internal.Bindings.html#databaseSetOption"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">databaseSetOption</span></a><span> </span><a href="#local-6989586621679093609"><span class="hs-identifier hs-var">db</span></a><span class="hs-special">)</span><span>
-</span><a name="line-140"></a><span>  </span><span class="hs-identifier hs-var">return</span><span> </span><span class="hs-special">(</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a><span> </span><span class="hs-special">{</span><span class="hs-identifier">databasePtr</span><span> </span><span class="hs-glyph">=</span><span> </span><a href="#local-6989586621679093609"><span class="hs-identifier hs-var">db</span></a><span class="hs-special">,</span><span> </span><span class="hs-identifier">databaseFoundationDBOptions</span><span> </span><span class="hs-glyph">=</span><span> </span><a href="#local-6989586621679093604"><span class="hs-identifier hs-var">opts</span></a><span class="hs-special">}</span><span class="hs-special">)</span><span>
-</span><a name="line-141"></a><span>
-</span><a name="line-142"></a><span class="hs-comment">-- | Stops FoundationDB. For use with 'startFoundationDB'.</span><span>
-</span><a name="line-143"></a><span class="hs-identifier">stopFoundationDB</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier hs-type">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><a name="line-144"></a><a name="stopFoundationDB"><a href="FoundationDB.html#stopFoundationDB"><span class="hs-identifier">stopFoundationDB</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Internal.Bindings.html#stopNetwork"><span class="hs-identifier hs-var">FDB</span><span class="hs-operator hs-var">.</span><span class="hs-identifier hs-var">stopNetwork</span></a><span> </span><span class="hs-operator hs-var">&gt;&gt;</span><span> </span><span class="hs-identifier hs-var">takeMVar</span><span> </span><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-var">startFoundationDBGlobalLock</span></a><span>
-</span><a name="line-145"></a></pre></body></html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE NamedFieldPuns #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- | This module contains all of the basics needed to build a program that</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- interacts with &lt;https://apple.github.io/foundationdb/index.html FoundationDB&gt;.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- The documentation throughout this library assumes that you have already read</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- the official</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- &lt;https://apple.github.io/foundationdb/developer-guide.html developer guide&gt;.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- = Quick start</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- * @import qualified FoundationDB as FDB@</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- * Use 'withFoundationDB' to get a handle to the database.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- * Use 'runTransaction' and its variants to run a transaction in the IO monad.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- * Read the docs in &quot;FoundationDB.Transaction&quot; to learn how to use the</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--   'Transaction' monad.</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- * 'runTransaction' throws exceptions. 'runTransaction'' returns a sum type.</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--   Whichever you choose, all errors you can encounter are defined in</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--   &quot;FoundationDB.Error&quot;.</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- * See &lt;https://github.com/crclark/foundationdb-haskell/blob/master/tests/Properties/FoundationDB/Transaction.hs#L48 the tests&gt; for basic usage examples.</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Initialization</span></span><span>
+</span><span id="line-25"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Bindings.html#currentAPIVersion"><span class="hs-identifier">FDB.currentAPIVersion</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><a href="FoundationDB.html#withFoundationDB"><span class="hs-identifier">withFoundationDB</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier">FoundationDBOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#defaultOptions"><span class="hs-identifier">defaultOptions</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier">Database</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><a href="FoundationDB.Internal.Database.html#apiVersionInUse"><span class="hs-identifier">apiVersionInUse</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Transactions</span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="FoundationDB.Transaction.html"><span class="hs-identifier">FoundationDB.Transaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Errors</span></span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="FoundationDB.Error.html"><span class="hs-identifier">FoundationDB.Error</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Helpers for ghci</span></span><span>
+</span><span id="line-39"></span><span>    </span><span class="annot"><a href="FoundationDB.html#startFoundationDB"><span class="hs-identifier">startFoundationDB</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span>    </span><span class="annot"><a href="FoundationDB.html#stopFoundationDB"><span class="hs-identifier">stopFoundationDB</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-keyword">where</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">forkFinally</span></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">newEmptyMVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">putMVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">takeMVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Except</span></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fromMaybe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Error.html"><span class="hs-identifier">FoundationDB.Error</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Error.Internal.html"><span class="hs-identifier">FoundationDB.Error.Internal</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Bindings.html"><span class="hs-identifier">FoundationDB.Internal.Bindings</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">FDB</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html"><span class="hs-identifier">FoundationDB.Internal.Database</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="FoundationDB.Transaction.html"><span class="hs-identifier">FoundationDB.Transaction</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO.Unsafe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">unsafePerformIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- | This library doesn't support FDB versions earlier than 5.2 (the first</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- open source release).</span><span>
+</span><span id="line-58"></span><span class="annot"><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-type">validateVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span id="validateVersion"><span class="annot"><span class="annottext">validateVersion :: Int -&gt; IO ()
+</span><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-var hs-var">validateVersion</span></a></span></span><span> </span><span id="local-6989586621679272312"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272312"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272312"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">520</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Error -&gt; IO ()
+forall a e. Exception e =&gt; e -&gt; a
+</span><span class="hs-identifier hs-var">throw</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FDBHsError -&gt; Error
+</span><a href="FoundationDB.Error.Internal.html#Error"><span class="hs-identifier hs-var">Error</span></a></span><span> </span><span class="annot"><span class="annottext">FDBHsError
+</span><a href="FoundationDB.Error.Internal.html#UnsupportedAPIVersion"><span class="hs-identifier hs-var">UnsupportedAPIVersion</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+
+#if FDB_API_VERSION &lt; 610
+</span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">FDB.Cluster</span><span>
+</span><span id="line-66"></span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-identifier">fp</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-identifier">futureCluster</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">FDB.createCluster</span><span> </span><span class="hs-identifier">fp</span><span>
+</span><span id="line-68"></span><span>  </span><span class="hs-identifier">fdbThrowing'</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB.futureBlockUntilReady</span><span> </span><span class="hs-identifier">futureCluster</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-identifier">fdbThrowing</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB.futureGetCluster</span><span> </span><span class="hs-identifier">futureCluster</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-identifier">withCluster</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">Maybe</span><span> </span><span class="hs-identifier">FilePath</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">FDB.Cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span>
+</span><span id="line-72"></span><span class="hs-identifier">withCluster</span><span> </span><span class="hs-identifier">mfp</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-identifier">bracket</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><span class="hs-identifier">mfp</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>          </span><span class="hs-identifier">FDB.clusterDestroy</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-identifier">initDB</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FDB.Cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">FDB.DatabasePtr</span><span>
+</span><span id="line-77"></span><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-identifier">futureDB</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">FDB.clusterCreateDatabase</span><span> </span><span class="hs-identifier">cluster</span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-identifier">fdbThrowing'</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB.futureBlockUntilReady</span><span> </span><span class="hs-identifier">futureDB</span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-identifier">fdbThrowing</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">FDB.futureGetDatabase</span><span> </span><span class="hs-identifier">futureDB</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-identifier">withDatabase</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">FoundationDBOptions</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Database</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span>
+</span><span id="line-83"></span><span class="hs-identifier">withDatabase</span><span> </span><span class="hs-identifier">opts</span><span class="hs-glyph">@</span><span class="hs-identifier">FoundationDBOptions</span><span class="hs-special">{</span><span class="hs-identifier">clusterFile</span><span class="hs-special">}</span><span> </span><span class="hs-identifier">f</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-identifier">withCluster</span><span> </span><span class="hs-identifier">clusterFile</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-glyph">\</span><span> </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-identifier">bracket</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">flip</span><span> </span><span class="hs-identifier">Database</span><span> </span><span class="hs-identifier">opts</span><span class="hs-special">)</span><span> </span><span class="hs-operator">$</span><span> </span><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>            </span><span class="hs-special">(</span><span class="hs-identifier">FDB.databaseDestroy</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">databasePtr</span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>            </span><span class="hs-identifier">f</span><span class="hs-cpp">
+#else
+</span><span id="local-6989586621679272338"><span class="annot"><a href="FoundationDB.html#withDatabase"><span class="hs-identifier hs-type">withDatabase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679272338"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679272338"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-90"></span><span id="withDatabase"><span class="annot"><span class="annottext">withDatabase :: FoundationDBOptions -&gt; (Database -&gt; IO a) -&gt; IO a
+</span><a href="FoundationDB.html#withDatabase"><span class="hs-identifier hs-var hs-var">withDatabase</span></a></span></span><span> </span><span id="local-6989586621679272305"><span class="annot"><span class="annottext">opts :: FoundationDBOptions
+</span><a href="#local-6989586621679272305"><span class="hs-identifier hs-var">opts</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span class="hs-special">{</span><span id="local-6989586621679272303"><span class="annot"><span class="annottext">Maybe FilePath
+clusterFile :: FoundationDBOptions -&gt; Maybe FilePath
+clusterFile :: Maybe FilePath
+</span><a href="FoundationDB.Internal.Database.html#clusterFile"><span class="hs-identifier hs-var hs-var">clusterFile</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">IO Database -&gt; (Database -&gt; IO ()) -&gt; (Database -&gt; IO a) -&gt; IO a
+forall a b c. IO a -&gt; (a -&gt; IO b) -&gt; (a -&gt; IO c) -&gt; IO c
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(DatabasePtr -&gt; Database) -&gt; IO DatabasePtr -&gt; IO Database
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(DatabasePtr -&gt; FoundationDBOptions -&gt; Database)
+-&gt; FoundationDBOptions -&gt; DatabasePtr -&gt; Database
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">DatabasePtr -&gt; FoundationDBOptions -&gt; Database
+</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-var">Database</span></a></span><span> </span><span class="annot"><span class="annottext">FoundationDBOptions
+</span><a href="#local-6989586621679272305"><span class="hs-identifier hs-var">opts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>           </span><span class="annot"><span class="annottext">(IO DatabasePtr -&gt; IO Database) -&gt; IO DatabasePtr -&gt; IO Database
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr
+forall a. IO (CFDBError, a) -&gt; IO a
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing"><span class="hs-identifier hs-var">fdbThrowing</span></a></span><span>
+</span><span id="line-93"></span><span>           </span><span class="annot"><span class="annottext">(IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr)
+-&gt; IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (CFDBError, DatabasePtr)
+</span><a href="FoundationDB.Internal.Bindings.html#createDatabase"><span class="hs-identifier hs-var">FDB.createDatabase</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath -&gt; Maybe FilePath -&gt; FilePath
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621679272303"><span class="hs-identifier hs-var">clusterFile</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DatabasePtr -&gt; IO ()
+</span><a href="FoundationDB.Internal.Bindings.html#databaseDestroy"><span class="hs-identifier hs-var">FDB.databaseDestroy</span></a></span><span> </span><span class="annot"><span class="annottext">(DatabasePtr -&gt; IO ())
+-&gt; (Database -&gt; DatabasePtr) -&gt; Database -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; DatabasePtr
+</span><a href="FoundationDB.Internal.Database.html#databasePtr"><span class="hs-identifier hs-var hs-var">databasePtr</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- | Handles correctly starting up the network connection to the DB.</span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- Can only be called once per process! Throws an 'Error' if any part of</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- setting up the connection to FoundationDB fails.</span><span>
+</span><span id="line-100"></span><span id="local-6989586621679272293"><span class="annot"><a href="FoundationDB.html#withFoundationDB"><span class="hs-identifier hs-type">withFoundationDB</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-101"></span><span>  </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-102"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679272293"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-103"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621679272293"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-104"></span><span id="withFoundationDB"><span class="annot"><span class="annottext">withFoundationDB :: FoundationDBOptions -&gt; (Database -&gt; IO a) -&gt; IO a
+</span><a href="FoundationDB.html#withFoundationDB"><span class="hs-identifier hs-var hs-var">withFoundationDB</span></a></span></span><span> </span><span id="local-6989586621679272292"><span class="annot"><span class="annottext">opts :: FoundationDBOptions
+</span><a href="#local-6989586621679272292"><span class="hs-identifier hs-var">opts</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span> </span><span class="hs-special">{</span><span id="local-6989586621679272288"><span id="local-6989586621679272289"><span id="local-6989586621679272290"><span id="local-6989586621679272291"><span class="annot"><span class="annottext">Int
+[DatabaseOption]
+[NetworkOption]
+Maybe FilePath
+databaseOptions :: FoundationDBOptions -&gt; [DatabaseOption]
+networkOptions :: FoundationDBOptions -&gt; [NetworkOption]
+apiVersion :: FoundationDBOptions -&gt; Int
+databaseOptions :: [DatabaseOption]
+networkOptions :: [NetworkOption]
+clusterFile :: Maybe FilePath
+apiVersion :: Int
+clusterFile :: FoundationDBOptions -&gt; Maybe FilePath
+</span><a href="FoundationDB.Internal.Database.html#databaseOptions"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679272284"><span class="annot"><span class="annottext">Database -&gt; IO a
+</span><a href="#local-6989586621679272284"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-var">validateVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272291"><span class="hs-identifier hs-var">apiVersion</span></a></span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621679272283"><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679272283"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar ())
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-107"></span><span>  </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ()) -&gt; IO CFDBError -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#selectAPIVersion"><span class="hs-identifier hs-var">FDB.selectAPIVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272291"><span class="hs-identifier hs-var">apiVersion</span></a></span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><span class="annottext">[NetworkOption] -&gt; (NetworkOption -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="annot"><span class="annottext">[NetworkOption]
+</span><a href="#local-6989586621679272289"><span class="hs-identifier hs-var">networkOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ())
+-&gt; (NetworkOption -&gt; IO CFDBError) -&gt; NetworkOption -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NetworkOption -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#networkSetOption"><span class="hs-identifier hs-var">FDB.networkSetOption</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#setupNetwork"><span class="hs-identifier hs-var">FDB.setupNetwork</span></a></span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+</span><a href="#local-6989586621679272277"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679272283"><span class="hs-identifier hs-var">done</span></a></span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">IO a -&gt; IO () -&gt; IO a
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-identifier hs-var">finally</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FoundationDBOptions -&gt; (Database -&gt; IO a) -&gt; IO a
+forall a. FoundationDBOptions -&gt; (Database -&gt; IO a) -&gt; IO a
+</span><a href="FoundationDB.html#withDatabase"><span class="hs-identifier hs-var">withDatabase</span></a></span><span> </span><span class="annot"><span class="annottext">FoundationDBOptions
+</span><a href="#local-6989586621679272292"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">Database -&gt; IO a
+</span><a href="#local-6989586621679272275"><span class="hs-identifier hs-var">run</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+forall b. MVar b -&gt; IO b
+</span><a href="#local-6989586621679272274"><span class="hs-identifier hs-var">stop</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679272283"><span class="hs-identifier hs-var">done</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>    </span><span id="local-6989586621679272277"><span class="annot"><span class="annottext">start :: MVar () -&gt; IO ()
+</span><a href="#local-6989586621679272277"><span class="hs-identifier hs-var hs-var">start</span></a></span></span><span> </span><span id="local-6989586621679272273"><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679272273"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ThreadId -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO ThreadId -&gt; IO ()) -&gt; IO ThreadId -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+-&gt; (Either SomeException CFDBError -&gt; IO ()) -&gt; IO ThreadId
+forall a. IO a -&gt; (Either SomeException a -&gt; IO ()) -&gt; IO ThreadId
+</span><span class="hs-identifier hs-var">forkFinally</span></span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#runNetwork"><span class="hs-identifier hs-var">FDB.runNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Either SomeException CFDBError
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621679272273"><span class="hs-identifier hs-var">done</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621679272274"><span class="annot"><span class="annottext">stop :: MVar b -&gt; IO b
+</span><a href="#local-6989586621679272274"><span class="hs-identifier hs-var hs-var">stop</span></a></span></span><span> </span><span id="local-6989586621679272270"><span class="annot"><span class="annottext">MVar b
+</span><a href="#local-6989586621679272270"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#stopNetwork"><span class="hs-identifier hs-var">FDB.stopNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO b -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar b -&gt; IO b
+forall b. MVar b -&gt; IO b
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar b
+</span><a href="#local-6989586621679272270"><span class="hs-identifier hs-var">done</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621679272275"><span class="annot"><span class="annottext">run :: Database -&gt; IO a
+</span><a href="#local-6989586621679272275"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span id="local-6989586621679272268"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621679272268"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span> </span><span class="hs-special">{</span><span id="local-6989586621679272267"><span class="annot"><span class="annottext">DatabasePtr
+databasePtr :: DatabasePtr
+databasePtr :: Database -&gt; DatabasePtr
+</span><a href="#local-6989586621679272267"><span class="hs-identifier hs-var hs-var">databasePtr</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-116"></span><span>      </span><span class="annot"><span class="annottext">[DatabaseOption] -&gt; (DatabaseOption -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="annot"><span class="annottext">[DatabaseOption]
+</span><a href="#local-6989586621679272288"><span class="hs-identifier hs-var">databaseOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ())
+-&gt; (DatabaseOption -&gt; IO CFDBError) -&gt; DatabaseOption -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">DatabasePtr -&gt; DatabaseOption -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#databaseSetOption"><span class="hs-identifier hs-var">FDB.databaseSetOption</span></a></span><span> </span><span class="annot"><span class="annottext">DatabasePtr
+</span><a href="#local-6989586621679272267"><span class="hs-identifier hs-var">databasePtr</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>      </span><span class="annot"><span class="annottext">Database -&gt; IO a
+</span><a href="#local-6989586621679272284"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621679272268"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="annot"><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-type">startFoundationDBGlobalLock</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span id="startFoundationDBGlobalLock"><span class="annot"><span class="annottext">startFoundationDBGlobalLock :: MVar ()
+</span><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-var hs-var">startFoundationDBGlobalLock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (MVar ()) -&gt; MVar ()
+forall a. IO a -&gt; a
+</span><span class="hs-identifier hs-var">unsafePerformIO</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar ())
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-121"></span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="annot"><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-pragma hs-type">startFoundationDBGlobalLock</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | Starts up FoundationDB. You must call 'stopFoundationDB' before your</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- program terminates. It's recommended that you use 'withFoundationDB' instead,</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- since it handles cleanup. This function is only intended to be used in GHCi.</span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- Can only be called once per process! Throws an 'Error' if any part of</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- setting up the connection FoundationDB fails.</span><span>
+</span><span id="line-128"></span><span class="annot"><a href="FoundationDB.html#startFoundationDB"><span class="hs-identifier hs-type">startFoundationDB</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-130"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span>
+</span><span id="line-131"></span><span id="startFoundationDB"><span class="annot"><span class="annottext">startFoundationDB :: FoundationDBOptions -&gt; IO Database
+</span><a href="FoundationDB.html#startFoundationDB"><span class="hs-identifier hs-var hs-var">startFoundationDB</span></a></span></span><span> </span><span id="local-6989586621679272264"><span class="annot"><span class="annottext">opts :: FoundationDBOptions
+</span><a href="#local-6989586621679272264"><span class="hs-identifier hs-var">opts</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="FoundationDB.Internal.Database.html#FoundationDBOptions"><span class="hs-identifier hs-type">FoundationDBOptions</span></a></span><span> </span><span class="hs-special">{</span><span id="local-6989586621679272260"><span id="local-6989586621679272261"><span id="local-6989586621679272262"><span id="local-6989586621679272263"><span class="annot"><span class="annottext">Int
+[DatabaseOption]
+[NetworkOption]
+Maybe FilePath
+databaseOptions :: [DatabaseOption]
+networkOptions :: [NetworkOption]
+clusterFile :: Maybe FilePath
+apiVersion :: Int
+databaseOptions :: FoundationDBOptions -&gt; [DatabaseOption]
+networkOptions :: FoundationDBOptions -&gt; [NetworkOption]
+apiVersion :: FoundationDBOptions -&gt; Int
+clusterFile :: FoundationDBOptions -&gt; Maybe FilePath
+</span><a href="#local-6989586621679272260"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-132"></span><span>  </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="FoundationDB.html#validateVersion"><span class="hs-identifier hs-var">validateVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272263"><span class="hs-identifier hs-var">apiVersion</span></a></span><span>
+</span><span id="line-133"></span><span>  </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ()) -&gt; IO CFDBError -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#selectAPIVersion"><span class="hs-identifier hs-var">FDB.selectAPIVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679272263"><span class="hs-identifier hs-var">apiVersion</span></a></span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><span class="annottext">[NetworkOption] -&gt; (NetworkOption -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="annot"><span class="annottext">[NetworkOption]
+</span><a href="#local-6989586621679272261"><span class="hs-identifier hs-var">networkOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ())
+-&gt; (NetworkOption -&gt; IO CFDBError) -&gt; NetworkOption -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NetworkOption -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#networkSetOption"><span class="hs-identifier hs-var">FDB.networkSetOption</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>  </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#setupNetwork"><span class="hs-identifier hs-var">FDB.setupNetwork</span></a></span><span>
+</span><span id="line-136"></span><span>  </span><span class="annot"><span class="annottext">IO ThreadId -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO ThreadId -&gt; IO ()) -&gt; IO ThreadId -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-137"></span><span>    </span><span class="annot"><span class="annottext">IO CFDBError
+-&gt; (Either SomeException CFDBError -&gt; IO ()) -&gt; IO ThreadId
+forall a. IO a -&gt; (Either SomeException a -&gt; IO ()) -&gt; IO ThreadId
+</span><span class="hs-identifier hs-var">forkFinally</span></span><span>
+</span><span id="line-138"></span><span>      </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#runNetwork"><span class="hs-identifier hs-var">FDB.runNetwork</span></a></span><span>
+</span><span id="line-139"></span><span>      </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Either SomeException CFDBError
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-var">startFoundationDBGlobalLock</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-cpp">
+#if FDB_API_VERSION &lt; 610
+</span><span>  </span><span class="hs-identifier">cluster</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">initCluster</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">fromMaybe</span><span> </span><span class="hs-string">&quot;&quot;</span><span> </span><span class="hs-identifier">clusterFile</span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>  </span><span class="hs-identifier">db</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">initDB</span><span> </span><span class="hs-identifier">cluster</span><span class="hs-cpp">
+#else
+</span><span>  </span><span id="local-6989586621679272259"><span class="annot"><span class="annottext">DatabasePtr
+</span><a href="#local-6989586621679272259"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr
+forall a. IO (CFDBError, a) -&gt; IO a
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing"><span class="hs-identifier hs-var">fdbThrowing</span></a></span><span> </span><span class="annot"><span class="annottext">(IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr)
+-&gt; IO (CFDBError, DatabasePtr) -&gt; IO DatabasePtr
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (CFDBError, DatabasePtr)
+</span><a href="FoundationDB.Internal.Bindings.html#createDatabase"><span class="hs-identifier hs-var">FDB.createDatabase</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath -&gt; Maybe FilePath -&gt; FilePath
+forall a. a -&gt; Maybe a -&gt; a
+</span><span class="hs-identifier hs-var">fromMaybe</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621679272262"><span class="hs-identifier hs-var">clusterFile</span></a></span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span>  </span><span class="annot"><span class="annottext">[DatabaseOption] -&gt; (DatabaseOption -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="annot"><span class="annottext">[DatabaseOption]
+</span><a href="#local-6989586621679272260"><span class="hs-identifier hs-var">databaseOptions</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO ()
+</span><a href="FoundationDB.Error.Internal.html#fdbThrowing%27"><span class="hs-identifier hs-var">fdbThrowing'</span></a></span><span> </span><span class="annot"><span class="annottext">(IO CFDBError -&gt; IO ())
+-&gt; (DatabaseOption -&gt; IO CFDBError) -&gt; DatabaseOption -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">DatabasePtr -&gt; DatabaseOption -&gt; IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#databaseSetOption"><span class="hs-identifier hs-var">FDB.databaseSetOption</span></a></span><span> </span><span class="annot"><span class="annottext">DatabasePtr
+</span><a href="#local-6989586621679272259"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>  </span><span class="annot"><span class="annottext">Database -&gt; IO Database
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Database :: DatabasePtr -&gt; FoundationDBOptions -&gt; Database
+</span><a href="FoundationDB.Internal.Database.html#Database"><span class="hs-identifier hs-type">Database</span></a></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">databasePtr :: DatabasePtr
+</span><a href="FoundationDB.Internal.Database.html#databasePtr"><span class="hs-identifier hs-var">databasePtr</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DatabasePtr
+</span><a href="#local-6989586621679272259"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">databaseFoundationDBOptions :: FoundationDBOptions
+</span><a href="FoundationDB.Internal.Database.html#databaseFoundationDBOptions"><span class="hs-identifier hs-var">databaseFoundationDBOptions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FoundationDBOptions
+</span><a href="#local-6989586621679272264"><span class="hs-identifier hs-var">opts</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- | Stops FoundationDB. For use with 'startFoundationDB'.</span><span>
+</span><span id="line-150"></span><span class="annot"><a href="FoundationDB.html#stopFoundationDB"><span class="hs-identifier hs-type">stopFoundationDB</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span><span id="stopFoundationDB"><span class="annot"><span class="annottext">stopFoundationDB :: IO ()
+</span><a href="FoundationDB.html#stopFoundationDB"><span class="hs-identifier hs-var hs-var">stopFoundationDB</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CFDBError
+</span><a href="FoundationDB.Internal.Bindings.html#stopNetwork"><span class="hs-identifier hs-var">FDB.stopNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">IO CFDBError -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+forall b. MVar b -&gt; IO b
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="FoundationDB.html#startFoundationDBGlobalLock"><span class="hs-identifier hs-var">startFoundationDBGlobalLock</span></a></span><span>
+</span><span id="line-152"></span></pre></body></html>

@@ -1,145 +1,415 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
-</span><a name="line-2"></a><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
-</span><a name="line-3"></a><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
-</span><a name="line-4"></a><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
-</span><a name="line-5"></a><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
-</span><a name="line-6"></a><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB</span><span class="hs-operator">.</span><span class="hs-identifier">Options</span><span class="hs-operator">.</span><span class="hs-identifier">NetworkOption</span><span> </span><span class="hs-keyword">where</span><span>
-</span><a name="line-7"></a><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data</span><span class="hs-operator">.</span><span class="hs-identifier">ByteString</span><span class="hs-operator">.</span><span class="hs-identifier">Char8</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">ByteString</span><span class="hs-special">)</span><span>
-</span><a name="line-8"></a><span>
-</span><a name="line-9"></a><span class="hs-pragma">{-# DEPRECATED
-localAddress &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-12"></a><span class="hs-pragma">{-# DEPRECATED
-clusterFile &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-15"></a><span class="hs-pragma">{-# DEPRECATED
-tlsPlugin &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-18"></a><span class="hs-pragma">{-# DEPRECATED
-enableSlowTaskProfiling &quot;Deprecated in FDB C API&quot;
- #-}</span><span>
-</span><a name="line-21"></a><span class="hs-keyword">data</span><span> </span><a name="NetworkOption"><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier">NetworkOption</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a name="NetworkOptionString"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier">NetworkOptionString</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">String</span><span>
-</span><a name="line-22"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="NetworkOptionInt"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier">NetworkOptionInt</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-23"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="NetworkOptionBytes"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier">NetworkOptionBytes</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span> </span><span class="hs-identifier hs-type">ByteString</span><span>
-</span><a name="line-24"></a><span>                   </span><span class="hs-glyph">|</span><span> </span><a name="NetworkOptionFlag"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier">NetworkOptionFlag</span></a></a><span> </span><span class="hs-identifier hs-type">Int</span><span>
-</span><a name="line-25"></a><span>                       </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier hs-type">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Read</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier hs-type">Ord</span><span class="hs-special">)</span><span>
-</span><a name="line-26"></a><span>
-</span><a name="line-27"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-28"></a><a name="localAddress"><a href="FoundationDB.Options.NetworkOption.html#localAddress"><span class="hs-identifier">localAddress</span></a></a><span> </span><a name="local-6989586621679034048"><a href="#local-6989586621679034048"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">10</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034048"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-29"></a><span>
-</span><a name="line-30"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-31"></a><a name="clusterFile"><a href="FoundationDB.Options.NetworkOption.html#clusterFile"><span class="hs-identifier">clusterFile</span></a></a><span> </span><a name="local-6989586621679034049"><a href="#local-6989586621679034049"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">20</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034049"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-32"></a><span>
-</span><a name="line-33"></a><span class="hs-comment">-- | Enables trace output to a file in a directory of the clients choosing</span><span>
-</span><a name="line-34"></a><a name="traceEnable"><a href="FoundationDB.Options.NetworkOption.html#traceEnable"><span class="hs-identifier">traceEnable</span></a></a><span> </span><a name="local-6989586621679034050"><a href="#local-6989586621679034050"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">30</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034050"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-35"></a><span>
-</span><a name="line-36"></a><span class="hs-comment">-- | Sets the maximum size in bytes of a single trace output file. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on individual file size. The default is a maximum size of 10,485,760 bytes.</span><span>
-</span><a name="line-37"></a><a name="traceRollSize"><a href="FoundationDB.Options.NetworkOption.html#traceRollSize"><span class="hs-identifier">traceRollSize</span></a></a><span> </span><a name="local-6989586621679034051"><a href="#local-6989586621679034051"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">31</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034051"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-38"></a><span>
-</span><a name="line-39"></a><span class="hs-comment">-- | Sets the maximum size of all the trace output files put together. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on the total size of the files. The default is a maximum size of 104,857,600 bytes. If the default roll size is used, this means that a maximum of 10 trace files will be written at a time.</span><span>
-</span><a name="line-40"></a><a name="traceMaxLogsSize"><a href="FoundationDB.Options.NetworkOption.html#traceMaxLogsSize"><span class="hs-identifier">traceMaxLogsSize</span></a></a><span> </span><a name="local-6989586621679034052"><a href="#local-6989586621679034052"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">32</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034052"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-41"></a><span>
-</span><a name="line-42"></a><span class="hs-comment">-- | Sets the 'LogGroup' attribute with the specified value for all events in the trace output files. The default log group is 'default'.</span><span>
-</span><a name="line-43"></a><a name="traceLogGroup"><a href="FoundationDB.Options.NetworkOption.html#traceLogGroup"><span class="hs-identifier">traceLogGroup</span></a></a><span> </span><a name="local-6989586621679034053"><a href="#local-6989586621679034053"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">33</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034053"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-44"></a><span>
-</span><a name="line-45"></a><span class="hs-comment">-- | Select the format of the log files. xml (the default) and json are supported.</span><span>
-</span><a name="line-46"></a><a name="traceFormat"><a href="FoundationDB.Options.NetworkOption.html#traceFormat"><span class="hs-identifier">traceFormat</span></a></a><span> </span><a name="local-6989586621679034054"><a href="#local-6989586621679034054"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">34</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034054"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-47"></a><span>
-</span><a name="line-48"></a><span class="hs-comment">-- | Select clock source for trace files. now (the default) or realtime are supported.</span><span>
-</span><a name="line-49"></a><a name="traceClockSource"><a href="FoundationDB.Options.NetworkOption.html#traceClockSource"><span class="hs-identifier">traceClockSource</span></a></a><span> </span><a name="local-6989586621679034055"><a href="#local-6989586621679034055"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">35</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034055"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-50"></a><span>
-</span><a name="line-51"></a><span class="hs-comment">-- | Once provided, this string will be used to replace the port/PID in the log file names.</span><span>
-</span><a name="line-52"></a><a name="traceFileIdentifier"><a href="FoundationDB.Options.NetworkOption.html#traceFileIdentifier"><span class="hs-identifier">traceFileIdentifier</span></a></a><span> </span><a name="local-6989586621679034056"><a href="#local-6989586621679034056"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">36</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034056"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-53"></a><span>
-</span><a name="line-54"></a><span class="hs-comment">-- | Set internal tuning or debugging knobs</span><span>
-</span><a name="line-55"></a><a name="knob"><a href="FoundationDB.Options.NetworkOption.html#knob"><span class="hs-identifier">knob</span></a></a><span> </span><a name="local-6989586621679034057"><a href="#local-6989586621679034057"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">40</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034057"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-56"></a><span>
-</span><a name="line-57"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-58"></a><a name="tlsPlugin"><a href="FoundationDB.Options.NetworkOption.html#tlsPlugin"><span class="hs-identifier">tlsPlugin</span></a></a><span> </span><a name="local-6989586621679034058"><a href="#local-6989586621679034058"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">41</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034058"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-59"></a><span>
-</span><a name="line-60"></a><span class="hs-comment">-- | Set the certificate chain</span><span>
-</span><a name="line-61"></a><a name="tlsCertBytes"><a href="FoundationDB.Options.NetworkOption.html#tlsCertBytes"><span class="hs-identifier">tlsCertBytes</span></a></a><span> </span><a name="local-6989586621679034059"><a href="#local-6989586621679034059"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">42</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034059"><span class="hs-identifier hs-var">bs</span></a><span>
-</span><a name="line-62"></a><span>
-</span><a name="line-63"></a><span class="hs-comment">-- | Set the file from which to load the certificate chain</span><span>
-</span><a name="line-64"></a><a name="tlsCertPath"><a href="FoundationDB.Options.NetworkOption.html#tlsCertPath"><span class="hs-identifier">tlsCertPath</span></a></a><span> </span><a name="local-6989586621679034060"><a href="#local-6989586621679034060"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">43</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034060"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-65"></a><span>
-</span><a name="line-66"></a><span class="hs-comment">-- | Set the private key corresponding to your own certificate</span><span>
-</span><a name="line-67"></a><a name="tlsKeyBytes"><a href="FoundationDB.Options.NetworkOption.html#tlsKeyBytes"><span class="hs-identifier">tlsKeyBytes</span></a></a><span> </span><a name="local-6989586621679034061"><a href="#local-6989586621679034061"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">45</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034061"><span class="hs-identifier hs-var">bs</span></a><span>
-</span><a name="line-68"></a><span>
-</span><a name="line-69"></a><span class="hs-comment">-- | Set the file from which to load the private key corresponding to your own certificate</span><span>
-</span><a name="line-70"></a><a name="tlsKeyPath"><a href="FoundationDB.Options.NetworkOption.html#tlsKeyPath"><span class="hs-identifier">tlsKeyPath</span></a></a><span> </span><a name="local-6989586621679034062"><a href="#local-6989586621679034062"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">46</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034062"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-71"></a><span>
-</span><a name="line-72"></a><span class="hs-comment">-- | Set the peer certificate field verification criteria</span><span>
-</span><a name="line-73"></a><a name="tlsVerifyPeers"><a href="FoundationDB.Options.NetworkOption.html#tlsVerifyPeers"><span class="hs-identifier">tlsVerifyPeers</span></a></a><span> </span><a name="local-6989586621679034063"><a href="#local-6989586621679034063"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">47</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034063"><span class="hs-identifier hs-var">bs</span></a><span>
-</span><a name="line-74"></a><span>
-</span><a name="line-75"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-76"></a><a name="buggifyEnable"><a href="FoundationDB.Options.NetworkOption.html#buggifyEnable"><span class="hs-identifier">buggifyEnable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">48</span><span class="hs-special">)</span><span>
-</span><a name="line-77"></a><span>
-</span><a name="line-78"></a><span class="hs-comment">-- | </span><span>
-</span><a name="line-79"></a><a name="buggifyDisable"><a href="FoundationDB.Options.NetworkOption.html#buggifyDisable"><span class="hs-identifier">buggifyDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">49</span><span class="hs-special">)</span><span>
-</span><a name="line-80"></a><span>
-</span><a name="line-81"></a><span class="hs-comment">-- | Set the probability of a BUGGIFY section being active for the current execution.  Only applies to code paths first traversed AFTER this option is changed.</span><span>
-</span><a name="line-82"></a><a name="buggifySectionActivatedProbability"><a href="FoundationDB.Options.NetworkOption.html#buggifySectionActivatedProbability"><span class="hs-identifier">buggifySectionActivatedProbability</span></a></a><span> </span><a name="local-6989586621679034064"><a href="#local-6989586621679034064"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">50</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034064"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-83"></a><span>
-</span><a name="line-84"></a><span class="hs-comment">-- | Set the probability of an active BUGGIFY section being fired</span><span>
-</span><a name="line-85"></a><a name="buggifySectionFiredProbability"><a href="FoundationDB.Options.NetworkOption.html#buggifySectionFiredProbability"><span class="hs-identifier">buggifySectionFiredProbability</span></a></a><span> </span><a name="local-6989586621679034065"><a href="#local-6989586621679034065"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">51</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034065"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-86"></a><span>
-</span><a name="line-87"></a><span class="hs-comment">-- | Set the ca bundle</span><span>
-</span><a name="line-88"></a><a name="tlsCaBytes"><a href="FoundationDB.Options.NetworkOption.html#tlsCaBytes"><span class="hs-identifier">tlsCaBytes</span></a></a><span> </span><a name="local-6989586621679034066"><a href="#local-6989586621679034066"><span class="hs-identifier">bs</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">52</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034066"><span class="hs-identifier hs-var">bs</span></a><span>
-</span><a name="line-89"></a><span>
-</span><a name="line-90"></a><span class="hs-comment">-- | Set the file from which to load the certificate authority bundle</span><span>
-</span><a name="line-91"></a><a name="tlsCaPath"><a href="FoundationDB.Options.NetworkOption.html#tlsCaPath"><span class="hs-identifier">tlsCaPath</span></a></a><span> </span><a name="local-6989586621679034067"><a href="#local-6989586621679034067"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">53</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034067"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-92"></a><span>
-</span><a name="line-93"></a><span class="hs-comment">-- | Set the passphrase for encrypted private key. Password should be set before setting the key for the password to be used.</span><span>
-</span><a name="line-94"></a><a name="tlsPassword"><a href="FoundationDB.Options.NetworkOption.html#tlsPassword"><span class="hs-identifier">tlsPassword</span></a></a><span> </span><a name="local-6989586621679034068"><a href="#local-6989586621679034068"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">54</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034068"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-95"></a><span>
-</span><a name="line-96"></a><span class="hs-comment">-- | Disables the multi-version client API and instead uses the local client directly. Must be set before setting up the network.</span><span>
-</span><a name="line-97"></a><a name="disableMultiVersionClientApi"><a href="FoundationDB.Options.NetworkOption.html#disableMultiVersionClientApi"><span class="hs-identifier">disableMultiVersionClientApi</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">60</span><span class="hs-special">)</span><span>
-</span><a name="line-98"></a><span>
-</span><a name="line-99"></a><span class="hs-comment">-- | If set, callbacks from external client libraries can be called from threads created by the FoundationDB client library. Otherwise, callbacks will be called from either the thread used to add the callback or the network thread. Setting this option can improve performance when connected using an external client, but may not be safe to use in all environments. Must be set before setting up the network. WARNING: This feature is considered experimental at this time.</span><span>
-</span><a name="line-100"></a><a name="callbacksOnExternalThreads"><a href="FoundationDB.Options.NetworkOption.html#callbacksOnExternalThreads"><span class="hs-identifier">callbacksOnExternalThreads</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">61</span><span class="hs-special">)</span><span>
-</span><a name="line-101"></a><span>
-</span><a name="line-102"></a><span class="hs-comment">-- | Adds an external client library for use by the multi-version client API. Must be set before setting up the network.</span><span>
-</span><a name="line-103"></a><a name="externalClientLibrary"><a href="FoundationDB.Options.NetworkOption.html#externalClientLibrary"><span class="hs-identifier">externalClientLibrary</span></a></a><span> </span><a name="local-6989586621679034069"><a href="#local-6989586621679034069"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">62</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034069"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-104"></a><span>
-</span><a name="line-105"></a><span class="hs-comment">-- | Searches the specified path for dynamic libraries and adds them to the list of client libraries for use by the multi-version client API. Must be set before setting up the network.</span><span>
-</span><a name="line-106"></a><a name="externalClientDirectory"><a href="FoundationDB.Options.NetworkOption.html#externalClientDirectory"><span class="hs-identifier">externalClientDirectory</span></a></a><span> </span><a name="local-6989586621679034070"><a href="#local-6989586621679034070"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">63</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034070"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-107"></a><span>
-</span><a name="line-108"></a><span class="hs-comment">-- | Prevents connections through the local client, allowing only connections through externally loaded client libraries.</span><span>
-</span><a name="line-109"></a><a name="disableLocalClient"><a href="FoundationDB.Options.NetworkOption.html#disableLocalClient"><span class="hs-identifier">disableLocalClient</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">64</span><span class="hs-special">)</span><span>
-</span><a name="line-110"></a><span>
-</span><a name="line-111"></a><span class="hs-comment">-- | Spawns multiple worker threads for each version of the client that is loaded.  Setting this to a number greater than one implies disable_local_client.</span><span>
-</span><a name="line-112"></a><a name="clientThreadsPerVersion"><a href="FoundationDB.Options.NetworkOption.html#clientThreadsPerVersion"><span class="hs-identifier">clientThreadsPerVersion</span></a></a><span> </span><a name="local-6989586621679034071"><a href="#local-6989586621679034071"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">65</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034071"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-113"></a><span>
-</span><a name="line-114"></a><span class="hs-comment">-- | Disables logging of client statistics, such as sampled transaction activity.</span><span>
-</span><a name="line-115"></a><a name="disableClientStatisticsLogging"><a href="FoundationDB.Options.NetworkOption.html#disableClientStatisticsLogging"><span class="hs-identifier">disableClientStatisticsLogging</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">70</span><span class="hs-special">)</span><span>
-</span><a name="line-116"></a><span>
-</span><a name="line-117"></a><span class="hs-comment">-- | Deprecated</span><span>
-</span><a name="line-118"></a><a name="enableSlowTaskProfiling"><a href="FoundationDB.Options.NetworkOption.html#enableSlowTaskProfiling"><span class="hs-identifier">enableSlowTaskProfiling</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">71</span><span class="hs-special">)</span><span>
-</span><a name="line-119"></a><span>
-</span><a name="line-120"></a><span class="hs-comment">-- | Enables debugging feature to perform run loop profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.</span><span>
-</span><a name="line-121"></a><a name="enableRunLoopProfiling"><a href="FoundationDB.Options.NetworkOption.html#enableRunLoopProfiling"><span class="hs-identifier">enableRunLoopProfiling</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">71</span><span class="hs-special">)</span><span>
-</span><a name="line-122"></a><span>
-</span><a name="line-123"></a><span class="hs-comment">-- | Enable client buggify - will make requests randomly fail (intended for client testing)</span><span>
-</span><a name="line-124"></a><a name="clientBuggifyEnable"><a href="FoundationDB.Options.NetworkOption.html#clientBuggifyEnable"><span class="hs-identifier">clientBuggifyEnable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">80</span><span class="hs-special">)</span><span>
-</span><a name="line-125"></a><span>
-</span><a name="line-126"></a><span class="hs-comment">-- | Disable client buggify</span><span>
-</span><a name="line-127"></a><a name="clientBuggifyDisable"><a href="FoundationDB.Options.NetworkOption.html#clientBuggifyDisable"><span class="hs-identifier">clientBuggifyDisable</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">81</span><span class="hs-special">)</span><span>
-</span><a name="line-128"></a><span>
-</span><a name="line-129"></a><span class="hs-comment">-- | Set the probability of a CLIENT_BUGGIFY section being active for the current execution.</span><span>
-</span><a name="line-130"></a><a name="clientBuggifySectionActivatedProbability"><a href="FoundationDB.Options.NetworkOption.html#clientBuggifySectionActivatedProbability"><span class="hs-identifier">clientBuggifySectionActivatedProbability</span></a></a><span> </span><a name="local-6989586621679034072"><a href="#local-6989586621679034072"><span class="hs-identifier">i</span></a></a><span>
-</span><a name="line-131"></a><span>  </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">82</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034072"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-132"></a><span>
-</span><a name="line-133"></a><span class="hs-comment">-- | Set the probability of an active CLIENT_BUGGIFY section being fired. A section will only fire if it was activated</span><span>
-</span><a name="line-134"></a><a name="clientBuggifySectionFiredProbability"><a href="FoundationDB.Options.NetworkOption.html#clientBuggifySectionFiredProbability"><span class="hs-identifier">clientBuggifySectionFiredProbability</span></a></a><span> </span><a name="local-6989586621679034073"><a href="#local-6989586621679034073"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">83</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034073"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-135"></a><span>
-</span><a name="line-136"></a><span class="hs-comment">-- | This option is set automatically to communicate the list of supported clients to the active client.</span><span>
-</span><a name="line-137"></a><a name="supportedClientVersions"><a href="FoundationDB.Options.NetworkOption.html#supportedClientVersions"><span class="hs-identifier">supportedClientVersions</span></a></a><span> </span><a name="local-6989586621679034074"><a href="#local-6989586621679034074"><span class="hs-identifier">str</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">1000</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034074"><span class="hs-identifier hs-var">str</span></a><span>
-</span><a name="line-138"></a><span>
-</span><a name="line-139"></a><span class="hs-comment">-- | This option is set automatically on all clients loaded externally using the multi-version API.</span><span>
-</span><a name="line-140"></a><a name="externalClient"><a href="FoundationDB.Options.NetworkOption.html#externalClient"><span class="hs-identifier">externalClient</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">1001</span><span class="hs-special">)</span><span>
-</span><a name="line-141"></a><span>
-</span><a name="line-142"></a><span class="hs-comment">-- | This option tells a child on a multiversion client what transport ID to use.</span><span>
-</span><a name="line-143"></a><a name="externalClientTransportId"><a href="FoundationDB.Options.NetworkOption.html#externalClientTransportId"><span class="hs-identifier">externalClientTransportId</span></a></a><span> </span><a name="local-6989586621679034075"><a href="#local-6989586621679034075"><span class="hs-identifier">i</span></a></a><span> </span><span class="hs-glyph">=</span><span> </span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a><span> </span><span class="hs-special">(</span><span class="hs-number">1002</span><span class="hs-special">)</span><span> </span><a href="#local-6989586621679034075"><span class="hs-identifier hs-var">i</span></a><span>
-</span><a name="line-144"></a><span>
-</span><a name="line-145"></a></pre></body></html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_1ks7dhgWTwKE1yGazYQ09v"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-missing-signatures #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- | NOTE: This file is generated from &lt;https://github.com/apple/foundationdb/blob/master/fdbclient/vexillographer/fdb.options fdb.options&gt;</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- by the generate-options executable in this project.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- All documentation on the individual options in this namespace comes</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- from FoundationDB's documentation in @fdb.options@.</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">FoundationDB.Options.NetworkOption</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">localAddress</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-11"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">clusterFile</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-14"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-16"></span><span class="hs-pragma">tlsPlugin</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-17"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-18"></span><span class="hs-pragma">{-# DEPRECATED</span><span>
+</span><span id="line-19"></span><span class="hs-pragma">enableSlowTaskProfiling</span><span> </span><span class="hs-pragma">&quot;Deprecated in FDB C API&quot;</span><span>
+</span><span id="line-20"></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkOption"><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOption"><span class="hs-identifier hs-var">NetworkOption</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NetworkOptionString"><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-22"></span><span>                   </span><span class="hs-glyph">|</span><span> </span><span id="NetworkOptionInt"><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-23"></span><span>                   </span><span class="hs-glyph">|</span><span> </span><span id="NetworkOptionBytes"><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-24"></span><span>                   </span><span class="hs-glyph">|</span><span> </span><span id="NetworkOptionFlag"><span class="annot"><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-25"></span><span>                       </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679269066"><span id="local-6989586621679269068"><span id="local-6989586621679269070"><span class="annot"><span class="annottext">Int -&gt; NetworkOption -&gt; ShowS
+[NetworkOption] -&gt; ShowS
+NetworkOption -&gt; String
+(Int -&gt; NetworkOption -&gt; ShowS)
+-&gt; (NetworkOption -&gt; String)
+-&gt; ([NetworkOption] -&gt; ShowS)
+-&gt; Show NetworkOption
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [NetworkOption] -&gt; ShowS
+$cshowList :: [NetworkOption] -&gt; ShowS
+show :: NetworkOption -&gt; String
+$cshow :: NetworkOption -&gt; String
+showsPrec :: Int -&gt; NetworkOption -&gt; ShowS
+$cshowsPrec :: Int -&gt; NetworkOption -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269057"><span id="local-6989586621679269059"><span id="local-6989586621679269061"><span id="local-6989586621679269063"><span class="annot"><span class="annottext">ReadPrec [NetworkOption]
+ReadPrec NetworkOption
+Int -&gt; ReadS NetworkOption
+ReadS [NetworkOption]
+(Int -&gt; ReadS NetworkOption)
+-&gt; ReadS [NetworkOption]
+-&gt; ReadPrec NetworkOption
+-&gt; ReadPrec [NetworkOption]
+-&gt; Read NetworkOption
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [NetworkOption]
+$creadListPrec :: ReadPrec [NetworkOption]
+readPrec :: ReadPrec NetworkOption
+$creadPrec :: ReadPrec NetworkOption
+readList :: ReadS [NetworkOption]
+$creadList :: ReadS [NetworkOption]
+readsPrec :: Int -&gt; ReadS NetworkOption
+$creadsPrec :: Int -&gt; ReadS NetworkOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269052"><span id="local-6989586621679269054"><span class="annot"><span class="annottext">NetworkOption -&gt; NetworkOption -&gt; Bool
+(NetworkOption -&gt; NetworkOption -&gt; Bool)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Bool) -&gt; Eq NetworkOption
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c/= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+== :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c== :: NetworkOption -&gt; NetworkOption -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679269036"><span id="local-6989586621679269038"><span id="local-6989586621679269040"><span id="local-6989586621679269042"><span id="local-6989586621679269044"><span id="local-6989586621679269046"><span id="local-6989586621679269048"><span class="annot"><span class="annottext">Eq NetworkOption
+Eq NetworkOption
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Ordering)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Bool)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Bool)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Bool)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; Bool)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; NetworkOption)
+-&gt; (NetworkOption -&gt; NetworkOption -&gt; NetworkOption)
+-&gt; Ord NetworkOption
+NetworkOption -&gt; NetworkOption -&gt; Bool
+NetworkOption -&gt; NetworkOption -&gt; Ordering
+NetworkOption -&gt; NetworkOption -&gt; NetworkOption
+forall a.
+Eq a
+-&gt; (a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: NetworkOption -&gt; NetworkOption -&gt; NetworkOption
+$cmin :: NetworkOption -&gt; NetworkOption -&gt; NetworkOption
+max :: NetworkOption -&gt; NetworkOption -&gt; NetworkOption
+$cmax :: NetworkOption -&gt; NetworkOption -&gt; NetworkOption
+&gt;= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c&gt;= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+&gt; :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c&gt; :: NetworkOption -&gt; NetworkOption -&gt; Bool
+&lt;= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c&lt;= :: NetworkOption -&gt; NetworkOption -&gt; Bool
+&lt; :: NetworkOption -&gt; NetworkOption -&gt; Bool
+$c&lt; :: NetworkOption -&gt; NetworkOption -&gt; Bool
+compare :: NetworkOption -&gt; NetworkOption -&gt; Ordering
+$ccompare :: NetworkOption -&gt; NetworkOption -&gt; Ordering
+$cp1Ord :: Eq NetworkOption
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-28"></span><span id="localAddress"><span class="annot"><span class="annottext">localAddress :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#localAddress"><span class="hs-identifier hs-var hs-var">localAddress</span></a></span></span><span> </span><span id="local-6989586621679269033"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269033"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269033"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-31"></span><span id="clusterFile"><span class="annot"><span class="annottext">clusterFile :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clusterFile"><span class="hs-identifier hs-var hs-var">clusterFile</span></a></span></span><span> </span><span id="local-6989586621679269031"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269031"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">20</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269031"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- | Enables trace output to a file in a directory of the clients choosing</span><span>
+</span><span id="line-34"></span><span id="traceEnable"><span class="annot"><span class="annottext">traceEnable :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceEnable"><span class="hs-identifier hs-var hs-var">traceEnable</span></a></span></span><span> </span><span id="local-6989586621679269029"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269029"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">30</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269029"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | Sets the maximum size in bytes of a single trace output file. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on individual file size. The default is a maximum size of 10,485,760 bytes.</span><span>
+</span><span id="line-37"></span><span id="traceRollSize"><span class="annot"><span class="annottext">traceRollSize :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceRollSize"><span class="hs-identifier hs-var hs-var">traceRollSize</span></a></span></span><span> </span><span id="local-6989586621679269027"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269027"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">31</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269027"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- | Sets the maximum size of all the trace output files put together. This value should be in the range ``[0, INT64_MAX]``. If the value is set to 0, there is no limit on the total size of the files. The default is a maximum size of 104,857,600 bytes. If the default roll size is used, this means that a maximum of 10 trace files will be written at a time.</span><span>
+</span><span id="line-40"></span><span id="traceMaxLogsSize"><span class="annot"><span class="annottext">traceMaxLogsSize :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceMaxLogsSize"><span class="hs-identifier hs-var hs-var">traceMaxLogsSize</span></a></span></span><span> </span><span id="local-6989586621679269025"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269025"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">32</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679269025"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Sets the 'LogGroup' attribute with the specified value for all events in the trace output files. The default log group is 'default'.</span><span>
+</span><span id="line-43"></span><span id="traceLogGroup"><span class="annot"><span class="annottext">traceLogGroup :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceLogGroup"><span class="hs-identifier hs-var hs-var">traceLogGroup</span></a></span></span><span> </span><span id="local-6989586621679269023"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269023"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">33</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269023"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- | Select the format of the log files. xml (the default) and json are supported.</span><span>
+</span><span id="line-46"></span><span id="traceFormat"><span class="annot"><span class="annottext">traceFormat :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceFormat"><span class="hs-identifier hs-var hs-var">traceFormat</span></a></span></span><span> </span><span id="local-6989586621679269021"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269021"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">34</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269021"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- | Select clock source for trace files. now (the default) or realtime are supported.</span><span>
+</span><span id="line-49"></span><span id="traceClockSource"><span class="annot"><span class="annottext">traceClockSource :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceClockSource"><span class="hs-identifier hs-var hs-var">traceClockSource</span></a></span></span><span> </span><span id="local-6989586621679269019"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269019"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">35</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269019"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | Once provided, this string will be used to replace the port/PID in the log file names.</span><span>
+</span><span id="line-52"></span><span id="traceFileIdentifier"><span class="annot"><span class="annottext">traceFileIdentifier :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#traceFileIdentifier"><span class="hs-identifier hs-var hs-var">traceFileIdentifier</span></a></span></span><span> </span><span id="local-6989586621679269017"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269017"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">36</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269017"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- | Set file suffix for partially written log files.</span><span>
+</span><span id="line-55"></span><span id="tracePartialFileSuffix"><span class="annot"><span class="annottext">tracePartialFileSuffix :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tracePartialFileSuffix"><span class="hs-identifier hs-var hs-var">tracePartialFileSuffix</span></a></span></span><span> </span><span id="local-6989586621679269015"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269015"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">39</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269015"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Set internal tuning or debugging knobs</span><span>
+</span><span id="line-58"></span><span id="knob"><span class="annot"><span class="annottext">knob :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#knob"><span class="hs-identifier hs-var hs-var">knob</span></a></span></span><span> </span><span id="local-6989586621679269013"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269013"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">40</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269013"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-61"></span><span id="tlsPlugin"><span class="annot"><span class="annottext">tlsPlugin :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsPlugin"><span class="hs-identifier hs-var hs-var">tlsPlugin</span></a></span></span><span> </span><span id="local-6989586621679269011"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269011"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">41</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269011"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | Set the certificate chain</span><span>
+</span><span id="line-64"></span><span id="tlsCertBytes"><span class="annot"><span class="annottext">tlsCertBytes :: ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsCertBytes"><span class="hs-identifier hs-var hs-var">tlsCertBytes</span></a></span></span><span> </span><span id="local-6989586621679269009"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269009"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269009"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | Set the file from which to load the certificate chain</span><span>
+</span><span id="line-67"></span><span id="tlsCertPath"><span class="annot"><span class="annottext">tlsCertPath :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsCertPath"><span class="hs-identifier hs-var hs-var">tlsCertPath</span></a></span></span><span> </span><span id="local-6989586621679269007"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269007"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">43</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269007"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- | Set the private key corresponding to your own certificate</span><span>
+</span><span id="line-70"></span><span id="tlsKeyBytes"><span class="annot"><span class="annottext">tlsKeyBytes :: ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsKeyBytes"><span class="hs-identifier hs-var hs-var">tlsKeyBytes</span></a></span></span><span> </span><span id="local-6989586621679269005"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269005"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">45</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269005"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | Set the file from which to load the private key corresponding to your own certificate</span><span>
+</span><span id="line-73"></span><span id="tlsKeyPath"><span class="annot"><span class="annottext">tlsKeyPath :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsKeyPath"><span class="hs-identifier hs-var hs-var">tlsKeyPath</span></a></span></span><span> </span><span id="local-6989586621679269003"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269003"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">46</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679269003"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- | Set the peer certificate field verification criteria</span><span>
+</span><span id="line-76"></span><span id="tlsVerifyPeers"><span class="annot"><span class="annottext">tlsVerifyPeers :: ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsVerifyPeers"><span class="hs-identifier hs-var hs-var">tlsVerifyPeers</span></a></span></span><span> </span><span id="local-6989586621679269001"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269001"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">47</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679269001"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-79"></span><span id="buggifyEnable"><span class="annot"><span class="annottext">buggifyEnable :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#buggifyEnable"><span class="hs-identifier hs-var hs-var">buggifyEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">48</span></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- | </span><span>
+</span><span id="line-82"></span><span id="buggifyDisable"><span class="annot"><span class="annottext">buggifyDisable :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#buggifyDisable"><span class="hs-identifier hs-var hs-var">buggifyDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">49</span></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | Set the probability of a BUGGIFY section being active for the current execution.  Only applies to code paths first traversed AFTER this option is changed.</span><span>
+</span><span id="line-85"></span><span id="buggifySectionActivatedProbability"><span class="annot"><span class="annottext">buggifySectionActivatedProbability :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#buggifySectionActivatedProbability"><span class="hs-identifier hs-var hs-var">buggifySectionActivatedProbability</span></a></span></span><span> </span><span id="local-6989586621679268997"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268997"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">50</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268997"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- | Set the probability of an active BUGGIFY section being fired</span><span>
+</span><span id="line-88"></span><span id="buggifySectionFiredProbability"><span class="annot"><span class="annottext">buggifySectionFiredProbability :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#buggifySectionFiredProbability"><span class="hs-identifier hs-var hs-var">buggifySectionFiredProbability</span></a></span></span><span> </span><span id="local-6989586621679268995"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268995"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">51</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268995"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | Set the ca bundle</span><span>
+</span><span id="line-91"></span><span id="tlsCaBytes"><span class="annot"><span class="annottext">tlsCaBytes :: ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsCaBytes"><span class="hs-identifier hs-var hs-var">tlsCaBytes</span></a></span></span><span> </span><span id="local-6989586621679268993"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679268993"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionBytes"><span class="hs-identifier hs-var">NetworkOptionBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">52</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679268993"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- | Set the file from which to load the certificate authority bundle</span><span>
+</span><span id="line-94"></span><span id="tlsCaPath"><span class="annot"><span class="annottext">tlsCaPath :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsCaPath"><span class="hs-identifier hs-var hs-var">tlsCaPath</span></a></span></span><span> </span><span id="local-6989586621679268991"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268991"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">53</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268991"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- | Set the passphrase for encrypted private key. Password should be set before setting the key for the password to be used.</span><span>
+</span><span id="line-97"></span><span id="tlsPassword"><span class="annot"><span class="annottext">tlsPassword :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#tlsPassword"><span class="hs-identifier hs-var hs-var">tlsPassword</span></a></span></span><span> </span><span id="local-6989586621679268989"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268989"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">54</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268989"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- | Disables the multi-version client API and instead uses the local client directly. Must be set before setting up the network.</span><span>
+</span><span id="line-100"></span><span id="disableMultiVersionClientApi"><span class="annot"><span class="annottext">disableMultiVersionClientApi :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#disableMultiVersionClientApi"><span class="hs-identifier hs-var hs-var">disableMultiVersionClientApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">60</span></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- | If set, callbacks from external client libraries can be called from threads created by the FoundationDB client library. Otherwise, callbacks will be called from either the thread used to add the callback or the network thread. Setting this option can improve performance when connected using an external client, but may not be safe to use in all environments. Must be set before setting up the network. WARNING: This feature is considered experimental at this time.</span><span>
+</span><span id="line-103"></span><span id="callbacksOnExternalThreads"><span class="annot"><span class="annottext">callbacksOnExternalThreads :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#callbacksOnExternalThreads"><span class="hs-identifier hs-var hs-var">callbacksOnExternalThreads</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">61</span></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- | Adds an external client library for use by the multi-version client API. Must be set before setting up the network.</span><span>
+</span><span id="line-106"></span><span id="externalClientLibrary"><span class="annot"><span class="annottext">externalClientLibrary :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#externalClientLibrary"><span class="hs-identifier hs-var hs-var">externalClientLibrary</span></a></span></span><span> </span><span id="local-6989586621679268985"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268985"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">62</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268985"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- | Searches the specified path for dynamic libraries and adds them to the list of client libraries for use by the multi-version client API. Must be set before setting up the network.</span><span>
+</span><span id="line-109"></span><span id="externalClientDirectory"><span class="annot"><span class="annottext">externalClientDirectory :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#externalClientDirectory"><span class="hs-identifier hs-var hs-var">externalClientDirectory</span></a></span></span><span> </span><span id="local-6989586621679268983"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268983"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">63</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268983"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Prevents connections through the local client, allowing only connections through externally loaded client libraries.</span><span>
+</span><span id="line-112"></span><span id="disableLocalClient"><span class="annot"><span class="annottext">disableLocalClient :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#disableLocalClient"><span class="hs-identifier hs-var hs-var">disableLocalClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- | Spawns multiple worker threads for each version of the client that is loaded.  Setting this to a number greater than one implies disable_local_client.</span><span>
+</span><span id="line-115"></span><span id="clientThreadsPerVersion"><span class="annot"><span class="annottext">clientThreadsPerVersion :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clientThreadsPerVersion"><span class="hs-identifier hs-var hs-var">clientThreadsPerVersion</span></a></span></span><span> </span><span id="local-6989586621679268980"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268980"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">65</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268980"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- | Disables logging of client statistics, such as sampled transaction activity.</span><span>
+</span><span id="line-118"></span><span id="disableClientStatisticsLogging"><span class="annot"><span class="annottext">disableClientStatisticsLogging :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#disableClientStatisticsLogging"><span class="hs-identifier hs-var hs-var">disableClientStatisticsLogging</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">70</span></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- | Deprecated</span><span>
+</span><span id="line-121"></span><span id="enableSlowTaskProfiling"><span class="annot"><span class="annottext">enableSlowTaskProfiling :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#enableSlowTaskProfiling"><span class="hs-identifier hs-var hs-var">enableSlowTaskProfiling</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">71</span></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | Enables debugging feature to perform run loop profiling. Requires trace logging to be enabled. WARNING: this feature is not recommended for use in production.</span><span>
+</span><span id="line-124"></span><span id="enableRunLoopProfiling"><span class="annot"><span class="annottext">enableRunLoopProfiling :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#enableRunLoopProfiling"><span class="hs-identifier hs-var hs-var">enableRunLoopProfiling</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">71</span></span><span class="hs-special">)</span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- | Enable client buggify - will make requests randomly fail (intended for client testing)</span><span>
+</span><span id="line-127"></span><span id="clientBuggifyEnable"><span class="annot"><span class="annottext">clientBuggifyEnable :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clientBuggifyEnable"><span class="hs-identifier hs-var hs-var">clientBuggifyEnable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">80</span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- | Disable client buggify</span><span>
+</span><span id="line-130"></span><span id="clientBuggifyDisable"><span class="annot"><span class="annottext">clientBuggifyDisable :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clientBuggifyDisable"><span class="hs-identifier hs-var hs-var">clientBuggifyDisable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">81</span></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- | Set the probability of a CLIENT_BUGGIFY section being active for the current execution.</span><span>
+</span><span id="line-133"></span><span id="clientBuggifySectionActivatedProbability"><span class="annot"><span class="annottext">clientBuggifySectionActivatedProbability :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clientBuggifySectionActivatedProbability"><span class="hs-identifier hs-var hs-var">clientBuggifySectionActivatedProbability</span></a></span></span><span> </span><span id="local-6989586621679268973"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268973"><span class="hs-identifier hs-var">i</span></a></span></span><span>
+</span><span id="line-134"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">82</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268973"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- | Set the probability of an active CLIENT_BUGGIFY section being fired. A section will only fire if it was activated</span><span>
+</span><span id="line-137"></span><span id="clientBuggifySectionFiredProbability"><span class="annot"><span class="annottext">clientBuggifySectionFiredProbability :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#clientBuggifySectionFiredProbability"><span class="hs-identifier hs-var hs-var">clientBuggifySectionFiredProbability</span></a></span></span><span> </span><span id="local-6989586621679268971"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268971"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">83</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268971"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- | Set a tracer to run on the client. Should be set to the same value as the tracer set on the server.</span><span>
+</span><span id="line-140"></span><span id="distributedClientTracer"><span class="annot"><span class="annottext">distributedClientTracer :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#distributedClientTracer"><span class="hs-identifier hs-var hs-var">distributedClientTracer</span></a></span></span><span> </span><span id="local-6989586621679268969"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268969"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">90</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268969"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- | This option is set automatically to communicate the list of supported clients to the active client.</span><span>
+</span><span id="line-143"></span><span id="supportedClientVersions"><span class="annot"><span class="annottext">supportedClientVersions :: String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#supportedClientVersions"><span class="hs-identifier hs-var hs-var">supportedClientVersions</span></a></span></span><span> </span><span id="local-6989586621679268967"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268967"><span class="hs-identifier hs-var">str</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; String -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionString"><span class="hs-identifier hs-var">NetworkOptionString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1000</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679268967"><span class="hs-identifier hs-var">str</span></a></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="hs-comment">-- | This option is set automatically on all clients loaded externally using the multi-version API.</span><span>
+</span><span id="line-146"></span><span id="externalClient"><span class="annot"><span class="annottext">externalClient :: NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#externalClient"><span class="hs-identifier hs-var hs-var">externalClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionFlag"><span class="hs-identifier hs-var">NetworkOptionFlag</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1001</span></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- | This option tells a child on a multiversion client what transport ID to use.</span><span>
+</span><span id="line-149"></span><span id="externalClientTransportId"><span class="annot"><span class="annottext">externalClientTransportId :: Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#externalClientTransportId"><span class="hs-identifier hs-var hs-var">externalClientTransportId</span></a></span></span><span> </span><span id="local-6989586621679268964"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268964"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; NetworkOption
+</span><a href="FoundationDB.Options.NetworkOption.html#NetworkOptionInt"><span class="hs-identifier hs-var">NetworkOptionInt</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1002</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679268964"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span></pre></body></html>
