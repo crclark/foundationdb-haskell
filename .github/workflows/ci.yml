@@ -24,6 +24,8 @@ jobs:
           - "9.0.2"
           - "9.2.3"
         fdb-version:
+          - "7.3.15"
+          - "7.2.7"
           - "7.1.15"
           - "7.0.0"
           - "6.3.12"
@@ -39,6 +41,8 @@ jobs:
           - "630"
           - "700"
           - "710"
+          - "720"
+          - "730"
         # For a given installed FDB version, the client can choose to connect
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
