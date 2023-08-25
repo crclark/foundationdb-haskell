@@ -4,7 +4,7 @@ set -e
 
 FDB_VER=${1}
 
-sudo apt install python2
+sudo apt install python2 libc6 libc6-dev
 wget https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb
 wget https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-server_${FDB_VER}-1_amd64.deb
 sudo apt install --fix-broken ./foundationdb-clients_${FDB_VER}-1_amd64.deb

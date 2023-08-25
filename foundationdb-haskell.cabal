@@ -244,7 +244,7 @@ test-suite tests
   build-depends:       base >=4.10 && <5
                        , foundationdb-haskell
                        , async >= 2.2.3 && < 2.3
-                       , hspec >= 2.7.8 && < 2.8
+                       , hspec >= 2.7.8 && < 2.12
                        , bytestring >= 0.10.8.2 && <0.12
                        , QuickCheck >= 2.14.2 && < 2.15
                        , text >= 1.2.3.0 && < 2.1
