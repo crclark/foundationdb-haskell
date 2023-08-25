@@ -1,8 +1,10 @@
 #!/bin/bash
 
+set -e
+
 FDB_VER=${1}
 
-sudo apt install python-is-python3
+sudo apt install python2
 wget https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-clients_${FDB_VER}-1_amd64.deb
 wget https://github.com/apple/foundationdb/releases/download/${FDB_VER}/foundationdb-server_${FDB_VER}-1_amd64.deb
 sudo dpkg -i foundationdb-clients_${FDB_VER}-1_amd64.deb
