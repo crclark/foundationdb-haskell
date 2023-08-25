@@ -28,6 +28,12 @@ then
   export FDB_VER_FLAG='-f fdb-version-700'
 elif [[ ${FDB_VER} = "7.1.15" ]]
 then
+  export FDB_VER_FLAG='-f fdb-version-710'
+elif [[ ${FDB_VER} = "7.2.7" ]]
+then
+  export FDB_VER_FLAG='-f fdb-version-720'
+elif [[ ${FDB_VER} = "7.3.15" ]]
+then
   # latest is the default, so no flag is specified
   export FDB_VER_FLAG=''
 else
