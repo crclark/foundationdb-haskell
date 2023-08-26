@@ -30,8 +30,6 @@ jobs:
           - "6.3.12"
           - "6.2.20"
           - "6.1.13"
-          - "6.0.18"
-          - "5.2.8"
         fdb-api-version:
           - "520"
           - "600"
@@ -46,21 +44,6 @@ jobs:
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
-          - {fdb-version: "5.2.8", fdb-api-version: "600"}
-          - {fdb-version: "5.2.8", fdb-api-version: "610"}
-          - {fdb-version: "5.2.8", fdb-api-version: "620"}
-          - {fdb-version: "5.2.8", fdb-api-version: "630"}
-          - {fdb-version: "5.2.8", fdb-api-version: "700"}
-          - {fdb-version: "5.2.8", fdb-api-version: "710"}
-          - {fdb-version: "5.2.8", fdb-api-version: "720"}
-          - {fdb-version: "5.2.8", fdb-api-version: "730"}
-          - {fdb-version: "6.0.18", fdb-api-version: "610"}
-          - {fdb-version: "6.0.18", fdb-api-version: "620"}
-          - {fdb-version: "6.0.18", fdb-api-version: "630"}
-          - {fdb-version: "6.0.18", fdb-api-version: "700"}
-          - {fdb-version: "6.0.18", fdb-api-version: "710"}
-          - {fdb-version: "6.0.18", fdb-api-version: "720"}
-          - {fdb-version: "6.0.18", fdb-api-version: "730"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
           - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "700"}
