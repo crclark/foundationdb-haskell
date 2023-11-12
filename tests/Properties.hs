@@ -29,6 +29,7 @@ main :: IO ()
 main = do
   mv <- lookupEnv "FDB_HASKELL_TEST_API_VERSION" :: IO (Maybe String)
   let version = maybe currentAPIVersion read mv
+  putStrLn $ "Using API version " ++ show version
   withFoundationDB defaultOptions {apiVersion = version} $ \db -> do
     let cleanupAfter tests = hspec $ after_ (cleanup db testSS) tests
     hspec encodeDecodeSpecs

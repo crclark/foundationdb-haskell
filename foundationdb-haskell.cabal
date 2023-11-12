@@ -75,42 +75,56 @@ flag with-generate-options
 flag fdb-version-520
   description: Indicates that we are building against version 5.2.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-600
   description: Indicates that we are building against version 6.0.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-610
   description: Indicates that we are building against version 6.1.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-620
   description: Indicates that we are building against version 6.2.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-630
   description: Indicates that we are building against version 6.3.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
 flag fdb-version-700
-  description: Indicates that we are building against version 6.3.x of fdb_c.h
+  description: Indicates that we are building against version 7.0.x of fdb_c.h
                Only one of these flags may be specified. If none are specified,
-               7.1.x is assumed.
+               7.3.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-710
+  description: Indicates that we are building against version 7.1.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               7.3.x is assumed.
+  Manual:      True
+  Default:     False
+
+flag fdb-version-720
+  description: Indicates that we are building against version 7.2.x of fdb_c.h
+               Only one of these flags may be specified. If none are specified,
+               7.3.x is assumed.
   Manual:      True
   Default:     False
 
@@ -156,7 +170,7 @@ library
                        , integer-gmp >= 0.5.1.0 && < 1.2
                        , mtl >= 2.2.0 && < 2.3
                        , random >= 1.1 && < 1.3
-                       , text >= 1.2.3.0 && < 1.3
+                       , text >= 1.2.3.0 && < 2.1
                        , deepseq >= 1.4.0.0 && < 1.5
                        , monad-control >= 1.0.0.0 && < 1.1
                        , transformers-base >= 0.4.0 && < 0.5
@@ -204,6 +218,12 @@ library
   if flag(fdb-version-700)
     CC-Options: -std=c99 -DFDB_API_VERSION=700
     CPP-Options: -DFDB_API_VERSION=700
+  if flag(fdb-version-710)
+    CC-Options: -std=c99 -DFDB_API_VERSION=710
+    CPP-Options: -DFDB_API_VERSION=710
+  if flag(fdb-version-720)
+    CC-Options: -std=c99 -DFDB_API_VERSION=720
+    CPP-Options: -DFDB_API_VERSION=720
 
 executable generate-options
   if flag(with-generate-options)
@@ -224,10 +244,10 @@ test-suite tests
   build-depends:       base >=4.10 && <5
                        , foundationdb-haskell
                        , async >= 2.2.3 && < 2.3
-                       , hspec >= 2.7.8 && < 2.8
+                       , hspec >= 2.7.8 && < 2.12
                        , bytestring >= 0.10.8.2 && <0.12
                        , QuickCheck >= 2.14.2 && < 2.15
-                       , text >= 1.2.3.0 && < 1.3
+                       , text >= 1.2.3.0 && < 2.1
                        , mtl >= 2.2.0 && < 2.3
                        , deepseq >= 1.4.0.0 && < 1.5
                        , containers >= 0.5.8.0 && < 0.7
@@ -264,6 +284,12 @@ test-suite tests
   if flag(fdb-version-700)
     CC-Options: -std=c99 -DFDB_API_VERSION=700
     CPP-Options: -DFDB_API_VERSION=700
+  if flag(fdb-version-710)
+    CC-Options: -std=c99 -DFDB_API_VERSION=710
+    CPP-Options: -DFDB_API_VERSION=710
+  if flag(fdb-version-720)
+    CC-Options: -std=c99 -DFDB_API_VERSION=720
+    CPP-Options: -DFDB_API_VERSION=720
 
 benchmark tuple-bench
   type:                exitcode-stdio-1.0
@@ -273,5 +299,5 @@ benchmark tuple-bench
                        , foundationdb-haskell
                        , gauge >= 0.2.5 && < 0.3
                        , bytestring >= 0.10.8.2 && <0.12
-                       , text >= 1.2.3.0 && < 1.3
+                       , text >= 1.2.3.0 && < 2.1
   default-language:    Haskell2010

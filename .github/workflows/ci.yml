@@ -18,19 +18,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        cabal: ["3.4"]
+        cabal: ["3.10.1.0"]
         ghc:
-          - "8.10.7"
-          - "9.0.2"
-          - "9.2.3"
+          - "9.4.6"
+          - "9.6.2"
         fdb-version:
+          - "7.3.26"
+          - "7.2.9"
           - "7.1.15"
           - "7.0.0"
           - "6.3.12"
           - "6.2.20"
           - "6.1.13"
-          - "6.0.18"
-          - "5.2.8"
         fdb-api-version:
           - "520"
           - "600"
@@ -39,37 +38,33 @@ jobs:
           - "630"
           - "700"
           - "710"
+          - "720"
+          - "730"
         # For a given installed FDB version, the client can choose to connect
         # with an older version, but not a newer. This clumsily enforces that
         # rule.
         exclude:
-          - {fdb-version: "7.0.0", fdb-api-version: "710"}
-          - {fdb-version: "6.3.12", fdb-api-version: "710"}
-          - {fdb-version: "6.2.20", fdb-api-version: "710"}
-          - {fdb-version: "6.1.13", fdb-api-version: "710"}
-          - {fdb-version: "6.1.13", fdb-api-version: "710"}
-          - {fdb-version: "6.0.18", fdb-api-version: "710"}
-          - {fdb-version: "6.0.18", fdb-api-version: "710"}
-          - {fdb-version: "6.0.18", fdb-api-version: "710"}
-          - {fdb-version: "5.2.8", fdb-api-version: "710"}
-          - {fdb-version: "6.3.12", fdb-api-version: "700"}
-          - {fdb-version: "6.2.20", fdb-api-version: "700"}
-          - {fdb-version: "6.1.13", fdb-api-version: "700"}
-          - {fdb-version: "6.1.13", fdb-api-version: "700"}
-          - {fdb-version: "6.0.18", fdb-api-version: "700"}
-          - {fdb-version: "6.0.18", fdb-api-version: "700"}
-          - {fdb-version: "6.0.18", fdb-api-version: "700"}
-          - {fdb-version: "5.2.8", fdb-api-version: "700"}
-          - {fdb-version: "6.2.20", fdb-api-version: "630"}
-          - {fdb-version: "6.1.13", fdb-api-version: "630"}
           - {fdb-version: "6.1.13", fdb-api-version: "620"}
-          - {fdb-version: "6.0.18", fdb-api-version: "630"}
-          - {fdb-version: "6.0.18", fdb-api-version: "620"}
-          - {fdb-version: "6.0.18", fdb-api-version: "610"}
-          - {fdb-version: "5.2.8", fdb-api-version: "630"}
-          - {fdb-version: "5.2.8", fdb-api-version: "620"}
-          - {fdb-version: "5.2.8", fdb-api-version: "610"}
-          - {fdb-version: "5.2.8", fdb-api-version: "600"}
+          - {fdb-version: "6.1.13", fdb-api-version: "630"}
+          - {fdb-version: "6.1.13", fdb-api-version: "700"}
+          - {fdb-version: "6.1.13", fdb-api-version: "710"}
+          - {fdb-version: "6.1.13", fdb-api-version: "720"}
+          - {fdb-version: "6.1.13", fdb-api-version: "730"}
+          - {fdb-version: "6.2.20", fdb-api-version: "630"}
+          - {fdb-version: "6.2.20", fdb-api-version: "700"}
+          - {fdb-version: "6.2.20", fdb-api-version: "710"}
+          - {fdb-version: "6.2.20", fdb-api-version: "720"}
+          - {fdb-version: "6.2.20", fdb-api-version: "730"}
+          - {fdb-version: "6.3.12", fdb-api-version: "700"}
+          - {fdb-version: "6.3.12", fdb-api-version: "710"}
+          - {fdb-version: "6.3.12", fdb-api-version: "720"}
+          - {fdb-version: "6.3.12", fdb-api-version: "730"}
+          - {fdb-version: "7.0.0", fdb-api-version: "710"}
+          - {fdb-version: "7.0.0", fdb-api-version: "720"}
+          - {fdb-version: "7.0.0", fdb-api-version: "730"}
+          - {fdb-version: "7.1.15", fdb-api-version: "720"}
+          - {fdb-version: "7.1.15", fdb-api-version: "730"}
+          - {fdb-version: "7.2.7", fdb-api-version: "730"}
 
     steps:
     - uses: actions/checkout@v2
@@ -110,12 +105,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: ["2.1.3"]
-        ghc: ["8.8.3"]
+        stack: ["2.11.1"]
+        ghc: ["9.4.6"]
         fdb-version:
-          - "7.1.15"
+          - "7.3.15"
         fdb-api-version:
-          - "710"
+          - "730"
 
     steps:
     - uses: actions/checkout@v2
